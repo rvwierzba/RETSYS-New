@@ -1,0 +1,5 @@
+<Solution>
+  <Project Path="RETSYS.Domain/RETSYS.Domain.csproj" />
+  <Project Path="RETSYS.Infrastructure/RETSYS.Infrastructure.csproj" />
+  <Project Path="RETSYS.Web/RETSYS.Web.csproj" />
+</Solution>

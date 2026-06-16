@@ -1,0 +1,11 @@
+C:\DEV\RETSYS-New\RETSYS.Domain\bin\Debug\net10.0\RETSYS.Domain.deps.json
+C:\DEV\RETSYS-New\RETSYS.Domain\bin\Debug\net10.0\RETSYS.Domain.dll
+C:\DEV\RETSYS-New\RETSYS.Domain\bin\Debug\net10.0\RETSYS.Domain.pdb
+C:\DEV\RETSYS-New\RETSYS.Domain\obj\Debug\net10.0\RETSYS.Domain.GeneratedMSBuildEditorConfig.editorconfig
+C:\DEV\RETSYS-New\RETSYS.Domain\obj\Debug\net10.0\RETSYS.Domain.AssemblyInfoInputs.cache
+C:\DEV\RETSYS-New\RETSYS.Domain\obj\Debug\net10.0\RETSYS.Domain.AssemblyInfo.cs
+C:\DEV\RETSYS-New\RETSYS.Domain\obj\Debug\net10.0\RETSYS.Domain.csproj.CoreCompileInputs.cache
+C:\DEV\RETSYS-New\RETSYS.Domain\obj\Debug\net10.0\RETSYS.Domain.dll
+C:\DEV\RETSYS-New\RETSYS.Domain\obj\Debug\net10.0\refint\RETSYS.Domain.dll
+C:\DEV\RETSYS-New\RETSYS.Domain\obj\Debug\net10.0\RETSYS.Domain.pdb
+C:\DEV\RETSYS-New\RETSYS.Domain\obj\Debug\net10.0\ref\RETSYS.Domain.dll

@@ -1,0 +1,19 @@
+@using InertiaCore
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title inertia>RETSYS - Gerenciador de Ótica</title>
+
+    <script type="module" src="http://localhost:5173/@@vite/client"></script>
+    <script type="module" src="http://localhost:5173/Frontend/app.js"></script>
+
+    @await Inertia.Head(Model)
+</head>
+<body class="bg-slate-50 text-slate-900 antialiased font-sans">
+
+    @await Inertia.Html(Model)
+
+</body>
+</html>
