@@ -81,7 +81,7 @@ RETSYS-New/
     │   ├── AutenticacaoController.cs # Login de estado persistente por Cookies corporativos
     │   ├── DashboardController.cs    # Agrupamentos LINQ de faturamento, metas e ranking
     │   ├── ClientesController.cs     # Mecânica de busca com debounce e prontuário ótico
-    │   ├── OrdensServicoController.cs# Emissão de OS, parcelamento automático e endpoint de IA
+    │   ├── OrdensServicoController.cs # Emissão de OS, parcelamento automático e endpoint de IA
     │   ├── LaboratorioController.cs  # Fila atômica de montagem de lentes (Painel do Técnico)
     │   └── CaixaController.cs        # Recebimentos manuais e escutas dinâmicas do checkout
     │
