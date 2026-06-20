@@ -95,7 +95,7 @@ RETSYS-New/
             ├── Orders/               # Index.vue (Prancheta de OS) e Create.vue (Abertura + Motor IA)
             ├── Laboratory/Index.vue  # Interface do laboratório ótico (Cards de oficina)
             ├── Caixa/Index.vue       # Painel financeiro, monitoramento PIX e checkout de balcão
-            └── Configuracoes/Index.vue# Ajustes cadastrais e colagem de tokens da OpenPix
+            └── Configuracoes/Index.vue # Ajustes cadastrais e colagem de tokens da OpenPix
 ```
 
 ## 💻 4. Guia Completo de Instalação, Configuração e Execução
