@@ -29,19 +29,22 @@ if (!string.IsNullOrEmpty(stringConexao))
     stringConexao = stringConexao.Trim().Trim('"').Trim('\'');
 }
 
-// CONVERSOR INTELIGENTE: Suporta tanto 'postgres://' quanto 'postgresql://'
+// CONVERSOR INTELIGENTE BLINDADO: Suporta tanto 'postgres://' quanto 'postgresql://'
 if (!string.IsNullOrEmpty(stringConexao) && (stringConexao.StartsWith("postgres://") || stringConexao.StartsWith("postgresql://")))
 {
-    // Normaliza o prefixo para "http://" temporariamente apenas para o parser do .NET extrair os dados sem falhar pelo formato da URL
-    string urlTratada = stringConexao.StartsWith("postgresql://") 
-        ? stringConexao.Replace("postgresql://", "http://") 
-        : stringConexao.Replace("postgres://", "http://");
+    // Normaliza para o padrão genérico 'postgres://' que o .NET aceita parsear sem forçar porta de browser (80)
+    string urlFormatada = stringConexao.StartsWith("postgresql://") 
+        ? stringConexao.Replace("postgresql://", "postgres://") 
+        : stringConexao;
 
-    var databaseUri = new Uri(urlTratada);
+    var databaseUri = new Uri(urlFormatada);
     var userInfo = databaseUri.UserInfo.Split(':');
     
+    // CORREÇÃO CRÍTICA: Se o Render omitir a porta (-1), força a porta padrão do Postgres (5432) em vez de ir para a 80
+    int portaBanco = databaseUri.Port == -1 ? 5432 : databaseUri.Port;
+
     stringConexao = $"Host={databaseUri.Host};" +
-                    $"Port={databaseUri.Port};" +
+                    $"Port={portaBanco};" +
                     $"Database={databaseUri.AbsolutePath.TrimStart('/')};" +
                     $"Username={userInfo[0]};" +
                     $"Password={userInfo[1]};" +
@@ -49,10 +52,10 @@ if (!string.IsNullOrEmpty(stringConexao) && (stringConexao.StartsWith("postgres:
                     $"Trust Server Certificate=True;";
 }
 
-// RASTREADOR DE SEGURANÇA (Para auditar o resultado convertido no log)
+// RASTREADOR DE SEGURANÇA (Para auditar a porta resolvida no painel do Render)
 if (!string.IsNullOrEmpty(stringConexao))
 {
-    string amostra = stringConexao.Length > 15 ? stringConexao.Substring(0, 15) : stringConexao;
+    string amostra = stringConexao.Length > 25 ? stringConexao.Substring(0, 25) : stringConexao;
     Console.WriteLine($"=== CONVERTED CONNECTION STRING: '{amostra}' ===");
 }
 
