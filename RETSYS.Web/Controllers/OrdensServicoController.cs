@@ -4,9 +4,12 @@ using InertiaCore;
 using RETSYS.Infrastructure.Data;
 using RETSYS.Domain.Entities;
 using System;
-using System.Collections.Generic;
-using System.Linq;
+using System.IO;
+using System.Net.Http;
+using System.Text;
+using System.Text.Json;
 using System.Threading.Tasks;
+using Microsoft.AspNetCore.Http;
 
 namespace RETSYS.Web.Controllers
 {
@@ -136,5 +139,81 @@ namespace RETSYS.Web.Controllers
 
             return RedirectToAction(nameof(Index));
         }
-    }
+
+        // 5. Motor de Visão Computacional Real via Ollama + Moondream (POST)
+    [HttpPost("/ordens/processar-receita-ia")]
+    public async Task<IActionResult> ProcessarReceitaIA(IFormFile imagemReceita)
+    {
+        if (imagemReceita == null || imagemReceita.Length == 0)
+        {
+            return BadRequest(new { mensagem = "Nenhum arquivo de imagem foi anexado." });
+        }
+
+        try
+        {
+            // 1. Converte o arquivo de imagem recebido do Vue para a string Base64 exigida pelo Ollama
+            using var ms = new MemoryStream();
+            await imagemReceita.CopyToAsync(ms);
+            byte[] arrBytes = ms.ToArray();
+            string base64Imagem = Convert.ToBase64String(arrBytes);
+
+            // 2. Monta o payload estruturado forçando o Moondream a devolver um JSON puro
+            var payloadOllama = new
+            {
+                model = "moondream",
+                prompt = "Analyze this optical prescription image. Extract the clinical values into a single JSON object using exactly these keys: " +
+                        "medico (string), tipoLente (string), esfericoLongeDireito (number), esfericoLongeEsquerdo (number), " +
+                        "cilindricoLongeDireito (number), cilindricoLongeEsquerdo (number), eixoLongeDireito (number), " +
+                        "eixoLongeEsquerdo (number), adicao (number). If any value is missing or not mentioned, return 0 or null. " +
+                        "Output ONLY the raw JSON object, do not include any markdown backticks, explanations or conversational text.",
+                images = new[] { base64Imagem },
+                stream = false, // Desativa o stream para receber a resposta inteira de uma vez
+                format = "json"  // Força o motor do Ollama a garantir uma saída estruturada em JSON válido
+            };
+
+            string jsonPayload = JsonSerializer.Serialize(payloadOllama);
+            using var conteudoHttp = new StringContent(jsonPayload, Encoding.UTF8, "application/json");
+
+            // 3. Dispara a requisição interna para dentro da rede isolada do Docker
+            using var httpClient = new HttpClient();
+            
+            // Timeout estendido (60s) porque inferência de visão computacional local pode levar alguns segundos dependendo do hardware
+            httpClient.Timeout = TimeSpan.FromSeconds(60); 
+
+            // NOTA: "ollama" é o nome padrão do serviço do contêiner dentro da rede do seu docker-compose
+            string urlOllama = "http://ollama:11434/api/generate"; 
+            
+            var respostaOllama = await httpClient.PostAsync(urlOllama, conteudoHttp);
+            
+            if (!respostaOllama.IsSuccessStatusCode)
+            {
+                return StatusCode((int)respostaOllama.StatusCode, new { mensagem = "O motor Ollama recusou a requisição ou está sobrecarregado." });
+            }
+
+            // 4. Captura a resposta do Ollama e extrai o texto gerado pela IA
+            string jsonRespostaStr = await respostaOllama.Content.ReadAsStringAsync();
+            using var documentoJson = JsonDocument.Parse(jsonRespostaStr);
+            
+            // O Ollama envelopa o resultado dentro da propriedade textual chamada "response"
+            if (documentoJson.RootElement.TryGetProperty("response", out var elementoResposta))
+            {
+                string jsonExtraidoDaIa = elementoResposta.GetString();
+                
+                // Retorna o JSON clínico cru gerado pelo Moondream direto para o Vue ler de forma reativa
+                return Content(jsonExtraidoDaIa, "application/json");
+            }
+
+            return BadRequest(new { mensagem = "Não foi possível ler os dados textuais da resposta da IA." });
+        }
+        catch (TaskCanceledException)
+        {
+            return StatusCode(504, new { mensagem = "O motor local de IA estourou o tempo limite de processamento (Timeout)." });
+        }
+        catch (Exception ex)
+        {
+            return StatusCode(500, new { message = "Falha crítica no pipeline interno de inteligência artificial.", erro = ex.Message });
+        }
+
+    } 
+  }
 }

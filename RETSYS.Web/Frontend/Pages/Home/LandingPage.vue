@@ -11,17 +11,14 @@
         <button class="text-sm font-semibold text-slate-600 hover:text-slate-900 transition">
           Suporte
         </button>
-        <button class="bg-slate-950 hover:bg-slate-800 text-white text-xs font-bold uppercase tracking-wider py-2.5 px-5 rounded-xl shadow-sm transition">
+        <Link href="/login" class="bg-slate-950 hover:bg-slate-800 text-white text-xs font-bold uppercase tracking-wider py-2.5 px-5 rounded-xl shadow-sm transition text-center">
           Entrar no Sistema
-        </button>
+        </Link>
       </nav>
     </header>
 
     <main class="w-full max-w-7xl mx-auto px-6 py-16 md:py-24 flex flex-col lg:flex-row items-center gap-12 flex-grow">
       <div class="w-full lg:w-1/2 space-y-6 text-center lg:text-left">
-        <span class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-semibold text-teal-700 bg-teal-50 rounded-full border border-teal-200">
-          Versão Web Modernizada • .NET 10 & Vue 3
-        </span>
         <h2 class="text-4xl md:text-5xl lg:text-6xl font-black text-slate-950 tracking-tight leading-none">
           O controle total da sua ótica, <br class="hidden md:inline" />
           <span class="text-teal-600">focado na visão</span> do negócio.
@@ -30,12 +27,12 @@
           Gerencie ordens de serviço clínicas, controle estoque de armações por marcas, calcule graus automaticamente e automatize o caixa com PIX dinâmico. Tudo em uma plataforma rápida e segura.
         </p>
         <div class="flex flex-col sm:flex-row items-center justify-center lg:justify-start gap-4 pt-4">
-          <button class="w-full sm:w-auto bg-teal-600 hover:bg-teal-700 text-white font-bold py-4 px-8 rounded-xl shadow-md hover:shadow-lg transition text-center">
+          <Link href="/vendas" class="w-full sm:w-auto bg-teal-600 hover:bg-teal-700 text-white font-bold py-4 px-8 rounded-xl shadow-md hover:shadow-lg transition text-center">
             Acessar o Painel de Vendas
-          </button>
-          <button class="w-full sm:w-auto bg-white border border-slate-200 text-slate-800 font-semibold py-4 px-8 rounded-xl hover:bg-slate-50 transition text-center">
+          </Link>
+          <Link href="/estoque" class="w-full sm:w-auto bg-white border border-slate-200 text-slate-800 font-semibold py-4 px-8 rounded-xl hover:bg-slate-50 transition text-center">
             Ver Estoque de Armações
-          </button>
+          </Link>
         </div>
       </div>
 
@@ -68,5 +65,5 @@
 </template>
 
 <script setup>
-// Sem lógica reativa complexa por enquanto, apenas casca visual do MVP
+import { Link } from '@inertiajs/vue3';
 </script>

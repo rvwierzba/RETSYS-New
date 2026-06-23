@@ -1,0 +1,30 @@
+# === NODE / VUE / FRONTEND ===
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.pnpm-debug.log*
+.dist/
+dist
+wwwroot/dist/
+wwwroot/assets/
+.vite/
+
+# === .NET / C# / BACKEND ===
+bin/
+obj/
+*.suo
+*.user
+*.sln.docstates
+.vs/
+.vscode/
+
+# === DOCKER ===
+.docker/
+docker-compose.override.yml
+
+# === AMBIENTE / SEGURANÇA ===
+.env
+.env.local
+.env.*.local
+appsettings.Development.json

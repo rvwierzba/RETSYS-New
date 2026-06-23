@@ -19,10 +19,13 @@
       </div>
 
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+        
         <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
           <div>
             <span class="text-xs font-bold uppercase text-slate-400 tracking-wider">Faturamento do Período</span>
-            <p class="text-3xl font-black text-teal-600 mt-1">R$ {{ totalFaturado.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) }}</p>
+            <p class="text-3xl font-black text-teal-600 mt-1">
+              R$ {{ formatMoeda(TotalFaturado ?? totalFaturado) }}
+            </p>
           </div>
           <div class="w-12 h-12 rounded-xl bg-teal-50 flex items-center justify-center text-teal-600 text-xl font-bold">$</div>
         </div>
@@ -30,7 +33,9 @@
         <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
           <div>
             <span class="text-xs font-bold uppercase text-slate-400 tracking-wider">Ordens Emitidas</span>
-            <p class="text-3xl font-black text-slate-950 mt-1">{{ totalOS }} OS</p>
+            <p class="text-3xl font-black text-slate-950 mt-1">
+              {{ TotalOS ?? totalOS ?? 0 }} OS
+            </p>
           </div>
           <div class="w-12 h-12 rounded-xl bg-slate-100 flex items-center justify-center text-slate-700 text-sm font-bold">OS</div>
         </div>
@@ -52,7 +57,7 @@
         <div class="lg:col-span-2 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
           <h3 class="text-lg font-bold text-slate-950">Desempenho por Vendedor</h3>
           
-          <div v-if="rankingVendedores.length === 0" class="text-center py-12 text-slate-400 text-sm">
+          <div v-if="!(RankingVendedores ?? rankingVendedores) || (RankingVendedores ?? rankingVendedores).length === 0" class="text-center py-12 text-slate-400 text-sm">
             Nenhuma venda registrada por colaboradores neste mês.
           </div>
           
@@ -66,10 +71,16 @@
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="vendedor in rankingVendedores" :key="vendedor.vendedorNome" class="border-b border-slate-50 hover:bg-slate-50/50 transition">
-                  <td class="py-4 font-semibold text-slate-800">{{ vendedor.vendedorNome }}</td>
-                  <td class="py-4 text-center text-slate-600">{{ vendedor.quantidadeOS }}</td>
-                  <td class="py-4 text-right font-bold text-slate-950">R$ {{ vendedor.totalVendas.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) }}</td>
+                <tr v-for="vendedor in (RankingVendedores ?? rankingVendedores)" :key="vendedor.vendedorNome || vendedor.VendedorNome" class="border-b border-slate-50 hover:bg-slate-50/50 transition">
+                  <td class="py-4 font-semibold text-slate-800">
+                    {{ vendedor.vendedorNome || vendedor.VendedorNome }}
+                  </td>
+                  <td class="py-4 text-center text-slate-600">
+                    {{ vendedor.quantidadeOS ?? vendedor.QuantidadeOS ?? 0 }}
+                  </td>
+                  <td class="py-4 text-right font-bold text-slate-950">
+                    R$ {{ formatMoeda(vendedor.totalVendas ?? vendedor.TotalVendas) }}
+                  </td>
                 </tr>
               </tbody>
             </table>
@@ -79,17 +90,21 @@
         <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
           <h3 class="text-lg font-bold text-slate-950">Faturamento por Loja</h3>
           
-          <div v-if="faturamentoPorLoja.length === 0" class="text-center py-12 text-slate-400 text-sm">
+          <div v-if="!(FaturamentoPorLoja ?? faturamentoPorLoja) || (FaturamentoPorLoja ?? faturamentoPorLoja).length === 0" class="text-center py-12 text-slate-400 text-sm">
             Sem registros de filiais no período.
           </div>
           
           <div v-else class="space-y-4">
-            <div v-for="loja in faturamentoPorLoja" :key="loja.loja" class="p-4 bg-slate-50 rounded-xl border border-slate-100 flex items-center justify-between">
+            <div v-for="loja in (FaturamentoPorLoja ?? faturamentoPorLoja)" :key="loja.loja || loja.Loja" class="p-4 bg-slate-50 rounded-xl border border-slate-100 flex items-center justify-between">
               <div>
-                <p class="font-bold text-slate-800 text-sm">{{ loja.loja }}</p>
+                <p class="font-bold text-slate-800 text-sm">
+                  {{ loja.loja || loja.Loja }}
+                </p>
                 <p class="text-xs text-slate-400">Filial Ativa</p>
               </div>
-              <p class="font-black text-slate-950 text-base">R$ {{ loja.total.toLocaleString('pt-BR', { minimumFractionDigits: 2 }) }}</p>
+              <p class="font-black text-slate-950 text-base">
+                R$ {{ formatMoeda(loja.total ?? loja.Total) }}
+              </p>
             </div>
           </div>
         </div>
@@ -104,17 +119,23 @@ import { reactive } from 'vue'
 import { router } from '@inertiajs/vue3'
 
 const props = defineProps({
+  MesFiltro: Number,
   mesFiltro: Number,
+  AnoFiltro: Number,
   anoFiltro: Number,
+  TotalFaturado: Number,
   totalFaturado: Number,
+  TotalOS: Number,
   totalOS: Number,
+  RankingVendedores: Array,
   rankingVendedores: Array,
+  FaturamentoPorLoja: Array,
   faturamentoPorLoja: Array
 })
 
 const filtros = reactive({
-  mes: props.mesFiltro,
-  ano: props.anoFiltro
+  mes: props.MesFiltro ?? props.mesFiltro,
+  ano: props.AnoFiltro ?? props.anoFiltro
 })
 
 const meses = [
@@ -122,11 +143,15 @@ const meses = [
   'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
 ]
 
-// Ajustado para cobrir o ano atual e os próximos passos operacionais
 const anos = [2025, 2026, 2027, 2028]
 
-// Sincronizado o nome da função com o evento @change das tags select
 const atualizarDashboard = () => {
   router.get('/dashboard', { mes: filtros.mes, ano: filtros.ano }, { preserveState: true })
+}
+
+// Auxiliar para formatação de moeda limpa sem estourar erros de undefined
+const formatMoeda = (valor) => {
+  if (valor === undefined || valor === null) return '0,00'
+  return Number(valor).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 </script>

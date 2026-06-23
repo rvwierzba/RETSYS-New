@@ -1,9 +1,14 @@
 <template>
   <div class="min-h-screen bg-slate-50 p-4 md:p-8 font-sans text-slate-900">
     
-    <div class="max-w-6xl mx-auto mb-6">
-      <h1 class="text-2xl font-black text-slate-950">Controle de Estoque</h1>
-      <p class="text-sm text-slate-500">Gerencie o inventário de armações e óculos de sol da loja.</p>
+    <div class="max-w-6xl mx-auto mb-6 flex items-center justify-between">
+      <div>
+        <h1 class="text-2xl font-black text-slate-950">Controle de Estoque</h1>
+        <p class="text-sm text-slate-500">Gerencie o inventário de armações e óculos de sol da loja.</p>
+      </div>
+      <Link href="/" class="text-xs font-bold uppercase tracking-wider bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 px-4 py-2.5 rounded-xl shadow-sm transition">
+        Voltar para o Início
+      </Link>
     </div>
 
     <div class="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -16,7 +21,7 @@
             <label class="block text-[11px] font-bold uppercase text-slate-400 tracking-wider mb-1.5">Marca Fabricante *</label>
             <select v-model="form.MarcaId" class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500" required>
               <option value="">Selecione a Marca</option>
-              <option v-for="m in marcas" :key="m.id" :value="m.id">{{ m.nome }}</option>
+              <option v-for="m in Marcas" :key="m.id || m.Id" :value="m.id || m.Id">{{ m.nome || m.Nome }}</option>
             </select>
           </div>
 
@@ -67,7 +72,7 @@
       <div class="lg:col-span-2 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
         <h3 class="text-base font-bold text-slate-950 mb-4">Peças em Vitrine</h3>
 
-        <div v-if="estoque.length === 0" class="text-center py-12 border-2 border-dashed border-slate-100 rounded-xl text-slate-400 text-sm">
+        <div v-if="!Estoque || Estoque.length === 0" class="text-center py-12 border-2 border-dashed border-slate-100 rounded-xl text-slate-400 text-sm">
           Nenhuma armação registrada no inventário da ótica.
         </div>
 
@@ -82,22 +87,30 @@
               </tr>
             </thead>
             <tbody>
-              <tr v-for="item in estoque" :key="item.id" class="border-b border-slate-50 hover:bg-slate-50/50 transition">
+              <tr v-for="item in Estoque" :key="item.id || item.Id" class="border-b border-slate-50 hover:bg-slate-50/50 transition">
                 <td class="py-4">
-                  <p class="font-bold text-slate-800">{{ item.modelo }}</p>
-                  <p class="text-xs text-teal-600 font-medium">{{ item.marcaNome }} <span class="text-slate-400">• {{ item.material || 'N/A' }}</span></p>
-                  <p class="text-[11px] text-slate-400">Cor: {{ item.cor }} | Tam: {{ item.tamanho || 'padrão' }}</p>
+                  <p class="font-bold text-slate-800">{{ item.modelo || item.Modelo }}</p>
+                  <p class="text-xs text-teal-600 font-medium">
+                    {{ item.marcaNome || item.MarcaNome }} 
+                    <span class="text-slate-400">• {{ item.material || item.Material || 'N/A' }}</span>
+                  </p>
+                  <p class="text-family text-[11px] text-slate-400">
+                    Cor: {{ item.cor || item.Cor }} | Tam: {{ item.tamanho || item.Tamanho || 'padrão' }}
+                  </p>
                 </td>
                 <td class="py-4 text-center font-mono text-xs text-slate-500">
-                  {{ item.codigo }}
+                  {{ item.codigo || item.Codigo }}
                 </td>
                 <td class="py-4 text-center">
-                  <span :class="item.quantidadeEstoque <= 2 ? 'bg-red-50 text-red-700 border-red-100' : 'bg-slate-100 text-slate-700 border-slate-200'" class="px-2.5 py-0.5 rounded-full text-xs font-bold border">
-                    {{ item.quantidadeEstoque }} un
+                  <span 
+                    :class="(item.quantidadeEstoque || item.QuantidadeEstoque) <= 2 ? 'bg-red-50 text-red-700 border-red-100' : 'bg-slate-100 text-slate-700 border-slate-200'" 
+                    class="px-2.5 py-0.5 rounded-full text-xs font-bold border"
+                  >
+                    {{ item.quantidadeEstoque ?? item.QuantidadeEstoque }} un
                   </span>
                 </td>
                 <td class="py-4 text-right font-black text-slate-950 font-mono">
-                  R$ {{ item.precoFinal.toFixed(2) }}
+                  R$ {{ formatarPreco(item.precoFinal ?? item.PrecoFinal) }}
                 </td>
               </tr>
             </tbody>
@@ -111,14 +124,15 @@
 
 <script setup>
 import { reactive } from 'vue'
-import { router } from '@inertiajs/vue3'
+import { Link, router } from '@inertiajs/vue3'
 
+// Chaves ajustadas para PascalCase para encaixar nativamente com o retorno do C#
 defineProps({
-  estoque: Array,
-  marcas: Array
+  Estoque: Array,
+  Marcas: Array
 })
 
-// Objeto reativo sincronizado com as propriedades exatas do seu C#
+// Sincronizado com os campos esperados pela classe de Entidade Armacao do C#
 const form = reactive({
   MarcaId: '',
   Modelo: '',
@@ -127,7 +141,7 @@ const form = reactive({
   Tamanho: '',
   Material: '',
   QuantidadeEstoque: 1,
-  PrecoFinal: 0
+  PrecoFinal: null
 })
 
 const salvarArmacao = () => {
@@ -140,8 +154,14 @@ const salvarArmacao = () => {
       form.Tamanho = ''
       form.Material = ''
       form.QuantidadeEstoque = 1
-      form.PrecoFinal = 0
+      form.PrecoFinal = null
     }
   })
+}
+
+// Helper seguro para formatar a moeda sem quebrar o JavaScript caso o dado venha instável
+const formatarPreco = (valor) => {
+  if (valor === undefined || valor === null) return '0,00';
+  return Number(valor).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
 }
 </script>

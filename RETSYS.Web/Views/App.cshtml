@@ -1,4 +1,68 @@
 @using InertiaCore
+@using System.IO
+@using System.Text.Json
+@inject Microsoft.AspNetCore.Hosting.IWebHostEnvironment Env
+@{
+    // 1. Garante o bloqueio de layouts legados do MVC
+    Layout = null;
+
+    // Valores padrão de boot
+    string jsSrc = "Frontend/app.js";
+    string cssSrc = null;
+
+    // 2. Modo Produção (Docker): Mapeia os arquivos gerados pelo Vite v8
+    if (!Env.IsDevelopment())
+    {
+        string manifestPath = System.IO.Path.Combine(Env.WebRootPath, ".vite", "manifest.json");
+        if (!System.IO.File.Exists(manifestPath))
+        {
+            manifestPath = System.IO.Path.Combine(Env.WebRootPath, "manifest.json");
+        }
+
+        if (System.IO.File.Exists(manifestPath))
+        {
+            try
+            {
+                var json = System.IO.File.ReadAllText(manifestPath);
+                using var doc = JsonDocument.Parse(json);
+                
+                if (doc.RootElement.TryGetProperty("Frontend/app.js", out var entry))
+                {
+                    if (entry.TryGetProperty("file", out var fileProp))
+                    {
+                        jsSrc = "assets/" + System.IO.Path.GetFileName(fileProp.GetString());
+                    }
+                    
+                    if (entry.TryGetProperty("css", out var cssProp) && cssProp.GetArrayLength() > 0)
+                    {
+                        cssSrc = "assets/" + System.IO.Path.GetFileName(cssProp[0].GetString());
+                    }
+                }
+            }
+            catch { /* Fallback ativo */ }
+        }
+
+        // 3. BACKUP DE SEGURANÇA: Se o manifesto falhar, varre os arquivos físicos buildados
+        if (jsSrc == "Frontend/app.js")
+        {
+            var assetsDir = System.IO.Path.Combine(Env.WebRootPath, "assets");
+            if (System.IO.Directory.Exists(assetsDir))
+            {
+                var jsFiles = System.IO.Directory.GetFiles(assetsDir, "app-*.js");
+                if (jsFiles.Length > 0)
+                {
+                    jsSrc = "assets/" + System.IO.Path.GetFileName(jsFiles[0]);
+                }
+                
+                var cssFiles = System.IO.Directory.GetFiles(assetsDir, "app-*.css");
+                if (cssFiles.Length > 0)
+                {
+                    cssSrc = "assets/" + System.IO.Path.GetFileName(cssFiles[0]);
+                }
+            }
+        }
+    }
+}
 <!DOCTYPE html>
 <html lang="pt-BR">
 <head>
@@ -6,8 +70,19 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title inertia>RETSYS - Gerenciador de Ótica</title>
 
-    <script type="module" src="http://localhost:5173/@@vite/client"></script>
-    <script type="module" src="http://localhost:5173/Frontend/app.js"></script>
+    @if (Env.IsDevelopment())
+    {
+        <script type="module" src="http://localhost:5173/@@vite/client"></script>
+        <script type="module" src="http://localhost:5173/Frontend/app.js"></script>
+    }
+    else
+    {
+        <script type="module" src="/@jsSrc"></script>
+        @if (!string.IsNullOrEmpty(cssSrc))
+        {
+            <link rel="stylesheet" href="/@cssSrc" />
+        }
+    }
 
     @await Inertia.Head(Model)
 </head>

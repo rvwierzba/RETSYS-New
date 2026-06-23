@@ -52,6 +52,14 @@
           <span v-if="carregando">Verificando...</span>
           <span v-else>Entrar no Sistema</span>
         </button>
+
+        <p class="text-center text-xs text-slate-400 pt-2">
+          Não possui uma conta? 
+          <Link href="/cadastro" class="font-bold text-slate-950 hover:text-slate-700 ml-1 transition">
+            Criar Conta
+          </Link>
+
+        </p>
       </form>
 
     </div>
@@ -60,7 +68,8 @@
 
 <script setup>
 import { reactive, ref } from 'vue'
-import { router } from '@inertiajs/vue3'
+// 🌟 CORREÇÃO: Unificado em uma única linha sem duplicar o 'router'
+import { Link, router } from '@inertiajs/vue3'
 
 const carregando = ref(false)
 
@@ -70,7 +79,7 @@ const formulario = reactive({
   Senha: ''
 })
 
-const executarLogin = () => {
+const ejecutarLogin = () => {
   carregando.value = true
   
   // Dispara o payload via POST direto para o endpoint do AutenticacaoController

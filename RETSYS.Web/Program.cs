@@ -3,11 +3,15 @@ using InertiaCore.Extensions;
 using RETSYS.Infrastructure.Data;
 using RETSYS.Domain.Interfaces;
 using RETSYS.Infrastructure.Security;
+using System.Security.Claims;
+using InertiaCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// 1. Configurar a conexão do EF Core com o PostgreSQL 16
-var stringConexao = builder.Configuration.GetConnectionString("ConexaoPadrao");
+// 1. Configurar a conexão do EF Core com o PostgreSQL 16 (Prioriza Docker, Fallback para Local)
+var stringConexao = Environment.GetEnvironmentVariable("RETSYS_CONNECTION_STRING") 
+                    ?? builder.Configuration.GetConnectionString("ConexaoPadrao");
+
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseNpgsql(stringConexao, b => b.MigrationsAssembly("RETSYS.Infrastructure")));
 
@@ -33,7 +37,7 @@ var app = builder.Build();
 
 if (!app.Environment.IsDevelopment())
 {
-    app.UseExceptionHandler("/Home/Error");
+    app.UseDeveloperExceptionPage(); // Exibe o erro real no MVP para facilitar o seu debug na nuvem
     app.UseHsts();
 }
 
@@ -44,7 +48,21 @@ app.UseRouting();
 app.UseAuthentication();
 app.UseAuthorization();
 
-// 4. Ativar o Middleware oficial do Inertia
+// 🌟Middleware nativo para compartilhar os dados de sessão com o Vue 3 antes do Inertia renderizar
+app.Use(async (context, next) =>
+{
+    var usuario = context.User;
+    
+    // Injeta as propriedades compartilhadas no escopo da requisição atual
+    Inertia.Share("auth", new {
+        usuarioNome = usuario.Identity?.IsAuthenticated == true ? usuario.Identity.Name : null,
+        usuarioPerfil = usuario.FindFirst(ClaimTypes.Role)?.Value
+    });
+
+    await next();
+});
+
+// Ativar o Middleware oficial do Inertia (Sem argumentos)
 app.UseInertia();
 
 app.MapControllerRoute(
@@ -56,6 +74,9 @@ using (var escopo = app.Services.CreateScope())
 {
     var contexto = escopo.ServiceProvider.GetRequiredService<ApplicationDbContext>();
     var criptografia = escopo.ServiceProvider.GetRequiredService<IServicoCriptografia>();
+    
+    // Cria fisicamente todo o esquema de tabelas a partir das Entidades C#
+    await contexto.Database.EnsureCreatedAsync();
     
     // Instancia o seeder e executa a carga inicial assíncrona
     var seeder = new DatabaseSeeder(contexto, criptografia);

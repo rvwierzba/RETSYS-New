@@ -17,14 +17,18 @@
             <label class="block text-xs font-bold uppercase text-slate-400 tracking-wider mb-2">Cliente *</label>
             <select v-model="form.ClienteId" class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500" required>
               <option value="">Selecione o Cliente</option>
-              <option v-for="c in clientes" :key="c.id" :value="c.id">{{ c.nome }} ({{ c.cpf }})</option>
+              <option v-for="c in Clientes" :key="c.id || c.Id" :value="c.id || c.Id">
+                {{ c.nome || c.Nome }} ({{ c.cpf || c.CPF }})
+              </option>
             </select>
           </div>
           <div>
             <label class="block text-xs font-bold uppercase text-slate-400 tracking-wider mb-2">Vendedor / Atendente *</label>
             <select v-model="form.UsuarioId" class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500" required>
               <option value="">Selecione o Vendedor</option>
-              <option v-for="v in vendedores" :key="v.id" :value="v.id">{{ v.nome }}</option>
+              <option v-for="v in Vendedores" :key="v.id || v.Id" :value="v.id || v.Id">
+                {{ v.nome || v.Nome }}
+              </option>
             </select>
           </div>
           <div>
@@ -50,17 +54,8 @@
           <div class="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
             <div class="space-y-3">
               <div class="flex items-center gap-3">
-                <input 
-                  type="file" 
-                  id="fotoReceita" 
-                  accept="image/*" 
-                  @change="manipularArquivo" 
-                  class="hidden" 
-                />
-                <label 
-                  for="fotoReceita" 
-                  class="bg-slate-950 hover:bg-slate-800 text-white text-xs font-bold px-4 py-3 rounded-xl transition cursor-pointer shadow-sm whitespace-nowrap active:scale-95 select-none"
-                >
+                <input type="file" id="fotoReceita" accept="image/*" @change="manipularArquivo" class="hidden" />
+                <label for="fotoReceita" class="bg-slate-950 hover:bg-slate-800 text-white text-xs font-bold px-4 py-3 rounded-xl transition cursor-pointer shadow-sm whitespace-nowrap active:scale-95 select-none">
                   {{ arquivoSelecionado ? 'Alterar Imagem' : 'Selecionar Foto Receita' }}
                 </label>
                 <span class="text-xs font-mono text-slate-500 truncate block max-w-[200px]">
@@ -69,12 +64,7 @@
               </div>
 
               <div class="flex items-start gap-2">
-                <input 
-                  type="checkbox" 
-                  id="termoOcr" 
-                  v-model="termoAceito" 
-                  class="mt-0.5 rounded border-slate-300 text-teal-600 focus:ring-teal-500" 
-                />
+                <input type="checkbox" id="termoOcr" v-model="termoAceito" class="mt-0.5 rounded border-slate-300 text-teal-600 focus:ring-teal-500" />
                 <label for="termoOcr" class="text-[11px] text-slate-500 leading-tight cursor-pointer select-none">
                   Estou ciente de que receitas manuscritas ou ilegíveis podem conter falhas de leitura. Assumo a total responsabilidade de revisar e corrigir todos os campos antes de emitir o documento definitivo.
                 </label>
@@ -156,16 +146,10 @@
         </div>
 
         <div class="flex items-center justify-end gap-3 border-t border-slate-100 pt-4">
-          <Link 
-            href="/ordens" 
-            class="px-5 py-3 text-sm font-semibold text-slate-500 hover:text-slate-800 transition"
-          >
+          <Link href="/ordens" class="px-5 py-3 text-sm font-semibold text-slate-500 hover:text-slate-800 transition">
             Cancelar
           </Link>
-          <button 
-            type="submit" 
-            class="bg-teal-600 hover:bg-teal-700 text-white font-bold py-3.5 px-8 rounded-xl shadow-md transition text-sm"
-          >
+          <button type="submit" class="bg-teal-600 hover:bg-teal-700 text-white font-bold py-3.5 px-8 rounded-xl shadow-md transition text-sm">
             Emitir Ordem de Serviço
           </button>
         </div>
@@ -180,8 +164,8 @@ import { reactive, ref } from 'vue'
 import { router, Link } from '@inertiajs/vue3'
 
 defineProps({
-  clientes: Array,
-  vendedores: Array
+  Clientes: Array,
+  Vendedores: Array
 })
 
 const qtdParcelas = ref(1)
@@ -214,12 +198,10 @@ const manipularArquivo = (event) => {
   }
 }
 
-// Consome o endpoint assíncrono de IA estruturado no C# via fetch nativo
 const executarOcrInteligente = async () => {
   if (!arquivoSelecionado.value || !termoAceito.value) return
 
   carregandoIA.value = true
-
   const formData = new FormData()
   formData.append('imagemReceita', arquivoSelecionado.value)
 
@@ -232,16 +214,15 @@ const executarOcrInteligente = async () => {
     if (resposta.ok) {
       const dadosIa = await resposta.json()
       
-      // Mutação reativa direta: popula os inputs na tela em tempo real
-      form.Medico = dadosIa.medico || ''
-      form.TipoLente = dadosIa.tipoLente || ''
-      form.EsfericoLongeDireito = dadosIa.esfericoLongeDireito || 0
-      form.EsfericoLongeEsquerdo = dadosIa.esfericoLongeEsquerdo || 0
-      form.CilindricoLongeDireito = dadosIa.cilindricoLongeDireito || 0
-      form.CilindricoLongeEsquerdo = dadosIa.cilindricoLongeEsquerdo || 0
-      form.EixoLongeDireito = dadosIa.eixoLongeDireito || 0
-      form.EixoLongeEsquerdo = dadosIa.eixoLongeEsquerdo || 0
-      form.Adicao = dadosIa.adicao || 0
+      form.Medico = dadosIa.medico || dadosIa.Medico || ''
+      form.TipoLente = dadosIa.tipoLente || dadosIa.TipoLente || ''
+      form.EsfericoLongeDireito = dadosIa.esfericoLongeDireito ?? dadosIa.EsfericoLongeDireito ?? 0
+      form.EsfericoLongeEsquerdo = dadosIa.esfericoLongeEsquerdo ?? dadosIa.EsfericoLongeEsquerdo ?? 0
+      form.CilindricoLongeDireito = dadosIa.cilindricoLongeDireito ?? dadosIa.CilindricoLongeDireito ?? 0
+      form.CilindricoLongeEsquerdo = dadosIa.cilindricoLongeEsquerdo ?? dadosIa.CilindricoLongeEsquerdo ?? 0
+      form.EixoLongeDireito = dadosIa.eixoLongeDireito ?? dadosIa.EixoLongeDireito ?? 0
+      form.EixoLongeEsquerdo = dadosIa.eixoLongeEsquerdo ?? dadosIa.EixoLongeEsquerdo ?? 0
+      form.Adicao = dadosIa.adicao ?? dadosIa.Adicao ?? 0
 
       alert('Dados extraídos da receita com sucesso! Por favor, confira os campos antes de salvar.')
     } else {

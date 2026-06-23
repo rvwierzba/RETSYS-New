@@ -48,7 +48,7 @@
       <div class="lg:col-span-2 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
         <h3 class="text-base font-bold text-slate-950 mb-4">Registros Encontrados</h3>
 
-        <div v-if="clientes.length === 0" class="text-center py-12 border-2 border-dashed border-slate-100 rounded-xl text-slate-400 text-sm">
+        <div v-if="!Clientes || Clientes.length === 0" class="text-center py-12 border-2 border-dashed border-slate-100 rounded-xl text-slate-400 text-sm">
           Nenhum cliente atende aos critérios de busca.
         </div>
 
@@ -63,13 +63,13 @@
               </tr>
             </thead>
             <tbody>
-              <tr v-for="c in clientes" :key="c.id" class="border-b border-slate-50 hover:bg-slate-50/50 transition">
-                <td class="py-4 font-bold text-slate-800">{{ c.nome }}</td>
-                <td class="py-4 text-center font-mono text-slate-600 text-xs">{{ c.cpf }}</td>
-                <td class="py-4 text-center text-slate-500 font-mono text-xs">{{ c.celular }}</td>
+              <tr v-for="c in Clientes" :key="c.id || c.Id" class="border-b border-slate-50 hover:bg-slate-50/50 transition">
+                <td class="py-4 font-bold text-slate-800">{{ c.nome || c.Nome }}</td>
+                <td class="py-4 text-center font-mono text-slate-600 text-xs">{{ c.cpf || c.CPF }}</td>
+                <td class="py-4 text-center text-slate-500 font-mono text-xs">{{ c.celular || c.Celular }}</td>
                 <td class="py-4 text-center">
                   <Link 
-                    :href="`/clientes/${c.id}/historico`"
+                    :href="`/clientes/${c.id || c.Id}/historico`"
                     class="bg-slate-950 hover:bg-slate-800 text-white text-xs font-bold px-3 py-1.5 rounded-lg transition shadow-sm"
                   >
                     Histórico
@@ -89,12 +89,13 @@
 import { reactive, ref } from 'vue'
 import { router, Link } from '@inertiajs/vue3'
 
+// CORRIGIDO: Ajustado para PascalCase para espelhar o ClientesController
 const props = defineProps({
-  clientes: Array,
-  filtroBusca: String
+  Clientes: Array,
+  FiltroBusca: String
 })
 
-const termoBusca = ref(props.filtroBusca || '')
+const termoBusca = ref(props.FiltroBusca || props.filtroBusca || '')
 
 const form = reactive({
   Nome: '',
@@ -103,7 +104,7 @@ const form = reactive({
 })
 
 const registrarTimeout = ref(null)
-const ejecutarBusca = () => {
+const executarBusca = () => {
   clearTimeout(registrarTimeout.value)
   registrarTimeout.value = setTimeout(() => {
     router.get('/clientes', { busca: termoBusca.value }, { preserveState: true, replace: true })
