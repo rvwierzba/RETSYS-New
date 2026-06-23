@@ -61,7 +61,7 @@
 <script setup>
 import { Link, useForm } from '@inertiajs/vue3'
 
-// Instancia o formulário reativo do Inertia mapeado para as propriedades do DtoRegistro
+// Mantido em PascalCase para conversar perfeitamente com o DtoRegistro do C#
 const form = useForm({
   Nome: '',
   NomeDaOtica: '',
@@ -69,9 +69,11 @@ const form = useForm({
   Senha: ''
 })
 
-const ejecutarCadastro = () => {
+// CORRIGIDO: De 'ejecutarCadastro' para 'executarCadastro' (com X)
+const executarCadastro = () => {
   form.post('/cadastro', {
-    onBadRequest: () => {
+    // CORRIGIDO: Evento correto do useForm para capturar falhas de validação
+    onError: () => {
       form.reset('Senha')
     }
   })
