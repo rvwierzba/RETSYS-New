@@ -23,28 +23,21 @@ var stringConexao = Environment.GetEnvironmentVariable("RETSYS_CONNECTION_STRING
                     ?? Environment.GetEnvironmentVariable("DATABASE_URL") 
                     ?? builder.Configuration.GetConnectionString("ConexaoPadrao");
 
-// 🧹 FAXINA DEFENSIVA: Remove espaços em branco ou aspas que o Render costuma injetar
+// Faxina defensiva: Remove espaços em branco ou aspas das pontas
 if (!string.IsNullOrEmpty(stringConexao))
 {
     stringConexao = stringConexao.Trim().Trim('"').Trim('\'');
 }
 
-// 👁️ RASTREADOR DE DIAGNÓSTICO (Vai aparecer no log do Render para sabermos o que está vindo)
-if (string.IsNullOrEmpty(stringConexao))
+// CONVERSOR INTELIGENTE: Suporta tanto 'postgres://' quanto 'postgresql://'
+if (!string.IsNullOrEmpty(stringConexao) && (stringConexao.StartsWith("postgres://") || stringConexao.StartsWith("postgresql://")))
 {
-    Console.WriteLine("=== CRITICAL DIAGNOSTIC: A STRING DE CONEXAO VEIO TOTALMENTE VAZIA! ===");
-}
-else
-{
-    // Mostra apenas os 15 primeiros caracteres para você auditar o índice 0 com segurança no log
-    string amostra = stringConexao.Length > 15 ? stringConexao.Substring(0, 15) : stringConexao;
-    Console.WriteLine($"=== DIAGNOSTIC: Tamanho={stringConexao.Length} | Começa com='{amostra}' ===");
-}
+    // Normaliza o prefixo para "http://" temporariamente apenas para o parser do .NET extrair os dados sem falhar pelo formato da URL
+    string urlTratada = stringConexao.StartsWith("postgresql://") 
+        ? stringConexao.Replace("postgresql://", "http://") 
+        : stringConexao.Replace("postgres://", "http://");
 
-// CONVERSOR INTELIGENTE: Se a string limpa começar com a URL do Render, reconstrói pro formato .NET
-if (!string.IsNullOrEmpty(stringConexao) && stringConexao.StartsWith("postgres://"))
-{
-    var databaseUri = new Uri(stringConexao);
+    var databaseUri = new Uri(urlTratada);
     var userInfo = databaseUri.UserInfo.Split(':');
     
     stringConexao = $"Host={databaseUri.Host};" +
@@ -54,6 +47,13 @@ if (!string.IsNullOrEmpty(stringConexao) && stringConexao.StartsWith("postgres:/
                     $"Password={userInfo[1]};" +
                     $"SSL Mode=Require;" +
                     $"Trust Server Certificate=True;";
+}
+
+// RASTREADOR DE SEGURANÇA (Para auditar o resultado convertido no log)
+if (!string.IsNullOrEmpty(stringConexao))
+{
+    string amostra = stringConexao.Length > 15 ? stringConexao.Substring(0, 15) : stringConexao;
+    Console.WriteLine($"=== CONVERTED CONNECTION STRING: '{amostra}' ===");
 }
 
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
