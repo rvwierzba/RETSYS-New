@@ -33,8 +33,13 @@
               <input v-model="form.FilialLoja" type="text" placeholder="Ex: Filial Centro" class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500" required />
             </div>
 
-            <button type="submit" class="w-full bg-teal-600 hover:bg-teal-700 text-white font-bold py-3 rounded-xl text-xs transition shadow-sm uppercase tracking-wider">
-              Registrar Colaborador
+            <button 
+              type="submit" 
+              :disabled="form.processing"
+              class="w-full bg-teal-600 hover:bg-teal-700 disabled:bg-slate-200 disabled:text-slate-400 font-bold py-3 rounded-xl text-xs transition shadow-sm uppercase tracking-wider flex items-center justify-center min-h-[40px]"
+            >
+              <span v-if="form.processing">Registrando...</span>
+              <span v-else>Registrar Colaborador</span>
             </button>
           </form>
         </div>
@@ -91,31 +96,32 @@
 </template>
 
 <script setup>
-import { reactive } from 'vue'
-import { Link, router } from '@inertiajs/vue3'
+import { useForm, Link, router } from '@inertiajs/vue3'
 
-// CORRIGIDO: Prop em PascalCase combinando com o retorno do UsuariosController
+// Prop em PascalCase combinando com o retorno do UsuariosController
 defineProps({
   Equipe: Array
 })
 
-const form = reactive({
+// CORRIGIDO: Migrado para o useForm para obter controle nativo de submissão do Inertia
+const form = useForm({
   Nome: '',
   Email: '',
   FilialLoja: ''
 })
 
 const cadastrarColaborador = () => {
-  router.post('/equipe', form, {
+  // Dispara os dados estruturados e limpa os campos através do reset nativo no sucesso
+  form.post('/equipe', {
+    preserveScroll: true,
     onSuccess: () => {
-      form.Nome = ''
-      form.Email = ''
-      form.FilialLoja = ''
+      form.reset()
     }
   })
 }
 
 const alterarStatusUsuario = (id) => {
-  router.post(`/equipe/alternar-status/${id}`)
+  if (!id) return
+  router.post(`/equipe/alternar-status/${id}`, {}, { preserveScroll: true })
 }
 </script>

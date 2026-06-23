@@ -149,8 +149,13 @@
           <Link href="/ordens" class="px-5 py-3 text-sm font-semibold text-slate-500 hover:text-slate-800 transition">
             Cancelar
           </Link>
-          <button type="submit" class="bg-teal-600 hover:bg-teal-700 text-white font-bold py-3.5 px-8 rounded-xl shadow-md transition text-sm">
-            Emitir Ordem de Serviço
+          <button 
+            type="submit" 
+            :disabled="form.processing"
+            class="bg-teal-600 hover:bg-teal-700 disabled:bg-slate-200 disabled:text-slate-400 text-white font-bold py-3.5 px-8 rounded-xl shadow-md transition text-sm min-w-[200px]"
+          >
+            <span v-if="form.processing">Processando OS...</span>
+            <span v-else>Emitir Ordem de Serviço</span>
           </button>
         </div>
 
@@ -160,8 +165,8 @@
 </template>
 
 <script setup>
-import { reactive, ref } from 'vue'
-import { router, Link } from '@inertiajs/vue3'
+import { ref } from 'vue'
+import { useForm, Link } from '@inertiajs/vue3'
 
 defineProps({
   Clientes: Array,
@@ -173,7 +178,8 @@ const termoAceito = ref(false)
 const carregandoIA = ref(false)
 const arquivoSelecionado = ref(null)
 
-const form = reactive({
+// CORRIGIDO: Migrado de reactive para useForm para consertar o travamento do botão e o form.processing
+const form = useForm({
   ClienteId: '',
   UsuarioId: '',
   Medico: '',
@@ -198,7 +204,7 @@ const manipularArquivo = (event) => {
   }
 }
 
-const executarOcrInteligente = async () => {
+const ejecutarOcrInteligente = async () => {
   if (!arquivoSelecionado.value || !termoAceito.value) return
 
   carregandoIA.value = true
@@ -237,6 +243,7 @@ const executarOcrInteligente = async () => {
 }
 
 const salvarOrdemServico = () => {
-  router.post(`/ordens?quantidadeParcelas=${qtdParcelas.value}`, form)
+  // Chamada nativa do useForm passando a quantidade de parcelas via query string
+  form.post(`/ordens?quantidadeParcelas=${qtdParcelas.value}`)
 }
 </script>

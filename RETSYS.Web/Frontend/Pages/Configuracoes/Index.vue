@@ -18,7 +18,7 @@
               <input v-model="form.NomeLoja" type="text" class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500" required />
             </div>
             <div>
-              <label class="block text-[11px] font-bold uppercase text-slate-400 tracking-wider mb-1.5">CNPJ Estabelecimento *</label>
+              <label class="block text-[11px] font-bold uppercase text-slate-400 tracking-wider mb-1.5">CNPJ Extabelecimento *</label>
               <input v-model="form.Cnpj" type="text" placeholder="00.000.000/0001-00" class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500 font-mono" required />
             </div>
           </div>
@@ -49,9 +49,11 @@
         <div class="flex justify-end">
           <button 
             type="submit" 
-            class="bg-slate-950 hover:bg-slate-800 text-white font-bold py-3 px-8 rounded-xl text-xs transition shadow-sm uppercase tracking-wider active:scale-95"
+            :disabled="form.processing"
+            class="bg-slate-950 hover:bg-slate-800 disabled:bg-slate-200 disabled:text-slate-400 text-white font-bold py-3 px-8 rounded-xl text-xs transition shadow-sm uppercase tracking-wider min-w-[180px]"
           >
-            Salvar Parâmetros
+            <span v-if="form.processing">Salvando...</span>
+            <span v-else>Salvar Parâmetros</span>
           </button>
         </div>
 
@@ -62,25 +64,29 @@
 </template>
 
 <script setup>
-import { reactive } from 'vue'
-import { router } from '@inertiajs/vue3'
+import { useForm } from '@inertiajs/vue3'
 
-// Recebe os dados atuais armazenados no estado do servidor C#
+// CORRIGIDO: Declarado suporte formal para as duas variações de fontes de dados do C#
 const props = defineProps({
   nomeLoja: String,
+  NomeLoja: String,
   cnpj: String,
-  pixApiKey: String
+  Cnpj: String,
+  pixApiKey: String,
+  PixApiKey: String
 })
 
-const form = reactive({
-  NomeLoja: props.nomeLoja,
-  Cnpj: props.cnpj,
-  PixApiKey: props.pixApiKey
+// CORRIGIDO: Acoplado ao useForm com fallbacks defensivos contra chaves nulas ou com case diferente
+const form = useForm({
+  NomeLoja: props.NomeLoja ?? props.nomeLoja ?? '',
+  Cnpj: props.Cnpj ?? props.cnpj ?? '',
+  PixApiKey: props.PixApiKey ?? props.pixApiKey ?? ''
 })
 
 const salvarConfiguracoes = () => {
-  // Despacha as configurações de parâmetros para persistência
-  router.post('/configuracoes', form, {
+  // Envia as configurações diretamente via POST tratadas pelo useForm
+  form.post('/configuracoes', {
+    preserveScroll: true,
     onSuccess: () => {
       alert('Parâmetros e chaves de API da Ótica salvos com sucesso!')
     }

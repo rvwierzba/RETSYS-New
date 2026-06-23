@@ -16,7 +16,7 @@
       </div>
 
       <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-        <div v-if="ordens.length === 0" class="text-center py-12 border-2 border-dashed border-slate-100 rounded-xl text-slate-400 text-sm">
+        <div v-if="!(Ordens ?? ordens) || (Ordens ?? ordens).length === 0" class="text-center py-12 border-2 border-dashed border-slate-100 rounded-xl text-slate-400 text-sm">
           Nenhuma ordem de serviço emitida no sistema até o momento.
         </div>
 
@@ -32,18 +32,24 @@
               </tr>
             </thead>
             <tbody>
-              <tr v-for="os in ordens" :key="os.id" class="border-b border-slate-50 hover:bg-slate-50/50 transition">
+              <tr v-for="os in (Ordens ?? ordens)" :key="os.id || os.Id" class="border-b border-slate-50 hover:bg-slate-50/50 transition">
                 <td class="py-4">
-                  <p class="font-mono font-bold text-slate-900 text-xs bg-slate-100 px-2 py-0.5 rounded w-fit mb-1">{{ os.numeroOS }}</p>
-                  <p class="text-xs text-slate-400">{{ new Date(os.dataVenda).toLocaleDateString('pt-BR') }}</p>
+                  <p class="font-mono font-bold text-slate-900 text-xs bg-slate-100 px-2 py-0.5 rounded w-fit mb-1">
+                    {{ os.numeroOS || os.NumeroOS }}
+                  </p>
+                  <p class="text-xs text-slate-400">
+                    {{ formatarData(os.dataVenda || os.DataVenda) }}
+                  </p>
                 </td>
-                <td class="py-4 font-semibold text-slate-800">{{ os.clienteNome }}</td>
+                <td class="py-4 font-semibold text-slate-800">
+                  {{ os.clienteNome || os.ClienteNome }}
+                </td>
                 <td class="py-4 text-slate-600 text-xs">
-                  <p class="font-medium text-slate-800">{{ os.tipoLente }}</p>
-                  <p class="text-[11px] text-slate-400">Dr(a). {{ os.medico }}</p>
+                  <p class="font-medium text-slate-800">{{ os.tipoLente || os.TipoLente }}</p>
+                  <p class="text-[11px] text-slate-400">Dr(a). {{ os.medico || os.Medico }}</p>
                 </td>
                 <td class="py-4 text-right font-black font-mono text-slate-950">
-                  R$ {{ os.valorTotal.toFixed(2) }}
+                  R$ {{ formatarMoeda(os.valorTotal ?? os.ValorTotal) }}
                 </td>
                 <td class="py-4 text-center">
                   <button 
@@ -64,8 +70,12 @@
           
           <div class="bg-slate-950 text-white p-6 flex items-center justify-between">
             <div>
-              <h2 class="text-base font-black uppercase tracking-wider">Prancheta Clínica: {{ osSelecionada.numeroOS }}</h2>
-              <p class="text-xs text-slate-400">Paciente: {{ osSelecionada.clienteNome }}</p>
+              <h2 class="text-base font-black uppercase tracking-wider">
+                Prancheta Clínica: {{ osSelecionada.numeroOS || osSelecionada.NumeroOS }}
+              </h2>
+              <p class="text-xs text-slate-400">
+                Paciente: {{ osSelecionada.clienteNome || osSelecionada.ClienteNome }}
+              </p>
             </div>
             <button @click="osSelecionada = null" class="text-slate-400 hover:text-white text-sm font-bold">&times; Fechar</button>
           </div>
@@ -75,39 +85,47 @@
             <div class="space-y-3">
               <h4 class="text-xs font-bold text-teal-600 uppercase tracking-widest border-b border-slate-100 pb-1">Refração de Longe</h4>
               <div class="grid grid-cols-2 gap-4 text-xs font-mono">
+                
                 <div class="bg-slate-50 p-3 rounded-xl border border-slate-150">
                   <p class="font-sans font-bold text-slate-400 mb-1">Olho Direito (OD)</p>
-                  <p>Esférico: <span class="font-bold text-slate-800">{{ osSelecionada.refracao.esfericoLongeDireito.toFixed(2) }}</span></p>
-                  <p>Cilíndrico: <span class="font-bold text-slate-800">{{ osSelecionada.refracao.cilindricoLongeDireito.toFixed(2) }}</span></p>
-                  <p>Eixo: <span class="font-bold text-slate-800">{{ osSelecionada.refracao.eixoLongeDireito }}°</span></p>
+                  <p>Esférico: <span class="font-bold text-slate-800">{{ obterGrau(osSelecionada, 'esfericoLongeDireito') }}</span></p>
+                  <p>Cilíndrico: <span class="font-bold text-slate-800">{{ obterGrau(osSelecionada, 'cilindricoLongeDireito') }}</span></p>
+                  <p>Eixo: <span class="font-bold text-slate-800">{{ obterGrauRaw(osSelecionada, 'eixoLongeDireito') }}°</span></p>
                 </div>
+                
                 <div class="bg-slate-50 p-3 rounded-xl border border-slate-150">
                   <p class="font-sans font-bold text-slate-400 mb-1">Olho Esquerdo (OE)</p>
-                  <p>Esférico: <span class="font-bold text-slate-800">{{ osSelecionada.refracao.esfericoLongeEsquerdo.toFixed(2) }}</span></p>
-                  <p>Cilíndrico: <span class="font-bold text-slate-800">{{ osSelecionada.refracao.cilindricoLongeEsquerdo.toFixed(2) }}</span></p>
-                  <p>Eixo: <span class="font-bold text-slate-800">{{ osSelecionada.refracao.eixoLongeEsquerdo }}°</span></p>
+                  <p>Esférico: <span class="font-bold text-slate-800">{{ obterGrau(osSelecionada, 'esfericoLongeEsquerdo') }}</span></p>
+                  <p>Cilíndrico: <span class="font-bold text-slate-800">{{ obterGrau(osSelecionada, 'cilindricoLongeEsquerdo') }}</span></p>
+                  <p>Eixo: <span class="font-bold text-slate-800">{{ obterGrauRaw(osSelecionada, 'eixoLongeEsquerdo') }}°</span></p>
                 </div>
+
               </div>
             </div>
 
             <div class="space-y-3">
               <div class="flex items-center justify-between border-b border-slate-100 pb-1">
                 <h4 class="text-xs font-bold text-indigo-600 uppercase tracking-widest">Refração de Perto</h4>
-                <span class="text-[10px] bg-indigo-50 text-indigo-700 font-bold font-mono px-2 py-0.5 rounded">Adição: +{{ osSelecionada.refracao.adicao.toFixed(2) }}</span>
+                <span class="text-[10px] bg-indigo-50 text-indigo-700 font-bold font-mono px-2 py-0.5 rounded">
+                  Adição: +{{ obterGrau(osSelecionada, 'adicao') }}
+                </span>
               </div>
               <div class="grid grid-cols-2 gap-4 text-xs font-mono">
+                
                 <div class="bg-indigo-50/40 p-3 rounded-xl border border-indigo-100">
                   <p class="font-sans font-bold text-indigo-400 mb-1">Olho Direito (OD)</p>
-                  <p>Esférico: <span class="font-bold text-indigo-900">{{ osSelecionada.refracao.esfericoPertoDireito.toFixed(2) }}</span></p>
-                  <p>Cilíndrico: <span class="font-bold text-indigo-900">{{ osSelecionada.refracao.cilindricoPertoDireito.toFixed(2) }}</span></p>
-                  <p>Eixo: <span class="font-bold text-indigo-900">{{ osSelecionada.refracao.eixoPertoDireito }}°</span></p>
+                  <p>Esférico: <span class="font-bold text-indigo-900">{{ obterGrau(osSelecionada, 'esfericoPertoDireito') }}</span></p>
+                  <p>Cilíndrico: <span class="font-bold text-indigo-900">{{ obterGrau(osSelecionada, 'cilindricoPertoDireito') }}</span></p>
+                  <p>Eixo: <span class="font-bold text-indigo-900">{{ obterGrauRaw(osSelecionada, 'eixoPertoDireito') }}°</span></p>
                 </div>
+                
                 <div class="bg-indigo-50/40 p-3 rounded-xl border border-indigo-100">
                   <p class="font-sans font-bold text-indigo-400 mb-1">Olho Esquerdo (OE)</p>
-                  <p>Esférico: <span class="font-bold text-indigo-900">{{ osSelecionada.refracao.esfericoPertoEsquerdo.toFixed(2) }}</span></p>
-                  <p>Cilíndrico: <span class="font-bold text-indigo-900">{{ osSelecionada.refracao.cilindricoPertoEsquerdo.toFixed(2) }}</span></p>
-                  <p>Eixo: <span class="font-bold text-indigo-900">{{ osSelecionada.refracao.eixoPertoEsquerdo }}°</span></p>
+                  <p>Esférico: <span class="font-bold text-indigo-900">{{ obterGrau(osSelecionada, 'esfericoPertoEsquerdo') }}</span></p>
+                  <p>Cilíndrico: <span class="font-bold text-indigo-900">{{ obterGrau(osSelecionada, 'cilindricoPertoEsquerdo') }}</span></p>
+                  <p>Eixo: <span class="font-bold text-indigo-900">{{ obterGrauRaw(osSelecionada, 'eixoPertoEsquerdo') }}°</span></p>
                 </div>
+
               </div>
             </div>
 
@@ -121,9 +139,11 @@
 
 <script setup>
 import { ref } from 'vue'
-import { router } from '@inertiajs/vue3'
+import{ router } from '@inertiajs/vue3'
 
+// CORRIGIDO: Declarado suporte formal para a prop capitalizada vinda do C#
 defineProps({
+  Ordens: Array,
   ordens: Array
 })
 
@@ -134,6 +154,39 @@ const irParaNovaOrdem = () => {
 }
 
 const abrirPranchetaClinica = (ordem) => {
-  osSelecionada.value = ordem
+  osSelecionada.value = { ...ordem }
+}
+
+// Auxiliares defensivos para formatação segura na View
+const formatarMoeda = (valor) => {
+  if (valor === undefined || valor === null) return '0,00'
+  return Number(valor).toFixed(2)
+}
+
+const formatarData = (dataRaw) => {
+  if (!dataRaw) return '--/--/----'
+  return new Date(dataRaw).toLocaleDateString('pt-BR')
+}
+
+// Resolve o valor aninhado da refração independentemente do nome do nó enviado pelo C#
+const obterBlocoRefracao = (os) => {
+  return os?.refracao || os?.Refracao || os?.especificacoes || os?.Especificacoes || os?.graus || os?.Graus || os
+}
+
+const obterGrau = (os, chave) => {
+  const bloco = obterBlocoRefracao(os)
+  if (!bloco) return '0.00'
+  
+  // Tenta capturar a chave em camelCase ou PascalCase
+  const chavePascal = chave.charAt(0).toUpperCase() + chave.slice(1)
+  const valor = bloco[chave] ?? bloco[chavePascal] ?? 0
+  return Number(valor).toFixed(2)
+}
+
+const obterGrauRaw = (os, chave) => {
+  const bloco = obterBlocoRefracao(os)
+  if (!bloco) return '0'
+  const chavePascal = chave.charAt(0).toUpperCase() + chave.slice(1)
+  return bloco[chave] ?? bloco[chavePascal] ?? '0'
 }
 </script>

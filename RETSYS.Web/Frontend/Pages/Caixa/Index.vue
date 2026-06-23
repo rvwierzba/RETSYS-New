@@ -12,7 +12,7 @@
         <div class="lg:col-span-2 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
           <h3 class="text-base font-bold text-slate-900">Parcelas em Aberto / Recebidas</h3>
 
-          <div v-if="parcelas.length === 0" class="text-center py-12 text-slate-400 text-sm">
+          <div v-if="!(Parcelas ?? parcelas) || (Parcelas ?? parcelas).length === 0" class="text-center py-12 text-slate-400 text-sm">
             Nenhuma parcela financeira encontrada no sistema.
           </div>
 
@@ -27,25 +27,27 @@
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="p in parcelas" :key="p.id" class="border-b border-slate-50 hover:bg-slate-50/50 transition">
+                <tr v-for="p in (Parcelas ?? parcelas)" :key="p.id || p.Id" class="border-b border-slate-50 hover:bg-slate-50/50 transition">
                   <td class="py-4">
-                    <p class="font-semibold text-slate-800">{{ p.clienteNome }}</p>
-                    <p class="text-xs text-slate-400 font-mono">{{ p.numeroOS }} • Parc. {{ p.numeroParcela }}</p>
+                    <p class="font-semibold text-slate-800">{{ p.clienteNome || p.ClienteNome }}</p>
+                    <p class="text-xs text-slate-400 font-mono">
+                      {{ p.numeroOS || p.NumeroOS }} • Parc. {{ p.numeroParcela || p.NumeroParcela }}
+                    </p>
                   </td>
                   <td class="py-4 text-center text-slate-600">
-                    {{ new Date(p.dataVencimento).toLocaleDateString('pt-BR') }}
+                    {{ formatarData(p.dataVencimento || p.DataVencimento) }}
                   </td>
                   <td class="py-4 text-right font-bold text-slate-950">
-                    R$ {{ p.valor.toFixed(2) }}
+                    R$ {{ formatarMoeda(p.valor ?? p.Valor) }}
                   </td>
                   <td class="py-4 text-center">
-                    <span v-if="p.dataPagamento" class="bg-emerald-50 text-emerald-700 px-3 py-1 rounded-full text-xs font-semibold border border-emerald-100">
+                    <span v-if="p.dataPagamento || p.DataPagamento" class="bg-emerald-50 text-emerald-700 px-3 py-1 rounded-full text-xs font-semibold border border-emerald-100">
                       Recebido
                     </span>
                     
                     <div v-else class="flex items-center justify-center gap-2">
                       <button 
-                        v-if="$page.props.PixHabilitadoNestaLoja"
+                        v-if="$page.props.PixHabilitadoNestaLoja || $page.props.pixHabilitadoNestaLoja"
                         @click="solicitarPixProducao(p)"
                         class="bg-teal-600 hover:bg-teal-700 text-white text-xs font-bold px-3 py-1.5 rounded-lg transition shadow-sm"
                       >
@@ -54,7 +56,7 @@
 
                       <button 
                         v-else 
-                        @click="confirmarBaixaManual(p.id)"
+                        @click="confirmarBaixaManual(p.id || p.Id)"
                         class="bg-slate-950 hover:bg-slate-800 text-white text-xs font-bold px-3 py-1.5 rounded-lg transition shadow-sm"
                       >
                         Baixar Manual
@@ -77,13 +79,17 @@
           <div v-else-if="$page.props.DadosPixAtivo" class="space-y-6">
             <div class="bg-slate-50 p-4 rounded-xl border border-slate-100 space-y-1">
               <span class="text-[10px] font-bold uppercase text-slate-400 tracking-wider">Aguardando Pagamento</span>
-              <p class="text-2xl font-black text-teal-600 font-mono">R$ {{ parcelaSelecionada?.valor.toFixed(2) }}</p>
-              <p class="text-xs text-slate-500 truncate">Ref: {{ parcelaSelecionada?.clienteNome }}</p>
+              <p class="text-2xl font-black text-teal-600 font-mono">
+                R$ {{ formatarMoeda(parcelaSelecionada?.valor ?? parcelaSelecionada?.Valor) }}
+              </p>
+              <p class="text-xs text-slate-500 truncate">
+                Ref: {{ parcelaSelecionada?.clienteNome || parcelaSelecionada?.ClienteNome }}
+              </p>
             </div>
 
             <div class="flex flex-col items-center justify-center p-4 bg-white border border-slate-200 rounded-xl space-y-3 shadow-inner">
               <img 
-                :src="$page.props.DadosPixAtivo.qrCodeImagemUrl" 
+                :src="$page.props.DadosPixAtivo.qrCodeImagemUrl || $page.props.DadosPixAtivo.QrCodeImagemUrl" 
                 alt="QR Code PIX Real" 
                 class="w-44 h-44 object-contain border border-slate-100 rounded-lg bg-white shadow-sm"
               />
@@ -98,11 +104,11 @@
                 <input 
                   type="text" 
                   readonly 
-                  :value="$page.props.DadosPixAtivo.pixCopiaECola" 
+                  :value="$page.props.DadosPixAtivo.pixCopiaECola || $page.props.DadosPixAtivo.PixCopiaECola" 
                   class="w-full bg-slate-50 border-slate-200 rounded-xl text-xs text-slate-500 truncate font-mono"
                 />
                 <button 
-                  @click="copiarCopiaECola($page.props.DadosPixAtivo.pixCopiaECola)"
+                  @click="copiarCopiaECola($page.props.DadosPixAtivo.pixCopiaECola || $page.props.DadosPixAtivo.PixCopiaECola)"
                   class="bg-slate-100 hover:bg-slate-200 text-slate-700 px-3 rounded-xl text-xs font-bold border border-slate-200 transition active:scale-95 whitespace-nowrap"
                 >
                   Copiar
@@ -121,15 +127,19 @@
           <div v-else-if="parcelaSelecionada" class="space-y-4">
             <div class="bg-slate-950 text-white p-4 rounded-xl space-y-1">
               <span class="text-[10px] font-bold uppercase text-slate-400 tracking-wider">Modo Manual Ativo</span>
-              <p class="text-2xl font-black text-teal-400 font-mono">R$ {{ parcelaSelecionada.valor.toFixed(2) }}</p>
-              <p class="text-xs text-slate-300 truncate">{{ parcelaSelecionada.clienteNome }}</p>
+              <p class="text-2xl font-black text-teal-400 font-mono">
+                R$ {{ formatarMoeda(parcelaSelecionada.valor ?? parcelaSelecionada.Valor) }}
+              </p>
+              <p class="text-xs text-slate-300 truncate">
+                {{ parcelaSelecionada.clienteNome || parcelaSelecionada.ClienteNome }}
+              </p>
             </div>
             <p class="text-xs text-slate-500 leading-relaxed bg-slate-50 p-3 rounded-xl border border-slate-150">
               Esta filial opera sem chaves API ativas. Certifique-se de recolher o valor na maquininha ou dinheiro físico antes de confirmar a baixa.
             </p>
             <div class="flex flex-col gap-2">
               <button 
-                @click="confirmarBaixaManual(parcelaSelecionada.id)"
+                @click="confirmarBaixaManual(parcelaSelecionada.id || parcelaSelecionada.Id)"
                 class="w-full bg-slate-950 hover:bg-slate-800 text-white font-bold py-3 rounded-xl transition text-sm shadow-sm"
               >
                 Confirmar Recebimento Manual
@@ -154,42 +164,41 @@ import { ref, onUnmounted } from 'vue'
 import { router } from '@inertiajs/vue3'
 
 defineProps({
-  parcelas: Array
+  parcelas: Array,
+  Parcelas: Array
 })
 
 const parcelaSelecionada = ref(null)
 const intervaloChecagem = ref(null)
 
-// 1. Inicia o fluxo da OpenPix disparando a requisição para o C# buscar os dados reais
+// 1. Fluxo OpenPix
 const solicitarPixProducao = (parcela) => {
-  parcelaSelecionada.value = parcela
+  parcelaSelecionada.value = { ...parcela }
+  const idReal = parcela.id ?? parcela.Id
   
-  router.get('/caixa', { gerarPixParaId: parcela.id }, { 
+  router.get('/caixa', { gerarPixParaId: idReal }, { 
     preserveState: true, 
     replace: true,
     onSuccess: () => {
-      // Assim que o C# responde com as chaves compartilhadas, inicia o polling de escuta
-      iniciarMonitoramentoPix(parcela.id)
+      iniciarMonitoramentoPix(idReal)
     }
   })
 }
 
-// 2. Monitoramento Inteligente (Polling de Fallback paralelo ao Webhook)
+// 2. Polling de Status com tratamento de Case Sensitivity na resposta
 const iniciarMonitoramentoPix = (id) => {
-  pararMonitoramentoPix() // Previne colisões limpando loops antigos
+  pararMonitoramentoPix()
 
   intervaloChecagem.value = setInterval(async () => {
     try {
       const resposta = await fetch(`/caixa/status/${id}`)
       if (resposta.ok) {
         const dados = await resposta.json()
-        
-        // Se o Webhook do backend ou a checagem marcou a parcela como Paga
-        if (dados.pago) {
+              
+        if (dados.pago || dados.Pago) {
           pararMonitoramentoPix()
           alert('Pagamento PIX confirmado com sucesso na OpenPix!')
           
-          // Reseta o estado da tela recarregando os dados limpos do caixa
           parcelaSelecionada.value = null
           router.get('/caixa', {}, { preserveState: false })
         }
@@ -197,10 +206,10 @@ const iniciarMonitoramentoPix = (id) => {
     } catch (erro) {
       console.error("Erro na checagem automática do PIX:", erro)
     }
-  }, 3000) // Executa a consulta a cada 3 segundos
+  }, 3000)
 }
 
-// 3. Executa a baixa imediata sem intermediação de API externa
+// 3. Baixa Manual
 const confirmarBaixaManual = (idParcela) => {
   if (confirm('Confirmar recebimento manual via Dinheiro ou Cartão Físico?')) {
     pararMonitoramentoPix()
@@ -213,8 +222,19 @@ const confirmarBaixaManual = (idParcela) => {
   }
 }
 
-// 4. Copia a string legítima do EMV BRCode para o clipboard
+// Auxiliares de Formatação Defensiva
+const formatarMoeda = (valor) => {
+  if (valor === undefined || valor === null) return '0,00'
+  return Number(valor).toFixed(2)
+}
+
+const formatarData = (dataRaw) => {
+  if (!dataRaw) return '--/--/----'
+  return new Date(dataRaw).toLocaleDateString('pt-BR')
+}
+
 const copiarCopiaECola = (texto) => {
+  if (!texto) return
   navigator.clipboard.writeText(texto)
   alert('Código PIX Copia e Cola copiado para a área de transferência!')
 }
@@ -222,6 +242,7 @@ const copiarCopiaECola = (texto) => {
 const cancelarOperacaoPix = () => {
   pararMonitoramentoPix()
   if (router.page?.props) {
+    // Evita mutação direta destrutiva limpando o estado de forma segura
     router.page.props.DadosPixAtivo = null
   }
   parcelaSelecionada.value = null
@@ -235,7 +256,6 @@ const pararMonitoramentoPix = () => {
   }
 }
 
-// Ciclo de Vida: Evita vazamento de memória se o operador sair da tela com o timer rodando
 onUnmounted(() => {
   pararMonitoramentoPix()
 })

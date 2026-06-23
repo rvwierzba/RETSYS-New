@@ -17,7 +17,7 @@
         <div>
           <label class="block text-xs font-bold uppercase text-slate-400 tracking-wider mb-2">E-mail Corporativo</label>
           <input 
-            v-model="formulario.Email" 
+            v-model="form.Email" 
             type="email" 
             placeholder="nome@otica.com" 
             class="w-full rounded-xl border-slate-200 text-sm py-3 focus:border-teal-500 focus:ring-teal-500 placeholder:text-slate-300"
@@ -31,7 +31,7 @@
             <a href="#" class="text-xs font-semibold text-teal-600 hover:text-teal-700 transition">Esqueceu a senha?</a>
           </div>
           <input 
-            v-model="formulario.Senha" 
+            v-model="form.Senha" 
             type="password" 
             placeholder="••••••••" 
             class="w-full rounded-xl border-slate-200 text-sm py-3 focus:border-teal-500 focus:ring-teal-500 placeholder:text-slate-300"
@@ -41,15 +41,15 @@
 
         <div class="flex items-center gap-2 pt-1">
           <input type="checkbox" id="lembrar" class="rounded border-slate-300 text-teal-600 focus:ring-teal-500" />
-          <label type="checkbox" for="lembrar" class="text-xs text-slate-500 font-medium cursor-pointer select-none">Lembrar deste dispositivo</label>
+          <label for="lembrar" class="text-xs text-slate-500 font-medium cursor-pointer select-none">Lembrar deste dispositivo</label>
         </div>
 
         <button 
           type="submit" 
-          :disabled="carregando"
+          :disabled="form.processing"
           class="w-full bg-teal-600 hover:bg-teal-700 text-white font-bold py-3.5 rounded-xl shadow-sm hover:shadow transition text-sm flex items-center justify-center gap-2 disabled:opacity-50"
         >
-          <span v-if="carregando">Verificando...</span>
+          <span v-if="form.processing">Verificando...</span>
           <span v-else>Entrar no Sistema</span>
         </button>
 
@@ -58,7 +58,6 @@
           <Link href="/cadastro" class="font-bold text-slate-950 hover:text-slate-700 ml-1 transition">
             Criar Conta
           </Link>
-
         </p>
       </form>
 
@@ -67,25 +66,20 @@
 </template>
 
 <script setup>
-import { reactive, ref } from 'vue'
-// 🌟 CORREÇÃO: Unificado em uma única linha sem duplicar o 'router'
-import { Link, router } from '@inertiajs/vue3'
+import { Link, useForm } from '@inertiajs/vue3'
 
-const carregando = ref(false)
-
-// Payload reativo mapeado para o DtoLogin do C#
-const formulario = reactive({
+// CORRIGIDO: Utilizando useForm para gerenciar dados e estados de envio automaticamente
+const form = useForm({
   Email: '',
   Senha: ''
 })
 
-const ejecutarLogin = () => {
-  carregando.value = true
-  
-  // Dispara o payload via POST direto para o endpoint do AutenticacaoController
-  router.post('/login', formulario, {
-    onFinish: () => {
-      carregando.value = false
+// CORRIGIDO: De 'ejecutarLogin' para 'executarLogin' (com X)
+const executarLogin = () => {
+  // Dispara o formulário reativo direto para o endpoint do C#
+  form.post('/login', {
+    onError: () => {
+      form.reset('Senha')
     }
   })
 }
