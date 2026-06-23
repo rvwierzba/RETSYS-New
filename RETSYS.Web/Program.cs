@@ -18,47 +18,46 @@ var builder = WebApplication.CreateBuilder(args);
 // 1. CONFIGURAÇÃO DO BANCO DE DADOS (POSTGRESQL)
 // ==========================================
 
-// Puxa a string de qualquer uma das variáveis do Render ou do arquivo local
+// Captura a string de conexão das variáveis de ambiente ou do arquivo local
 var stringConexao = Environment.GetEnvironmentVariable("RETSYS_CONNECTION_STRING") 
                     ?? Environment.GetEnvironmentVariable("DATABASE_URL") 
                     ?? builder.Configuration.GetConnectionString("ConexaoPadrao");
 
+// Faxina defensiva: Remove espaços em branco ou aspas das pontas
 if (!string.IsNullOrEmpty(stringConexao))
 {
-    // 🧹 Limpeza pesada contra aspas, espaços ou lixo de cópia
     stringConexao = stringConexao.Trim().Trim('"').Trim('\'');
-
-    // 🔄 CONVERSOR ADAPTATIVO: Transforma 'postgres://' ou 'postgresql://' no formato ADO.NET
-    if (stringConexao.StartsWith("postgres://") || stringConexao.StartsWith("postgresql://"))
-    {
-        // Normaliza o início para o padrão 'postgres://' que o parser de URI do C# lê sem quebrar
-        string urlParaParse = stringConexao.StartsWith("postgresql://") 
-            ? stringConexao.Replace("postgresql://", "postgres://") 
-            : stringConexao;
-
-        var databaseUri = new Uri(urlParaParse);
-        var userInfo = databaseUri.UserInfo.Split(':');
-        
-        // Decodifica caracteres especiais que possam existir no usuário ou na senha (ex: @, #, $)
-        var usuario = Uri.UnescapeDataString(userInfo[0]);
-        var senha = userInfo.Length > 1 ? Uri.UnescapeDataString(userInfo[1]) : "";
-        
-        // FORÇA BRUTA NA PORTA: Se o Render devolver a porta como -1, crava a 5432 para não cair na 80
-        int portaBanco = databaseUri.Port == -1 ? 5432 : databaseUri.Port;
-        var nomeBanco = databaseUri.AbsolutePath.TrimStart('/');
-
-        stringConexao = $"Host={databaseUri.Host};" +
-                        $"Port={portaBanco};" +
-                        $"Database={nomeBanco};" +
-                        $"Username={usuario};" +
-                        $"Password={senha};" +
-                        $"SSL Mode=Require;" +
-                        $"Trust Server Certificate=True;";
-    }
 }
 
-// 👁️ LOG DE SEGURANÇA NO PAINEL DO RENDER
-Console.WriteLine($"=== FINAL DATABASE CONFIG: '{stringConexao?.Split(';')[0]}' ===");
+// CONVERSOR INTELIGENTE BLINDADO: Suporta tanto 'postgres://' quanto 'postgresql://'
+if (!string.IsNullOrEmpty(stringConexao) && (stringConexao.StartsWith("postgres://") || stringConexao.StartsWith("postgresql://")))
+{
+    // Normaliza para o padrão genérico 'postgres://' que o .NET aceita parsear sem forçar porta de browser (80)
+    string urlFormatada = stringConexao.StartsWith("postgresql://") 
+        ? stringConexao.Replace("postgresql://", "postgres://") 
+        : stringConexao;
+
+    var databaseUri = new Uri(urlFormatada);
+    var userInfo = databaseUri.UserInfo.Split(':');
+    
+    // CORREÇÃO CRÍTICA: Se o Render omitir a porta (-1), força a porta padrão do Postgres (5432) em vez de ir para a 80
+    int portaBanco = databaseUri.Port == -1 ? 5432 : databaseUri.Port;
+
+    stringConexao = $"Host={databaseUri.Host};" +
+                    $"Port={portaBanco};" +
+                    $"Database={databaseUri.AbsolutePath.TrimStart('/')};" +
+                    $"Username={userInfo[0]};" +
+                    $"Password={userInfo[1]};" +
+                    $"SSL Mode=Require;" +
+                    $"Trust Server Certificate=True;";
+}
+
+// RASTREADOR DE SEGURANÇA (Para auditar a porta resolvida no painel do Render)
+if (!string.IsNullOrEmpty(stringConexao))
+{
+    string amostra = stringConexao.Length > 25 ? stringConexao.Substring(0, 25) : stringConexao;
+    Console.WriteLine($"=== CONVERTED CONNECTION STRING: '{amostra}' ===");
+}
 
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseNpgsql(stringConexao, b => b.MigrationsAssembly("RETSYS.Infrastructure")));
