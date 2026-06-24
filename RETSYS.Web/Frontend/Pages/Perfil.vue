@@ -86,7 +86,7 @@
 </template>
 
 <script setup>
-import { ref } from 'react'
+import { ref } from 'vue'
 import { useForm } from '@inertiajs/vue3'
 import AuthenticatedLayout from '../Shared/AuthenticatedLayout.vue'
 
