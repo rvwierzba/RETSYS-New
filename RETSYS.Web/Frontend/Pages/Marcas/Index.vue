@@ -4,7 +4,7 @@
       
       <div>
         <h1 class="text-2xl font-black text-slate-950">Gerenciamento de Marcas</h1>
-        <p class="text-sm text-slate-500">Cadastre e organize as marcas de armações disponíveis no estoque da WO Tech.</p>
+        <p class="text-sm text-slate-500">Cadastre e organize as marcas de armações disponíveis no estoque da RETSYS.</p>
       </div>
 
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">

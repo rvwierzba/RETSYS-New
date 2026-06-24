@@ -43,7 +43,7 @@
             Acessar Minha Conta
           </Link>
           <a 
-            href="https://wa.me/5500000000000?text=Olá!%20Gostaria de falar com o time WO Tech." 
+            href="https://wa.me/5500000000000?text=Olá!%20Gostaria de falar com o time RETSYS." 
             target="_blank" 
             class="w-full sm:w-auto bg-white border border-slate-200 text-slate-800 font-bold py-4 px-8 rounded-xl hover:bg-slate-50 transition text-center text-sm uppercase tracking-wider"
           >
@@ -88,7 +88,7 @@
     </main>
 
     <footer class="w-full border-t border-slate-200 bg-white py-6 text-center text-xs text-slate-400">
-      <p>&copy; 2026 WO Tech. Sistema Inteligente de Gestão Ótica. Todos os direitos reservados.</p>
+      <p>&copy; 2026 RETSYS. Sistema Inteligente de Gestão Ótica. Todos os direitos reservados.</p>
     </footer>
 
   </div>
