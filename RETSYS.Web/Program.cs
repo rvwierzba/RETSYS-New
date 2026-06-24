@@ -136,7 +136,56 @@ using (var escopo = app.Services.CreateScope())
     var contexto = escopo.ServiceProvider.GetRequiredService<ApplicationDbContext>();
     var criptografia = escopo.ServiceProvider.GetRequiredService<IServicoCriptografia>();
     
-    // 🔄 CORRIGIDO: Substituído EnsureCreatedAsync por MigrateAsync para rodar a esteira incremental profissional
+    // 🔥 MECÂNICA DE AUTO-SINCRONIZAÇÃO PREVENTIVA (EnsureCreated -> Migrations)
+    // Esse bloco corrige o banco do Render sem que você precise apagar nada na mão.
+    try
+    {
+        using (var comando = contexto.Database.GetDbConnection().CreateCommand())
+        {
+            await contexto.Database.OpenConnectionAsync();
+            
+            // 1. Força a criação da tabela de controle do EF Core caso ela não exista
+            comando.CommandText = """
+                CREATE TABLE IF NOT EXISTS "__EFMigrationsHistory" (
+                    "MigrationId" character varying(150) NOT NULL,
+                    "ProductVersion" character varying(32) NOT NULL,
+                    CONSTRAINT "PK___EFMigrationsHistory" PRIMARY KEY ("MigrationId")
+                );
+            """;
+            await comando.ExecuteNonQueryAsync();
+
+            // 2. Descobre se a tabela 'clientes' já existe do histórico antigo do banco
+            comando.CommandText = """
+                SELECT COUNT(*) FROM pg_class c 
+                JOIN pg_namespace n ON n.oid = c.relnamespace 
+                WHERE c.relname = 'clientes' AND n.nspname = 'public';
+            """;
+            var bancoJaPossuiEstrutura = Convert.ToInt32(await comando.ExecuteScalarAsync()) > 0;
+
+            if (bancoJaPossuiEstrutura)
+            {
+                // 3. Insere o ID da migração conflitante no histórico para o EF entender que ela já foi feita
+                comando.CommandText = """
+                    INSERT INTO "__EFMigrationsHistory" ("MigrationId", "ProductVersion")
+                    VALUES ('20260624145606_AddFotoUrlNoUsuario', '10.0')
+                    ON CONFLICT DO NOTHING;
+                """;
+                await comando.ExecuteNonQueryAsync();
+
+                // 4. Como pulamos a execução da migração, injetamos manualmente a nova coluna de fotos
+                comando.CommandText = """
+                    ALTER TABLE "usuarios" ADD COLUMN IF NOT EXISTS "FotoUrl" text;
+                """;
+                await comando.ExecuteNonQueryAsync();
+            }
+        }
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"[Auto-Sync Banco Aviso]: {ex.Message}");
+    }
+
+    // Agora o MigrateAsync vai rodar perfeitamente liso e sem tentar duplicar tabelas!
     await contexto.Database.MigrateAsync();
     
     var seeder = new DatabaseSeeder(contexto, criptografia);
