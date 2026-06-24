@@ -24,8 +24,10 @@ var stringConexao = Environment.GetEnvironmentVariable("RETSYS_CONNECTION_STRING
 
 if (!string.IsNullOrEmpty(stringConexao))
 {
+    // 🧹 Limpeza pesada contra aspas, espaços ou lixo de cópia
     stringConexao = stringConexao.Trim().Trim('"').Trim('\'');
 
+    // 🔄 CONVERSOR ADAPTATIVO: Transforma 'postgres://' ou 'postgresql://' no formato ADO.NET
     if (stringConexao.StartsWith("postgres://") || stringConexao.StartsWith("postgresql://"))
     {
         string urlParaParse = stringConexao.StartsWith("postgresql://") 
@@ -51,6 +53,7 @@ if (!string.IsNullOrEmpty(stringConexao))
     }
 }
 
+// 👁️ LOG DE SEGURANÇA NO PAINEL DO RENDER
 Console.WriteLine($"=== FINAL DATABASE CONFIG: '{stringConexao?.Split(';')[0]}' ===");
 
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
@@ -133,7 +136,8 @@ using (var escopo = app.Services.CreateScope())
     var contexto = escopo.ServiceProvider.GetRequiredService<ApplicationDbContext>();
     var criptografia = escopo.ServiceProvider.GetRequiredService<IServicoCriptografia>();
     
-    await contexto.Database.EnsureCreatedAsync();
+    // 🔄 CORRIGIDO: Substituído EnsureCreatedAsync por MigrateAsync para rodar a esteira incremental profissional
+    await contexto.Database.MigrateAsync();
     
     var seeder = new DatabaseSeeder(contexto, criptografia);
     await seeder.SemearDadosAsync();
