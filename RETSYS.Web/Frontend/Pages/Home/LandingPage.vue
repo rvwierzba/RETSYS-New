@@ -4,8 +4,8 @@
     <header class="w-full max-w-7xl mx-auto px-6 py-5 flex items-center justify-between border-b border-slate-200/60 bg-white/80 backdrop-blur sticky top-0 z-50 rounded-b-2xl shadow-sm">
       <div class="flex items-center gap-2">
         <span class="text-2xl font-black tracking-wider text-slate-950 font-mono">
-          R<span class="text-teal-600">E</span> T<span class="text-teal-600">S</span> Y<span class="text-teal-600">S</span>
-        </span>
+        R<span class="text-teal-600">E</span>T<span class="text-teal-600">S</span>Y<span class="text-teal-600">S</span>
+      </span>
       </div>
       <nav class="flex items-center gap-6">
         <a 
