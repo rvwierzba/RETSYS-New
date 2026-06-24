@@ -5,7 +5,7 @@
       
       <nav class="flex items-center space-x-6 text-sm font-medium">
         <span class="text-xl font-black tracking-wider text-white font-mono mr-4">
-          W<span class="text-teal-400">O</span> Tech<span class="text-teal-400">.</span>
+          RET<span class="text-teal-400">SYS</span>
         </span>
         
         <Link href="/dashboard" class="hover:text-teal-400 transition">Dashboard</Link>

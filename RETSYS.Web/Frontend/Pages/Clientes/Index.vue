@@ -203,7 +203,7 @@ const buscarCepAutomático = async () => {
 const gerarLinkWhatsapp = (telefoneRaw) => {
   if (!telefoneRaw) return '#'
   const numeroLimpo = telefoneRaw.replace(/\D/g, '')
-  return `https://wa.me/55${numeroLimpo}?text=Olá!%20Aqui%20é%20da%20óptica%20WO%20Tech.`
+  return `https://wa.me/55${numeroLimpo}?text=Olá!%20Aqui%20é%20da%20óptica%20RETSYS.`
 }
 
 const cadastrarCliente = () => {
