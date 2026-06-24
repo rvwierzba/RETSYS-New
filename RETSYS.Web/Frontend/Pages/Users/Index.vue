@@ -1,15 +1,10 @@
 <template>
-  <div class="min-h-screen bg-slate-50 p-4 md:p-8 font-sans text-slate-900">
-    <div class="max-w-6xl mx-auto space-y-6">
+  <AuthenticatedLayout>
+    <div class="p-4 md:p-8 space-y-6 max-w-6xl mx-auto">
       
-      <div class="flex items-center justify-between">
-        <div>
-          <h1 class="text-2xl font-black text-slate-950">Controle de Equipe</h1>
-          <p class="text-sm text-slate-500">Gerencie os acessos de vendedores, gerentes e administradores de todas as filiais.</p>
-        </div>
-        <Link href="/" class="text-xs font-bold uppercase tracking-wider bg-white border border-slate-200 text-slate-600 hover:bg-slate-50 px-4 py-2.5 rounded-xl shadow-sm transition">
-          Voltar para o Início
-        </Link>
+      <div>
+        <h1 class="text-2xl font-black text-slate-950">Controle de Equipe</h1>
+        <p class="text-sm text-slate-500">Gerencie os acessos de vendedores, gerentes e administradores de todas as filiais.</p>
       </div>
 
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -36,7 +31,7 @@
             <button 
               type="submit" 
               :disabled="form.processing"
-              class="w-full bg-teal-600 hover:bg-teal-700 disabled:bg-slate-200 disabled:text-slate-400 font-bold py-3 rounded-xl text-xs transition shadow-sm uppercase tracking-wider flex items-center justify-center min-h-[40px]"
+              class="w-full bg-teal-600 hover:bg-teal-700 disabled:bg-slate-200 disabled:text-slate-400 text-white font-bold py-3 rounded-xl text-xs transition shadow-sm uppercase tracking-wider flex items-center justify-center min-h-[40px]"
             >
               <span v-if="form.processing">Registrando...</span>
               <span v-else>Registrar Colaborador</span>
@@ -47,7 +42,7 @@
         <div class="lg:col-span-2 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
           <h3 class="text-base font-bold text-slate-950 mb-4">Funcionários Cadastrados</h3>
 
-          <div v-if="!Equipe || Equipe.length === 0" class="text-center py-12 border-2 border-dashed border-slate-100 rounded-xl text-slate-400 text-sm">
+          <div v-if="!(Equipe ?? equipe) || (Equipe ?? equipe).length === 0" class="text-center py-12 border-2 border-dashed border-slate-100 rounded-xl text-slate-400 text-sm">
             Nenhum colaborador registrado no sistema.
           </div>
 
@@ -62,7 +57,7 @@
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="user in Equipe" :key="user.id || user.Id" class="border-b border-slate-50 hover:bg-slate-50/50 transition">
+                <tr v-for="user in (Equipe ?? equipe)" :key="user.id || user.Id" class="border-b border-slate-50 hover:bg-slate-50/50 transition">
                   <td class="py-4">
                     <p class="font-bold text-slate-800">{{ user.nome || user.Nome }}</p>
                     <p class="text-xs text-slate-400 font-mono">{{ user.email || user.Email }}</p>
@@ -92,18 +87,19 @@
 
       </div>
     </div>
-  </div>
+  </AuthenticatedLayout>
 </template>
 
 <script setup>
-import { useForm, Link, router } from '@inertiajs/vue3'
+import { useForm, router } from '@inertiajs/vue3'
+import AuthenticatedLayout from '../../Shared/AuthenticatedLayout.vue'
 
-// Prop em PascalCase combinando com o retorno do UsuariosController
+// Suporte formal para variações de nomenclatura de propriedades vindas do servidor
 defineProps({
-  Equipe: Array
+  Equipe: Array,
+  equipe: Array
 })
 
-// CORRIGIDO: Migrado para o useForm para obter controle nativo de submissão do Inertia
 const form = useForm({
   Nome: '',
   Email: '',
@@ -111,7 +107,6 @@ const form = useForm({
 })
 
 const cadastrarColaborador = () => {
-  // Dispara os dados estruturados e limpa os campos através do reset nativo no sucesso
   form.post('/equipe', {
     preserveScroll: true,
     onSuccess: () => {

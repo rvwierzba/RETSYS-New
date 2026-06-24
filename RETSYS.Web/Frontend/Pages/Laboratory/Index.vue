@@ -1,6 +1,6 @@
 <template>
-  <div class="min-h-screen bg-slate-50 p-4 md:p-8 font-sans text-slate-900">
-    <div class="max-w-6xl mx-auto space-y-6">
+  <AuthenticatedLayout>
+    <div class="p-4 md:p-8 space-y-6 max-w-6xl mx-auto">
       
       <div class="flex items-center justify-between bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
         <div>
@@ -8,17 +8,17 @@
           <p class="text-sm text-slate-500">Ordem de trabalho para surfaçagem, montagem e conferência de lentes.</p>
         </div>
         <span class="bg-amber-50 text-amber-700 border border-amber-200 px-3 py-1 rounded-full text-xs font-bold animate-pulse">
-          {{ FilaMontagem?.length || 0 }} ODS Pendentes
+          {{ (FilaMontagem ?? filaMontagem)?.length || 0 }} ODS Pendentes
         </span>
       </div>
 
-      <div v-if="!FilaMontagem || FilaMontagem.length === 0" class="text-center py-16 bg-white rounded-2xl border border-slate-200 shadow-sm max-w-6xl mx-auto">
+      <div v-if="!(FilaMontagem ?? filaMontagem) || (FilaMontagem ?? filaMontagem).length === 0" class="text-center py-16 bg-white rounded-2xl border border-slate-200 shadow-sm">
         <p class="text-slate-400 text-sm font-medium">Todas as lentes foram montadas! Fila de ordens vazia.</p>
       </div>
 
       <div v-else class="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div 
-          v-for="os in FilaMontagem" 
+          v-for="os in (FilaMontagem ?? filaMontagem)" 
           :key="os.id || os.Id" 
           class="bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden flex flex-col justify-between"
         >
@@ -27,7 +27,7 @@
               <span class="font-mono text-xs font-bold bg-slate-800 px-2.5 py-1 rounded text-teal-400">
                 {{ os.numeroOS || os.NumeroOS }}
               </span>
-              <p class="text-xs text-slate-400 mt-1 truncate">
+              <p class="text-xs text-slate-400 mt-1 truncate max-w-[200px]">
                 Paciente: {{ os.clienteNome || os.ClienteNome }}
               </p>
             </div>
@@ -99,19 +99,23 @@
       </div>
 
     </div>
-  </div>
+  </AuthenticatedLayout>
 </template>
 
 <script setup>
 import { router } from '@inertiajs/vue3'
+import AuthenticatedLayout from '../../Shared/AuthenticatedLayout.vue'
 
+// CORRIGIDO: Adicionado suporte duplo para fontes minúsculas/maiúsculas
 defineProps({
-  FilaMontagem: Array
+  FilaMontagem: Array,
+  filaMontagem: Array
 })
 
 const concluirMontagemLente = (id, numeroOS) => {
   if (confirm(`Confirmar que as lentes da ${numeroOS} foram conferidas no lensômetro e montadas com sucesso?`)) {
     router.post(`/ordens/alterar-status/${id}?novoStatus=Pronto`, {}, {
+      preserveScroll: true,
       onSuccess: () => {
         alert('Ordem de serviço movida para a gaveta de [Pronto para Entrega] no balcão!')
       }
@@ -119,7 +123,6 @@ const concluirMontagemLente = (id, numeroOS) => {
   }
 }
 
-// Auxiliar defensivo para evitar quebras de renderização caso o grau venha nulo ou indefinido
 const formatGrau = (valor) => {
   if (valor === undefined || valor === null) return '0.00'
   return Number(valor).toFixed(2)

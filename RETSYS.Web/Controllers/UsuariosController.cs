@@ -3,16 +3,20 @@ using Microsoft.EntityFrameworkCore;
 using InertiaCore;
 using RETSYS.Infrastructure.Data;
 using RETSYS.Domain.Entities;
+using RETSYS.Domain.Interfaces;
+using RETSYS.Domain.Enums;
 
 namespace RETSYS.Web.Controllers
 {
     public class UsuariosController : Controller
     {
         private readonly ApplicationDbContext _context;
+        private readonly IServicoCriptografia _criptografia; // 🔥 ADICIONADO: Dependência para tratamento seguro de senhas
 
-        public UsuariosController(ApplicationDbContext context)
+        public UsuariosController(ApplicationDbContext context, IServicoCriptografia criptografia)
         {
             _context = context;
+            _criptografia = criptografia;
         }
 
         // 1. Listagem dos Colaboradores (GET)
@@ -36,23 +40,34 @@ namespace RETSYS.Web.Controllers
 
         // 2. Cadastro de Novo Funcionário (POST)
         [HttpPost("/equipe")]
-        public async Task<IActionResult> Store([FromBody] Usuario novoUsuario)
+        public async Task<IActionResult> Store([FromBody] DtoNovoColaborador requisicao) // 🔥 CORRIGIDO: Uso de DTO para bloquear Mass Assignment
         {
-            if (string.IsNullOrWhiteSpace(novoUsuario.Nome) || string.IsNullOrWhiteSpace(novoUsuario.Email))
+            if (string.IsNullOrWhiteSpace(requisicao.Nome) || string.IsNullOrWhiteSpace(requisicao.Email))
             {
                 return RedirectToAction(nameof(Index));
             }
 
-            if (novoUsuario.Id == Guid.Empty)
+            var emailExiste = await _context.Usuarios.AnyAsync(u => u.Email == requisicao.Email);
+            if (emailExiste)
             {
-                novoUsuario.Id = Guid.NewGuid();
+                Inertia.Share("erro", "Este e-mail corporativo já está em uso pela equipe.");
+                return RedirectToAction(nameof(Index));
             }
 
-            // Define propriedades padrão de segurança para o MVP
-            novoUsuario.Ativo = true;
-            novoUsuario.SenhaHash = "RETSYS123_PADRAO"; // Senha provisória para o balcão
+            // Instanciação manual controlada pelo servidor
+            var novoFuncionario = new Usuario
+            {
+                Id = Guid.NewGuid(),
+                Nome = requisicao.Nome,
+                Email = requisicao.Email,
+                FilialLoja = requisicao.FilialLoja,
+                Perfil = PerfilUsuario.Vendedor, // 🛡️ SEGURANÇA: Todo membro cadastrado aqui nasce estritamente como Vendedor
+                Ativo = true,
+                CriadoEm = DateTime.UtcNow,
+                SenhaHash = _criptografia.CriptografarSenha("RETSYS123_PADRAO") // 🔥 CORRIGIDO: Armazenamento em hash seguro para o login
+            };
 
-            _context.Usuarios.Add(novoUsuario);
+            _context.Usuarios.Add(novoFuncionario);
             await _context.SaveChangesAsync();
 
             return RedirectToAction(nameof(Index));
@@ -72,4 +87,7 @@ namespace RETSYS.Web.Controllers
             return RedirectToAction(nameof(Index));
         }
     }
+
+    // 🔥 DTO de Segurança: Isola o payload recebido do front-end impedindo fraudes de privilégio (RBAC)
+    public record DtoNovoColaborador(string Nome, string Email, string FilialLoja);
 }

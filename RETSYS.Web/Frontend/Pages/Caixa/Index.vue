@@ -1,6 +1,6 @@
 <template>
-  <div class="min-h-screen bg-slate-50 p-4 md:p-8 font-sans text-slate-900">
-    <div class="max-w-6xl mx-auto space-y-6">
+  <AuthenticatedLayout>
+    <div class="p-4 md:p-8 space-y-6 max-w-6xl mx-auto">
       
       <div>
         <h1 class="text-2xl font-bold text-slate-950">Caixa e Fluxo de Recebimentos</h1>
@@ -156,12 +156,13 @@
 
       </div>
     </div>
-  </div>
+  </AuthenticatedLayout>
 </template>
 
 <script setup>
 import { ref, onUnmounted } from 'vue'
 import { router } from '@inertiajs/vue3'
+import AuthenticatedLayout from '../../Shared/AuthenticatedLayout.vue'
 
 defineProps({
   parcelas: Array,
@@ -171,7 +172,6 @@ defineProps({
 const parcelaSelecionada = ref(null)
 const intervaloChecagem = ref(null)
 
-// 1. Fluxo OpenPix
 const solicitarPixProducao = (parcela) => {
   parcelaSelecionada.value = { ...parcela }
   const idReal = parcela.id ?? parcela.Id
@@ -185,7 +185,6 @@ const solicitarPixProducao = (parcela) => {
   })
 }
 
-// 2. Polling de Status com tratamento de Case Sensitivity na resposta
 const iniciarMonitoramentoPix = (id) => {
   pararMonitoramentoPix()
 
@@ -197,7 +196,7 @@ const iniciarMonitoramentoPix = (id) => {
               
         if (dados.pago || dados.Pago) {
           pararMonitoramentoPix()
-          alert('Pagamento PIX confirmado com sucesso na OpenPix!')
+          alert('Pagamento PIX confirmed com sucesso na OpenPix!')
           
           parcelaSelecionada.value = null
           router.get('/caixa', {}, { preserveState: false })
@@ -209,7 +208,6 @@ const iniciarMonitoramentoPix = (id) => {
   }, 3000)
 }
 
-// 3. Baixa Manual
 const confirmarBaixaManual = (idParcela) => {
   if (confirm('Confirmar recebimento manual via Dinheiro ou Cartão Físico?')) {
     pararMonitoramentoPix()
@@ -222,7 +220,6 @@ const confirmarBaixaManual = (idParcela) => {
   }
 }
 
-// Auxiliares de Formatação Defensiva
 const formatarMoeda = (valor) => {
   if (valor === undefined || valor === null) return '0,00'
   return Number(valor).toFixed(2)
@@ -242,7 +239,6 @@ const copiarCopiaECola = (texto) => {
 const cancelarOperacaoPix = () => {
   pararMonitoramentoPix()
   if (router.page?.props) {
-    // Evita mutação direta destrutiva limpando o estado de forma segura
     router.page.props.DadosPixAtivo = null
   }
   parcelaSelecionada.value = null

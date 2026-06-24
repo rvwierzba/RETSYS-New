@@ -18,20 +18,16 @@ var builder = WebApplication.CreateBuilder(args);
 // 1. CONFIGURAÇÃO DO BANCO DE DADOS (POSTGRESQL)
 // ==========================================
 
-// Puxa a string de qualquer uma das variáveis do Render ou do arquivo local
 var stringConexao = Environment.GetEnvironmentVariable("RETSYS_CONNECTION_STRING") 
                     ?? Environment.GetEnvironmentVariable("DATABASE_URL") 
                     ?? builder.Configuration.GetConnectionString("ConexaoPadrao");
 
 if (!string.IsNullOrEmpty(stringConexao))
 {
-    // 🧹 Limpeza pesada contra aspas, espaços ou lixo de cópia
     stringConexao = stringConexao.Trim().Trim('"').Trim('\'');
 
-    // 🔄 CONVERSOR ADAPTATIVO: Transforma 'postgres://' ou 'postgresql://' no formato ADO.NET
     if (stringConexao.StartsWith("postgres://") || stringConexao.StartsWith("postgresql://"))
     {
-        // Normaliza o início para o padrão 'postgres://' que o parser de URI do C# lê sem quebrar
         string urlParaParse = stringConexao.StartsWith("postgresql://") 
             ? stringConexao.Replace("postgresql://", "postgres://") 
             : stringConexao;
@@ -39,11 +35,9 @@ if (!string.IsNullOrEmpty(stringConexao))
         var databaseUri = new Uri(urlParaParse);
         var userInfo = databaseUri.UserInfo.Split(':');
         
-        // Decodifica caracteres especiais que possam existir no usuário ou na senha (ex: @, #, $)
         var usuario = Uri.UnescapeDataString(userInfo[0]);
         var senha = userInfo.Length > 1 ? Uri.UnescapeDataString(userInfo[1]) : "";
         
-        // FORÇA BRUTA NA PORTA: Se o Render devolver a porta como -1, crava a 5432 para não cair na 80
         int portaBanco = databaseUri.Port == -1 ? 5432 : databaseUri.Port;
         var nomeBanco = databaseUri.AbsolutePath.TrimStart('/');
 
@@ -57,7 +51,6 @@ if (!string.IsNullOrEmpty(stringConexao))
     }
 }
 
-// 👁️ LOG DE SEGURANÇA NO PAINEL DO RENDER
 Console.WriteLine($"=== FINAL DATABASE CONFIG: '{stringConexao?.Split(';')[0]}' ===");
 
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
@@ -67,11 +60,21 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
 // 2. INJEÇÃO DE DEPENDÊNCIAS E SERVIÇOS
 // ==========================================
 
+builder.Services.AddHttpClient();
 builder.Services.AddHttpClient<IServicoPix, RETSYS.Infrastructure.Services.ServicoPix>();
 builder.Services.AddSingleton<IServicoCriptografia, ServicoCriptografia>();
 builder.Services.AddControllersWithViews();
 builder.Services.AddInertia();
 builder.Services.AddViteHelper(); 
+
+// Configuração de Sessão em memória para persistência de tokens temporários de streaming
+builder.Services.AddDistributedMemoryCache();
+builder.Services.AddSession(options =>
+{
+    options.IdleTimeout = TimeSpan.FromHours(4);
+    options.Cookie.HttpOnly = true;    
+    options.Cookie.IsEssential = true; 
+});
 
 builder.Services.AddAuthentication("Cookies")
     .AddCookie("Cookies", options => {
@@ -93,6 +96,9 @@ if (!app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 app.UseStaticFiles();
+
+app.UseSession(); 
+
 app.UseRouting();
 app.UseAuthentication();
 app.UseAuthorization();
@@ -100,10 +106,15 @@ app.UseAuthorization();
 app.Use(async (context, next) =>
 {
     var usuario = context.User;
+    bool estaAutenticado = usuario?.Identity?.IsAuthenticated == true;
+
     Inertia.Share("auth", new {
-        usuarioNome = usuario.Identity?.IsAuthenticated == true ? usuario.Identity.Name : null,
-        usuarioPerfil = usuario.FindFirst(ClaimTypes.Role)?.Value
+        usuarioNome = estaAutenticado ? (usuario?.Identity?.Name ?? "Colaborador") : "Colaborador",
+        usuarioPerfil = estaAutenticado ? (usuario?.FindFirst(ClaimTypes.Role)?.Value ?? "Vendedor") : "Vendedor",
+        usuarioFoto = estaAutenticado ? (usuario?.FindFirst("FotoUrl")?.Value ?? usuario?.FindFirst(ClaimTypes.UserData)?.Value) : null,
+        spotifyTokenAtivo = context.Session.GetString("SpotifyToken") != null
     });
+    
     await next();
 });
 

@@ -5,7 +5,7 @@ namespace RETSYS.Domain.Entities
 {
     public class Usuario
     {
-        // Chave primária baseada em UUID (Guid) em vez de int sequencial
+        // Chave primária baseada em UUID (Guid)
         public Guid Id { get; set; } = Guid.NewGuid();
         
         public string Nome { get; set; } = string.Empty;
@@ -17,6 +17,8 @@ namespace RETSYS.Domain.Entities
         
         // Identifica a qual filial o funcionário pertence (ex: "Matriz", "Filial 1")
         public string FilialLoja { get; set; } = string.Empty;
+              
+        public string? FotoUrl { get; set; }
         
         // Nível de acesso (Vendedor, Gerente, Admin)
         public PerfilUsuario Perfil { get; set; } = PerfilUsuario.Vendedor;

@@ -1,7 +1,9 @@
 <template>
-  <div class="min-h-screen bg-slate-50 p-4 md:p-8 font-sans text-slate-900">
-    <div class="max-w-6xl mx-auto space-y-6">
+  <!-- Injeta a moldura unificada com o Header e o Timer automáticos -->
+  <AuthenticatedLayout>
+    <div class="p-4 md:p-8 space-y-6 max-w-6xl mx-auto">
 
+      <!-- Cabeçalho Operacional -->
       <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
           <h1 class="text-2xl font-black text-slate-950">Painel de Ordens de Serviço</h1>
@@ -15,6 +17,7 @@
         </button>
       </div>
 
+      <!-- Tabela Principal -->
       <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
         <div v-if="!(Ordens ?? ordens) || (Ordens ?? ordens).length === 0" class="text-center py-12 border-2 border-dashed border-slate-100 rounded-xl text-slate-400 text-sm">
           Nenhuma ordem de serviço emitida no sistema até o momento.
@@ -65,6 +68,7 @@
         </div>
       </div>
 
+      <!-- Modal de Visualização (Prancheta Clínica) -->
       <div v-if="osSelecionada" class="fixed inset-0 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
         <div class="bg-white rounded-3xl border border-slate-200 shadow-2xl w-full max-w-3xl overflow-hidden animate-fadeIn">
           
@@ -82,10 +86,10 @@
 
           <div class="p-6 space-y-6">
             
+            <!-- Refração de Longe -->
             <div class="space-y-3">
               <h4 class="text-xs font-bold text-teal-600 uppercase tracking-widest border-b border-slate-100 pb-1">Refração de Longe</h4>
               <div class="grid grid-cols-2 gap-4 text-xs font-mono">
-                
                 <div class="bg-slate-50 p-3 rounded-xl border border-slate-150">
                   <p class="font-sans font-bold text-slate-400 mb-1">Olho Direito (OD)</p>
                   <p>Esférico: <span class="font-bold text-slate-800">{{ obterGrau(osSelecionada, 'esfericoLongeDireito') }}</span></p>
@@ -99,10 +103,10 @@
                   <p>Cilíndrico: <span class="font-bold text-slate-800">{{ obterGrau(osSelecionada, 'cilindricoLongeEsquerdo') }}</span></p>
                   <p>Eixo: <span class="font-bold text-slate-800">{{ obterGrauRaw(osSelecionada, 'eixoLongeEsquerdo') }}°</span></p>
                 </div>
-
               </div>
             </div>
 
+            <!-- Refração de Perto -->
             <div class="space-y-3">
               <div class="flex items-center justify-between border-b border-slate-100 pb-1">
                 <h4 class="text-xs font-bold text-indigo-600 uppercase tracking-widest">Refração de Perto</h4>
@@ -111,7 +115,6 @@
                 </span>
               </div>
               <div class="grid grid-cols-2 gap-4 text-xs font-mono">
-                
                 <div class="bg-indigo-50/40 p-3 rounded-xl border border-indigo-100">
                   <p class="font-sans font-bold text-indigo-400 mb-1">Olho Direito (OD)</p>
                   <p>Esférico: <span class="font-bold text-indigo-900">{{ obterGrau(osSelecionada, 'esfericoPertoDireito') }}</span></p>
@@ -125,7 +128,6 @@
                   <p>Cilíndrico: <span class="font-bold text-indigo-900">{{ obterGrau(osSelecionada, 'cilindricoPertoEsquerdo') }}</span></p>
                   <p>Eixo: <span class="font-bold text-indigo-900">{{ obterGrauRaw(osSelecionada, 'eixoPertoEsquerdo') }}°</span></p>
                 </div>
-
               </div>
             </div>
 
@@ -134,14 +136,14 @@
       </div>
 
     </div>
-  </div>
+  </AuthenticatedLayout>
 </template>
 
 <script setup>
 import { ref } from 'vue'
-import{ router } from '@inertiajs/vue3'
+import { router } from '@inertiajs/vue3'
+import AuthenticatedLayout from '../../Shared/AuthenticatedLayout.vue'
 
-// CORRIGIDO: Declarado suporte formal para a prop capitalizada vinda do C#
 defineProps({
   Ordens: Array,
   ordens: Array
@@ -157,7 +159,6 @@ const abrirPranchetaClinica = (ordem) => {
   osSelecionada.value = { ...ordem }
 }
 
-// Auxiliares defensivos para formatação segura na View
 const formatarMoeda = (valor) => {
   if (valor === undefined || valor === null) return '0,00'
   return Number(valor).toFixed(2)
@@ -168,7 +169,6 @@ const formatarData = (dataRaw) => {
   return new Date(dataRaw).toLocaleDateString('pt-BR')
 }
 
-// Resolve o valor aninhado da refração independentemente do nome do nó enviado pelo C#
 const obterBlocoRefracao = (os) => {
   return os?.refracao || os?.Refracao || os?.especificacoes || os?.Especificacoes || os?.graus || os?.Graus || os
 }
@@ -176,8 +176,6 @@ const obterBlocoRefracao = (os) => {
 const obterGrau = (os, chave) => {
   const bloco = obterBlocoRefracao(os)
   if (!bloco) return '0.00'
-  
-  // Tenta capturar a chave em camelCase ou PascalCase
   const chavePascal = chave.charAt(0).toUpperCase() + chave.slice(1)
   const valor = bloco[chave] ?? bloco[chavePascal] ?? 0
   return Number(valor).toFixed(2)
