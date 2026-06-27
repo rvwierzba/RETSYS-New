@@ -5,66 +5,101 @@ namespace RETSYS.Domain.Entities
 {
     public class OrdemServico
     {
-        public Guid Id { get; set; } = Guid.NewGuid(); // os_id 
+        public Guid Id { get; set; } = Guid.NewGuid(); 
         
-        public string NumeroOS { get; set; } = string.Empty; // OS OS 
+        public string NumeroOS { get; set; } = string.Empty; 
         
-       // Chaves Estrangeiras e Relacionamentos 
-        public Guid ClienteId { get; set; } // fk_id_cliente 
+        // ==========================================
+        // CHAVES ESTRANGEIRAS E RELACIONAMENTOS (RBAC)
+        // ==========================================
+        
+        public Guid ClienteId { get; set; } 
         public Cliente Cliente { get; set; } = null!;
         
-        public Guid UsuarioId { get; set; } // Vinculo com o Vendedor/Usuario que operou [cite: 498, 563]
-        public Usuario Usuario { get; set; } = null!;
+        // Vínculo explícito com a vendedora para regras de comissão e isolamento
+        public Guid VendedorId { get; set; } 
+        public Usuario Vendedor { get; set; } = null!;
 
-        // Dados Clínicos e de Receita 
-        public string Medico { get; set; } = string.Empty; // os_medico 
-        public DateTime DataReceita { get; set; } // os_data_receita 
-        public string TipoLente { get; set; } = string.Empty; // os_tipo_lente 
-        public string MarcaModeloLente { get; set; } = string.Empty; // os_marca_modelo_lente 
-        public string MaterialLente { get; set; } = string.Empty; // os_material_lente 
+        // Vínculos com o estoque para baixa automatizada de inventário
+        public Guid ArmacaoId { get; set; }
+        public Armacao Armacao { get; set; } = null!;
+
+        public Guid LenteId { get; set; }
+        public Lente Lente { get; set; } = null!;
         
-        // Bloco de Refração: Longe (Far) 
-        public decimal EsfericoLongeDireito { get; set; } // os_esf_d_long 
-        public decimal EsfericoLongeEsquerdo { get; set; } // os_esf_e_long 
-        public decimal CilindricoLongeDireito { get; set; } // os_oil_d_long 
-        public decimal CilindricoLongeEsquerdo { get; set; } // os_oil_e_long 
-        public int EixoLongeDireito { get; set; } // os_eiko_d_long 
-        public int EixoLongeEsquerdo { get; set; } // os_eixo_e_long 
+        // ==========================================
+        // DADOS CLÍNICOS E MÉDICOS
+        // ==========================================
+        
+        public string Medico { get; set; } = string.Empty; 
+        public string MedicoCrm { get; set; } = string.Empty;
+        public DateTime DataReceita { get; set; } 
+        public string TipoLente { get; set; } = string.Empty; 
+        
+        // ==========================================
+        // BLOCO DE REFRAÇÃO: VISÃO DE LONGE
+        // ==========================================
+        
+        public decimal EsfericoLongeDireito { get; set; } 
+        public decimal EsfericoLongeEsquerdo { get; set; } 
+        public decimal CilindricoLongeDireito { get; set; } 
+        public decimal CilindricoLongeEsquerdo { get; set; } 
+        public int EixoLongeDireito { get; set; } 
+        public int EixoLongeEsquerdo { get; set; } 
 
-        // Adição (Utilizada para calcular a visão de perto) 
-        public decimal Adicao { get; set; } // os_adicao 
+        public decimal Adicao { get; set; } 
 
-       // Bloco de Refração: Perto (Near) - Calculado Automaticamente pelo Sistema! 
-        public decimal EsfericoPertoDireito { get; set; } // os_esf_d_pert 
-        public decimal EsfericoPertoEsquerdo { get; set; } // os_esf_e_pert 
-        public decimal CilindricoPertoDireito { get; set; } // os_cil_d_pert 
-        public decimal CilindricoPertoEsquerdo { get; set; } // os_oil_e_pert 
-        public int EixoPertoDireito { get; set; } // os_eiko_d_pert 
-        public int EixoPertoEsquerdo { get; set; } // os_eiko_e_pert 
+        // ==========================================
+        // BLOCO DE REFRAÇÃO: VISÃO DE PERTO (AUTO)
+        // ==========================================
+        
+        public decimal EsfericoPertoDireito { get; set; } 
+        public decimal EsfericoPertoEsquerdo { get; set; } 
+        public decimal CilindricoPertoDireito { get; set; } 
+        public decimal CilindricoPertoEsquerdo { get; set; } 
+        public int EixoPertoDireito { get; set; } 
+        public int EixoPertoEsquerdo { get; set; } 
 
-        // Valores e Controle Financeiro 
-        public decimal ValorTotal { get; set; } // os_valor_total_venda 
-        public string? Observacoes { get; set; } // os_obs 
-        public DateTime DataVenda { get; set; } = DateTime.UtcNow; // os_data_venda 
-        public DateTime? DataUltimoPagamento { get; set; } // os_data_final pagamer 
+        // ==========================================
+        // MEDIDAS TÉCNICAS REQUERIDAS DO MVP
+        // ==========================================
+        
+        public decimal DnpOd { get; set; } // Distância Naso-Pupilar Olho Direito
+        public decimal DnpOe { get; set; } // Distância Naso-Pupilar Olho Esquerdo
+        public decimal AlturaMontagem { get; set; } // Obrigatório para lentes progressivas
 
-        // Relacionamento com as Parcelas Financeiras [cite: 552]
+        // ==========================================
+        // VALORES E CONTROLE FINANCEIRO
+        // ==========================================
+        
+        public decimal ValorTotalBruto { get; set; } // Soma dos preços sem desconto
+        public decimal DescontoReais { get; set; } 
+        public decimal DescontoPercentual { get; set; } // Calculado em tempo real pelo servidor
+        public decimal ValorTotal { get; set; } // Valor líquido final cobrado do cliente
+        public decimal ValorEntrada { get; set; }
+        
+        public string FormaPagamento { get; set; } = "DINHEIRO";
+        public string? Observacoes { get; set; } 
+        
+        // Linha do tempo e ciclo de vida da OS
+        public DateTime DataVenda { get; set; } = DateTime.UtcNow; 
+        public DateTime? DataPrevistaEntrega { get; set; }
+        public DateTime? DataEntregaReal { get; set; }
+        public DateTime? DataUltimoPagamento { get; set; } 
+
+        public string Status { get; set; } = "EM_ABERTO";
+
+        // Parcelamento associado
         public ICollection<ParcelaPagamento> Parcelas { get; set; } = new List<ParcelaPagamento>();
-
-        // Campo de controle do ciclo de vida da OS (Padrão: Aberta)
-        public string Status { get; set; } = "Aberta";
 
         /// <summary>
         /// Regra de Negócio Ótica: Executa o cálculo automático das lentes de perto
         /// </summary>
         public void CalcularGrauDePerto()
         {
-            // Fórmula óptica padrão para lentes bifocais/multifocais:
-            // Esférico Perto = Esférico Longe + Adição
             EsfericoPertoDireito = EsfericoLongeDireito + Adicao;
             EsfericoPertoEsquerdo = EsfericoLongeEsquerdo + Adicao;
 
-            // Astigmatismo (Cilíndrico) e Eixo não se alteram na transição para perto
             CilindricoPertoDireito = CilindricoLongeDireito;
             CilindricoPertoEsquerdo = CilindricoLongeEsquerdo;
             EixoPertoDireito = EixoLongeDireito;

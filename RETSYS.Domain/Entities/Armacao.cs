@@ -6,23 +6,32 @@ namespace RETSYS.Domain.Entities
     {
         public Guid Id { get; set; } = Guid.NewGuid();
         
-        public string Codigo { get; set; } = string.Empty; // Código de barras/etiqueta
+        // Mapeado como código único de barras/etiqueta (SKU)
+        public string CodigoSku { get; set; } = string.Empty; 
         
-        // Chave estrangeira para a entidade Marca
+        // Preservada a sua arquitetura relacional com a entidade Marca
         public Guid MarcaId { get; set; }
-        public Marca Marca { get; set; } = null!; // Propriedade de navegação do EF Core
+        public Marca Marca { get; set; } = null!; 
         
-        public string Modelo { get; set; } = string.Empty;
+        public string ModeloReferencia { get; set; } = string.Empty;
         
         public string Cor { get; set; } = string.Empty;
         
+        // Mantidos os seus campos originais de especificação física
         public string Tamanho { get; set; } = string.Empty;
-        
         public string Material { get; set; } = string.Empty;
         
-        public int QuantidadeEstoque { get; set; }
+        public string Fornecedor { get; set; } = string.Empty;
         
-        public decimal PrecoFinal { get; set; }
+        // Controles financeiros (Preço de custo visível apenas para ADMIN)
+        public decimal PrecoCusto { get; set; }
+        public decimal PrecoVenda { get; set; }
+        
+        // Indicadores de inventário e gatilhos de nível mínimo
+        public int QuantidadeEstoque { get; set; } = 0;
+        public int QuantidadeMinima { get; set; }
+        
+        public bool Ativo { get; set; } = true;
         
         public DateTime CriadoEm { get; set; } = DateTime.UtcNow;
     }

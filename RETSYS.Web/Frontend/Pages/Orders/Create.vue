@@ -2,6 +2,10 @@
   <AuthenticatedLayout>
     <div class="p-4 md:p-8 space-y-6 max-w-5xl mx-auto">
       
+      <div v-if="$page.props.flash?.erro" class="p-4 bg-red-50 border border-red-200 text-red-800 rounded-xl text-sm font-semibold shadow-sm">
+        🛑 {{ $page.props.flash.erro }}
+      </div>
+
       <div class="bg-white rounded-3xl border border-slate-200 shadow-xl overflow-hidden">
         
         <div class="bg-slate-950 text-white p-6 flex items-center justify-between">
@@ -14,7 +18,7 @@
 
         <form @submit.prevent="salvarOrdemServico" class="p-6 space-y-8">
           
-          <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
             <div>
               <label class="block text-xs font-bold uppercase text-slate-400 tracking-wider mb-2">Cliente *</label>
               <select v-model="form.ClienteId" class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500" required>
@@ -26,7 +30,7 @@
             </div>
             <div>
               <label class="block text-xs font-bold uppercase text-slate-400 tracking-wider mb-2">Vendedor / Atendente *</label>
-              <select v-model="form.UsuarioId" class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500" required>
+              <select v-model="form.VendedorId" class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500" required>
                 <option value="">Selecione o Vendedor</option>
                 <option v-for="v in Vendedores" :key="v.id || v.Id" :value="v.id || v.Id">
                   {{ v.nome || v.Nome }}
@@ -36,6 +40,10 @@
             <div>
               <label class="block text-xs font-bold uppercase text-slate-400 tracking-wider mb-2">Médico Oftalmologista *</label>
               <input v-model="form.Medico" type="text" placeholder="Dr. Nome do Médico" class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500" required />
+            </div>
+            <div>
+              <label class="block text-xs font-bold uppercase text-slate-400 tracking-wider mb-2">CRM do Médico</label>
+              <input v-model="form.MedicoCrm" type="text" placeholder="000000-UF" class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500" />
             </div>
           </div>
 
@@ -48,7 +56,7 @@
                 </h3>
                 <p class="text-xs text-slate-400 mt-0.5">Faça o upload da foto da receita para preenchimento automatizado.</p>
               </div>
-              <span class="text-[10px] font-mono font-bold bg-slate-100 text-slate-600 px-2 py-0.5 rounded border border-slate-200">
+              <span class="text-xs font-mono font-bold bg-slate-100 text-slate-600 px-2 py-0.5 rounded border border-slate-200">
                 Motor Local: Moondream 1.4B
               </span>
             </div>
@@ -104,14 +112,14 @@
               <div class="space-y-2 border-r border-slate-200/60 pr-4">
                 <span class="text-xs font-bold text-slate-400 block">Olho Direito (OD)</span>
                 <input v-model.number="form.EsfericoLongeDireito" type="number" step="0.25" placeholder="Esférico" class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500 font-mono" />
-                <input v-model.number="form.CilindricoLongeDireito" type="number" step="0.25" placeholder="Cilindrico" class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500 font-mono" />
+                <input v-model.number="form.CilindricoLongeDireito" type="number" step="0.25" placeholder="Cilíndrico" class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500 font-mono" />
                 <input v-model.number="form.EixoLongeDireito" type="number" placeholder="Eixo °" class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500 font-mono" />
               </div>
 
               <div class="space-y-2 border-r border-slate-200/60 pr-4">
                 <span class="text-xs font-bold text-slate-400 block">Olho Esquerdo (OE)</span>
                 <input v-model.number="form.EsfericoLongeEsquerdo" type="number" step="0.25" placeholder="Esférico" class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500 font-mono" />
-                <input v-model.number="form.CilindricoLongeEsquerdo" type="number" step="0.25" placeholder="Cilindrico" class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500 font-mono" />
+                <input v-model.number="form.CilindricoLongeEsquerdo" type="number" step="0.25" placeholder="Cilíndrico" class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500 font-mono" />
                 <input v-model.number="form.EixoLongeEsquerdo" type="number" placeholder="Eixo °" class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500 font-mono" />
               </div>
 
@@ -123,18 +131,55 @@
             </div>
           </div>
 
-          <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+          <div class="bg-white p-6 rounded-2xl border border-slate-200 space-y-4">
+            <h3 class="text-sm font-black text-slate-700 uppercase tracking-wider flex items-center gap-2">
+              <span class="w-2 h-2 rounded-full bg-indigo-500"></span> Medidas Técnicas (Centragem)
+            </h3>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+              <div>
+                <label class="block text-xs font-bold uppercase text-slate-400 tracking-wider mb-2">DNP - Olho Direito (mm)</label>
+                <input v-model.number="form.DnpOd" type="number" step="0.5" placeholder="0.0" class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500 font-mono" />
+              </div>
+              <div>
+                <label class="block text-xs font-bold uppercase text-slate-400 tracking-wider mb-2">DNP - Olho Esquerdo (mm)</label>
+                <input v-model.number="form.DnpOe" type="number" step="0.5" placeholder="0.0" class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500 font-mono" />
+              </div>
+              <div>
+                <label class="block text-xs font-bold uppercase text-slate-400 tracking-wider mb-2">Altura de Montagem (mm)</label>
+                <input v-model.number="form.AlturaMontagem" type="number" step="0.5" placeholder="Obrigatório para Progressivas" class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500 font-mono" />
+              </div>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div>
-              <label class="block text-xs font-bold uppercase text-slate-400 tracking-wider mb-2">Tipo de Lente</label>
-              <input v-model="form.TipoLente" type="text" placeholder="Ex: Monofocal, Multifocal" class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500" />
+              <label class="block text-xs font-bold uppercase text-slate-400 tracking-wider mb-2">Armação Escolhida (Estoque) *</label>
+              <select v-model="form.ArmacaoId" class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500" required>
+                <option value="">Selecione a Armação no Inventário</option>
+                <option v-for="a in Armacoes" :key="a.Id" :value="a.Id">
+                  {{ a.ModeloReferencia }} - Cor: {{ a.Cor }} (Qtd: {{ a.QuantidadeEstoque }}) - R$ {{ a.PrecoVenda }}
+                </option>
+              </select>
             </div>
             <div>
-              <label class="block text-xs font-bold uppercase text-slate-400 tracking-wider mb-2">Marca / Modelo</label>
-              <input v-model="form.MarcaModeloLente" type="text" placeholder="Ex: Varilux, Crizal" class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500" />
+              <label class="block text-xs font-bold uppercase text-slate-400 tracking-wider mb-2">Lente do Laboratório *</label>
+              <select v-model="form.LenteId" class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500" required>
+                <option value="">Selecione a Lente Homologada</option>
+                <option v-for="l in Lentes" :key="l.Id" :value="l.Id">
+                  [{{ l.Laboratorio }}] {{ l.Tipo }} - {{ l.Tratamento }} (R$ {{ l.PrecoVenda }})
+                </option>
+              </select>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+            <div>
+              <label class="block text-xs font-bold uppercase text-slate-400 tracking-wider mb-2">Tipo de Lente (Descrição Livre)</label>
+              <input v-model="form.TipoLente" type="text" placeholder="Ex: Progressiva Digital Filtro Azul" class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500" />
             </div>
             <div>
-              <label class="block text-xs font-bold uppercase text-slate-400 tracking-wider mb-2">Material</label>
-              <input v-model="form.MaterialLente" type="text" placeholder="Ex: Resina, Policarbonato" class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500" />
+              <label class="block text-xs font-bold uppercase text-slate-400 tracking-wider mb-2">Observações Gerais da Ordem</label>
+              <input v-model="form.Observacoes" type="text" placeholder="Ex: Cliente possui sensibilidade. Entregar estojo preto." class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500" />
             </div>
           </div>
 
@@ -144,29 +189,60 @@
               <input v-model="form.DataReceita" type="date" class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500" required />
             </div>
             <div>
-              <label class="block text-xs font-bold uppercase text-slate-400 tracking-wider mb-2">Dividir Venda em Quantas Vezes?</label>
-              <select v-model.number="qtdParcelas" class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500 font-mono">
-                <option v-for="n in 6" :key="n" :value="n">{{ n }}x sem juros</option>
-              </select>
+              <label class="block text-xs font-bold uppercase text-slate-400 tracking-wider mb-2">Data Prevista para Entrega</label>
+              <input v-model="form.DataPrevistaEntrega" type="date" class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500" required />
             </div>
             <div>
-              <label class="block text-xs font-bold uppercase text-slate-400 tracking-wider mb-2">Valor Total da Venda (R$) *</label>
-              <input v-model.number="form.ValorTotal" type="number" step="0.01" placeholder="0,00" class="w-full rounded-xl border-slate-200 text-base font-bold text-teal-600 focus:border-teal-500 focus:ring-teal-500 font-mono" required />
+              <label class="block text-xs font-bold uppercase text-slate-400 tracking-wider mb-2">Forma de Pagamento Principal</label>
+              <select v-model="form.FormaPagamento" class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500">
+                <option value="DINHEIRO">Dinheiro à Vista</option>
+                <option value="PIX">Pix Transferência</option>
+                <option value="CARTAO_CREDITO">Cartão de Crédito</option>
+                <option value="CARTAO_DEBITO">Cartão de Débito</option>
+              </select>
             </div>
           </div>
 
-          <div class="flex items-center justify-end gap-3 border-t border-slate-100 pt-4">
-            <Link href="/ordens" class="px-5 py-3 text-sm font-semibold text-slate-500 hover:text-slate-800 transition">
-              Cancelar
-            </Link>
-            <button 
-              type="submit" 
-              :disabled="form.processing"
-              class="bg-teal-600 hover:bg-teal-700 disabled:bg-slate-200 disabled:text-slate-400 text-white font-bold py-3.5 px-8 rounded-xl shadow-md transition text-sm min-w-[200px]"
-            >
-              <span v-if="form.processing">Processando OS...</span>
-              <span v-else>Emitir Ordem de Serviço</span>
-            </button>
+          <div class="bg-teal-50/30 border border-teal-100 p-6 rounded-2xl grid grid-cols-1 sm:grid-cols-4 gap-4">
+            <div>
+              <label class="block text-[11px] font-bold uppercase text-teal-800 tracking-wider mb-1.5">Valor Bruto do Pedido (R$)</label>
+              <input v-model.number="form.ValorTotalBruto" type="number" step="0.01" @input="atualizarValorLiquido" placeholder="0,00" class="w-full rounded-xl border-teal-200 text-sm font-semibold text-slate-700 focus:border-teal-500 focus:ring-teal-500 font-mono" required />
+            </div>
+            <div>
+              <label class="block text-[11px] font-bold uppercase text-teal-800 tracking-wider mb-1.5">Desconto Aplicado (R$)</label>
+              <input v-model.number="form.DescontoReais" type="number" step="0.01" @input="atualizarValorLiquido" placeholder="0,00" class="w-full rounded-xl border-teal-200 text-sm font-semibold text-red-600 focus:border-teal-500 focus:ring-teal-500 font-mono" />
+            </div>
+            <div>
+              <label class="block text-[11px] font-bold uppercase text-teal-800 tracking-wider mb-1.5">Valor Líquido Final (R$)</label>
+              <input v-model.number="form.ValorTotal" type="number" step="0.01" class="w-full rounded-xl border-teal-200 text-base font-black text-teal-600 bg-teal-50/50 font-mono" readonly />
+            </div>
+            <div>
+              <label class="block text-[11px] font-bold uppercase text-teal-800 tracking-wider mb-1.5">Valor da Entrada (Sinal)</label>
+              <input v-model.number="form.ValorEntrada" type="number" step="0.01" placeholder="0,00" class="w-full rounded-xl border-teal-200 text-sm font-semibold text-slate-700 focus:border-teal-500 focus:ring-teal-500 font-mono" />
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-6 items-center border-t border-slate-100 pt-4">
+            <div>
+              <label class="inline-block text-xs font-bold uppercase text-slate-400 tracking-wider mb-2">Dividir saldo em quantas parcelas?</label>
+              <select v-model.number="qtdParcelas" class="w-32 ml-3 rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500 font-mono">
+                <option v-for="n in 6" :key="n" :value="n">{{ n }}x</option>
+              </select>
+            </div>
+
+            <div class="flex items-center justify-end gap-3">
+              <Link href="/ordens" class="px-5 py-3 text-sm font-semibold text-slate-500 hover:text-slate-800 transition">
+                Cancelar
+              </Link>
+              <button 
+                type="submit" 
+                :disabled="form.processing"
+                class="bg-teal-600 hover:bg-teal-700 disabled:bg-slate-200 disabled:text-slate-400 text-white font-bold py-3.5 px-8 rounded-xl shadow-md transition text-sm min-w-[200px]"
+              >
+                <span v-if="form.processing">Processando OS...</span>
+                <span v-else>Emitir Ordem de Serviço</span>
+              </button>
+            </div>
           </div>
 
         </form>
@@ -182,7 +258,9 @@ import AuthenticatedLayout from '../../Shared/AuthenticatedLayout.vue'
 
 defineProps({
   Clientes: Array,
-  Vendedores: Array
+  Vendedores: Array,
+  Armacoes: Array, // Recebe a lista de armações do estoque real
+  Lentes: Array     // Recebe a lista de lentes homologadas
 })
 
 const qtdParcelas = ref(1)
@@ -192,12 +270,17 @@ const arquivoSelecionado = ref(null)
 
 const form = useForm({
   ClienteId: '',
-  UsuarioId: '',
+  VendedorId: '', // Sincronizado com o campo genérico neutro
+  ArmacaoId: '',  // Chave estrangeira obrigatória do estoque
+  LenteId: '',    // Chave estrangeira obrigatória de lentes
   Medico: '',
+  MedicoCrm: '',
   DataReceita: '',
+  DataPrevistaEntrega: '',
   TipoLente: '',
-  MarcaModeloLente: '',
-  MaterialLente: '',
+  Observacoes: '',
+  
+  // Grau Longe
   EsfericoLongeDireito: 0,
   EsfericoLongeEsquerdo: 0,
   CilindricoLongeDireito: 0,
@@ -205,8 +288,27 @@ const form = useForm({
   EixoLongeDireito: 0,
   EixoLongeEsquerdo: 0,
   Adicao: 0,
-  ValorTotal: 0
+  
+  // Medidas Técnicas
+  DnpOd: 0,
+  DnpOe: 0,
+  AlturaMontagem: 0,
+  
+  // Fluxo Financeiro Comercial
+  ValorTotalBruto: 0,
+  DescontoReais: 0,
+  DescontoPercentual: 0,
+  ValorTotal: 0,
+  ValorEntrada: 0,
+  FormaPagamento: 'DINHEIRO'
 })
+
+// Calcula em tempo real o valor final cobrado abatendo o desconto inserido
+const atualizarValorLiquido = () => {
+  const bruto = form.ValorTotalBruto || 0
+  const desconto = form.DescontoReais || 0
+  form.ValorTotal = Math.max(0, bruto - desconto)
+}
 
 const manipularArquivo = (event) => {
   const arquivos = event.target.files

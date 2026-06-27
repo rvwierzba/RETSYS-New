@@ -23,13 +23,13 @@
 
             <div>
               <label class="block text-[11px] font-bold uppercase text-slate-400 tracking-wider mb-1.5">Modelo / Nome *</label>
-              <input v-model="form.Modelo" type="text" placeholder="Ex: Aviator Clássico" class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500" required />
+              <input v-model="form.ModeloReferencia" type="text" placeholder="Ex: Aviator Clássico" class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500" required />
             </div>
 
             <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div>
                 <label class="block text-[11px] font-bold uppercase text-slate-400 tracking-wider mb-1.5">Código / SKU *</label>
-                <input v-model="form.Codigo" type="text" placeholder="Ex: RB3025" class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500 font-mono" required />
+                <input v-model="form.CodigoSku" type="text" placeholder="Ex: RB3025" class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500 font-mono" required />
               </div>
               <div>
                 <label class="block text-[11px] font-bold uppercase text-slate-400 tracking-wider mb-1.5">Cor *</label>
@@ -54,8 +54,8 @@
                 <input v-model.number="form.QuantidadeEstoque" type="number" min="0" class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500" required />
               </div>
               <div>
-                <label class="block text-[11px] font-bold uppercase text-slate-400 tracking-wider mb-1.5">Preço Final (R$)</label>
-                <input v-model.number="form.PrecoFinal" type="number" step="0.01" placeholder="0,00" class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500 font-mono" required />
+                <label class="block text-[11px] font-bold uppercase text-slate-400 tracking-wider mb-1.5">Preço de Venda (R$) *</label>
+                <input v-model.number="form.PrecoVenda" type="number" step="0.01" placeholder="0,00" class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500 font-mono" required />
               </div>
             </div>
 
@@ -91,7 +91,7 @@
               <tbody>
                 <tr v-for="item in Estoque" :key="item.id || item.Id" class="border-b border-slate-50 hover:bg-slate-50/50 transition">
                   <td class="py-4">
-                    <p class="font-bold text-slate-800">{{ item.modelo || item.Modelo }}</p>
+                    <p class="font-bold text-slate-800">{{ item.modeloReferencia || item.ModeloReferencia }}</p>
                     <p class="text-xs text-teal-600 font-medium">
                       {{ item.marcaNome || item.MarcaNome }} 
                       <span class="text-slate-400">• {{ item.material || item.Material || 'N/A' }}</span>
@@ -142,23 +142,26 @@ import AuthenticatedLayout from '../../Shared/AuthenticatedLayout.vue'
 const page = usePage()
 
 // Sincroniza dinamicamente se o usuário possui credenciais corporativas de Admin
-const eAdmin = computed(() => page.props.auth?.usuarioPerfil === 'Admin')
+const eAdmin = computed(() => {
+  const perfil = page.props.auth?.usuarioPerfil || page.props.auth?.user?.perfil || ''
+  return perfil.toLowerCase() === 'admin'
+})
 
 defineProps({
   Estoque: Array,
   Marcas: Array
 })
 
-// CORRIGIDO: Convertido para useForm para controle fino e resiliência a travamentos
+// Adaptado para enviar as propriedades corretas exigidas pela entidade do C#
 const form = useForm({
   MarcaId: '',
-  Modelo: '',
-  Codigo: '',
+  ModeloReferencia: '',
+  CodigoSku: '',
   Cor: '',
   Tamanho: '',
   Material: '',
   QuantidadeEstoque: 1,
-  PrecoFinal: null
+  PrecoVenda: null
 })
 
 const salvarArmacao = () => {
@@ -170,7 +173,6 @@ const salvarArmacao = () => {
   })
 }
 
-// Execução de exclusão restrita a administradores mapeada no C#
 const removerPecaEstoque = (id) => {
   if (!id) return
   if (confirm('Tem certeza de que deseja remover permanentemente esta armação do inventário?')) {

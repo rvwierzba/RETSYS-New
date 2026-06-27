@@ -96,9 +96,8 @@
         </div>
       </template>
 
-      <template v-else>
+      <template v-if="!eAdmin">
         <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
-          
           <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
             <div>
               <span class="text-xs font-bold uppercase text-slate-400 tracking-wider">Minhas Vendas</span>
@@ -129,7 +128,6 @@
             </div>
             <div class="w-12 h-12 rounded-xl bg-white/10 flex items-center justify-center text-white text-xl font-bold">💰</div>
           </div>
-
         </div>
 
         <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
@@ -170,8 +168,11 @@ import AuthenticatedLayout from '../../Shared/AuthenticatedLayout.vue'
 
 const page = usePage()
 
-// Avalia a Role do usuário logado de forma reativa e segura
-const eAdmin = computed(() => page.props.auth?.usuarioPerfil === 'Admin')
+// Avalia o perfil ignorando disparidades de caixa alta/baixa do back-end
+const eAdmin = computed(() => {
+  const perfil = page.props.auth?.usuarioPerfil || page.props.auth?.user?.perfil || ''
+  return perfil.toLowerCase() === 'admin'
+})
 
 const props = defineProps({
   MesFiltro: Number, mesFiltro: Number,
@@ -181,7 +182,7 @@ const props = defineProps({
   RankingVendedores: Array, rankingVendedores: Array,
   FaturamentoPorLoja: Array, faturamentoPorLoja: Array,
   
-  // Props de Fallback injetadas para a visão exclusiva de Vendedores
+  // Props de visão individual do Vendedor
   MinhasVendasTotais: Number, minhasVendasTotais: Number,
   MinhasOSEmitidas: Number, minhasOSEmitidas: Number,
   ComissaoEstimada: Number, comissaoEstimada: Number,
@@ -200,7 +201,7 @@ const meses = [
 
 const anos = [2025, 2026, 2027, 2028]
 
-const atualizarDashboard = () => {
+const actualizarDashboard = () => {
   router.get('/dashboard', { mes: filtros.mes, ano: filtros.ano }, { preserveState: true })
 }
 

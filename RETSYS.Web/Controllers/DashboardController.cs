@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using InertiaCore;
 using RETSYS.Infrastructure.Data;
+using System; // Adicionado para reconhecer o DateTime
 using System.Linq;
 using System.Threading.Tasks;
 
@@ -33,11 +34,11 @@ namespace RETSYS.Web.Controllers
                 .Where(os => os.DataVenda.Month == mesFiltro && os.DataVenda.Year == anoFiltro)
                 .CountAsync();
 
-            // 3. Ranking de Desempenho dos Vendedores (Métricas solicitadas)
+            // 3. Ranking de Desempenho dos Vendedores (Sincronizado com Vendedor)
             var rankingVendedores = await _context.OrdensServico
-                .Include(os => os.Usuario)
+                .Include(os => os.Vendedor)
                 .Where(os => os.DataVenda.Month == mesFiltro && os.DataVenda.Year == anoFiltro)
-                .GroupBy(os => os.Usuario.Nome)
+                .GroupBy(os => os.Vendedor.Nome)
                 .Select(g => new
                 {
                     VendedorNome = g.Key,
@@ -49,9 +50,9 @@ namespace RETSYS.Web.Controllers
 
             // 4. Divisão de faturamento por Filial de Loja
             var faturamentoPorLoja = await _context.OrdensServico
-                .Include(os => os.Usuario)
+                .Include(os => os.Vendedor)
                 .Where(os => os.DataVenda.Month == mesFiltro && os.DataVenda.Year == anoFiltro)
-                .GroupBy(os => os.Usuario.FilialLoja)
+                .GroupBy(os => os.Vendedor.FilialLoja)
                 .Select(g => new
                 {
                     Loja = string.IsNullOrEmpty(g.Key) ? "Não Informada" : g.Key,

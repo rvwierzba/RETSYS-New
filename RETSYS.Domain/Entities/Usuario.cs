@@ -23,7 +23,16 @@ namespace RETSYS.Domain.Entities
         // Nível de acesso (Vendedor, Gerente, Admin)
         public PerfilUsuario Perfil { get; set; } = PerfilUsuario.Vendedor;
         
+        // Percentual máximo de desconto que a vendedora pode conceder
+        public decimal LimiteDesconto { get; set; }
+        
         public bool Ativo { get; set; } = true;
+        
+        // Meta de vendas brutas do mês para análise de dashboard
+        public decimal MetaMensal { get; set; }
+        
+        // Permite desativar comissão por vendedora mantendo o % global ativo
+        public bool ComissaoAtiva { get; set; } = true;
         
         public DateTime CriadoEm { get; set; } = DateTime.UtcNow;
     }

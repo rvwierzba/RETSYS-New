@@ -3,6 +3,9 @@ using Microsoft.EntityFrameworkCore;
 using InertiaCore;
 using RETSYS.Infrastructure.Data;
 using RETSYS.Domain.Entities;
+using System;
+using System.Linq;
+using System.Threading.Tasks;
 
 namespace RETSYS.Web.Controllers
 {
@@ -21,17 +24,17 @@ namespace RETSYS.Web.Controllers
         {
             var estoque = await _context.Armacoes
                 .Include(a => a.Marca)
-                .OrderBy(a => a.Modelo)
+                .OrderBy(a => a.ModeloReferencia)
                 .Select(a => new
                 {
                     a.Id,
-                    a.Modelo,
-                    a.Codigo,
+                    a.ModeloReferencia,
+                    Codigo = a.CodigoSku, // Ajustado para ler a propriedade correta do banco
                     a.Cor,
                     a.Tamanho,
                     a.Material,
                     a.QuantidadeEstoque,
-                    a.PrecoFinal,
+                    PrecoFinal = a.PrecoVenda, // Ajustado para ler o preço de venda atualizado
                     MarcaNome = a.Marca.Nome
                 })
                 .ToListAsync();
@@ -53,7 +56,7 @@ namespace RETSYS.Web.Controllers
         [HttpPost("/estoque")]
         public async Task<IActionResult> Store([FromBody] Armacao novaArmacao)
         {
-            if (string.IsNullOrWhiteSpace(novaArmacao.Modelo) || novaArmacao.MarcaId == Guid.Empty)
+            if (string.IsNullOrWhiteSpace(novaArmacao.ModeloReferencia) || novaArmacao.MarcaId == Guid.Empty)
             {
                 return RedirectToAction(nameof(Index));
             }

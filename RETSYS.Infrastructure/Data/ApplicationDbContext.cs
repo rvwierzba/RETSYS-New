@@ -13,16 +13,22 @@ namespace RETSYS.Infrastructure.Data
         public DbSet<Usuario> Usuarios => Set<Usuario>();
         public DbSet<Marca> Marcas => Set<Marca>();
         public DbSet<Armacao> Armacoes => Set<Armacao>();
+        public DbSet<Lente> Lentes => Set<Lente>();
         public DbSet<Cliente> Clientes => Set<Cliente>();
         public DbSet<OrdemServico> OrdensServico => Set<OrdemServico>();
         public DbSet<ParcelaPagamento> ParcelasPagamento => Set<ParcelaPagamento>();
         public DbSet<ConfiguracaoLoja> ConfiguracoesLoja => Set<ConfiguracaoLoja>();
+        
+        // Novas tabelas do Módulo de Comissionamento
+        public DbSet<ConfiguracaoComissao> ConfiguracoesComissao => Set<ConfiguracaoComissao>();
+        public DbSet<Comissao> Comissoes => Set<Comissao>();
+        public DbSet<FechamentoComissao> FechamentosComissao => Set<FechamentoComissao>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
 
-            // Mapeamento da Tabela USUARIOS (Tabela 2 do TCC)
+            // Mapeamento da Tabela USUARIOS
             modelBuilder.Entity<Usuario>(b =>
             {
                 b.ToTable("usuarios");
@@ -31,15 +37,14 @@ namespace RETSYS.Infrastructure.Data
                 b.Property(u => u.Email).IsRequired().HasMaxLength(150);
                 b.Property(u => u.SenhaHash).IsRequired();
                 b.Property(u => u.FilialLoja).HasMaxLength(100);
-                
-                // Converte o Enum PerfilUsuario para inteiro no banco de dados
                 b.Property(u => u.Perfil).HasConversion<int>();
+                b.Property(u => u.LimiteDesconto).HasPrecision(5, 2);
+                b.Property(u => u.MetaMensal).HasPrecision(18, 2);
 
-                // Índice único para garantir que não existam dois usuários com o mesmo e-mail
                 b.HasIndex(u => u.Email).IsUnique();
             });
 
-            // Mapeamento da Tabela MARCAS (Nova funcionalidade do MVP)
+            // Mapeamento da Tabela MARCAS
             modelBuilder.Entity<Marca>(b =>
             {
                 b.ToTable("marcas");
@@ -48,23 +53,43 @@ namespace RETSYS.Infrastructure.Data
                 b.Property(m => m.Descricao).HasMaxLength(250);
             });
 
-            // Mapeamento da Tabela ARMACOES (Tabela 5 do TCC)
+            // Mapeamento da Tabela ARMACOES
             modelBuilder.Entity<Armacao>(b =>
             {
                 b.ToTable("armacoes");
                 b.HasKey(a => a.Id);
-                b.Property(a => a.Codigo).IsRequired().HasMaxLength(50);
-                b.Property(a => a.Modelo).IsRequired().HasMaxLength(100);
-                b.Property(a => a.PrecoFinal).HasPrecision(18, 2); // Define precisão monetária correta
+                b.Property(a => a.CodigoSku).IsRequired().HasMaxLength(50);
+                b.Property(a => a.ModeloReferencia).IsRequired().HasMaxLength(100);
+                b.Property(a => a.Cor).HasMaxLength(50);
+                b.Property(a => a.Tamanho).HasMaxLength(50);
+                b.Property(a => a.Material).HasMaxLength(100);
+                b.Property(a => a.Fornecedor).HasMaxLength(100);
+                b.Property(a => a.PrecoCusto).HasPrecision(18, 2);
+                b.Property(a => a.PrecoVenda).HasPrecision(18, 2);
 
-                // Relacionamento 1 para Muitos (Uma Marca -> Muitas Armações)
                 b.HasOne(a => a.Marca)
                  .WithMany(m => m.Armacoes)
                  .HasForeignKey(a => a.MarcaId)
-                 .OnDelete(DeleteBehavior.Restrict); // Impede deletar marca se houver armações vinculadas
+                 .OnDelete(DeleteBehavior.Restrict);
             });
 
-            // Mapeamento da Tabela CLIENTES (Tabela 1 do TCC)
+            // Mapeamento da Tabela LENTES
+            modelBuilder.Entity<Lente>(b =>
+            {
+                b.ToTable("lentes");
+                b.HasKey(l => l.Id);
+                b.Property(l => l.CodigoSku).IsRequired().HasMaxLength(50);
+                b.Property(l => l.Laboratorio).IsRequired().HasMaxLength(100);
+                b.Property(l => l.Tipo).IsRequired().HasMaxLength(50);
+                b.Property(l => l.Tratamento).HasMaxLength(100);
+                b.Property(l => l.IndiceRefracao).HasPrecision(4, 2);
+                b.Property(l => l.GraduacaoMin).HasPrecision(5, 2);
+                b.Property(l => l.GraduacaoMax).HasPrecision(5, 2);
+                b.Property(l => l.PrecoCusto).HasPrecision(18, 2);
+                b.Property(l => l.PrecoVenda).HasPrecision(18, 2);
+            });
+
+            // Mapeamento da Tabela CLIENTES
             modelBuilder.Entity<Cliente>(b =>
             {
                 b.ToTable("clientes");
@@ -73,69 +98,147 @@ namespace RETSYS.Infrastructure.Data
                 b.Property(c => c.CPF).IsRequired().HasMaxLength(14);
                 b.Property(c => c.Celular).IsRequired().HasMaxLength(20);
                 
-                // Índice para buscas rápidas por CPF e garantia de unicidade
                 b.HasIndex(c => c.CPF).IsUnique();
             });
 
-            // Mapeamento da Tabela ORDENS_SERVICO (Tabela 7 do TCC)
+            // Mapeamento da Tabela ORDENS_SERVICO
             modelBuilder.Entity<OrdemServico>(b =>
             {
                 b.ToTable("ordens_servico");
                 b.HasKey(os => os.Id);
                 b.Property(os => os.NumeroOS).IsRequired().HasMaxLength(50);
+                b.Property(os => os.Medico).HasMaxLength(100);
+                b.Property(os => os.MedicoCrm).HasMaxLength(50);
+                b.Property(os => os.TipoLente).HasMaxLength(100);
+                b.Property(os => os.FormaPagamento).HasMaxLength(50);
+                b.Property(os => os.Status).HasMaxLength(50);
                 
-                // Mapeamento de precisão decimal para os graus das lentes (essencial no PostgreSQL)
                 b.Property(os => os.EsfericoLongeDireito).HasPrecision(5, 2);
                 b.Property(os => os.EsfericoLongeEsquerdo).HasPrecision(5, 2);
                 b.Property(os => os.CilindricoLongeDireito).HasPrecision(5, 2);
                 b.Property(os => os.CilindricoLongeEsquerdo).HasPrecision(5, 2);
                 b.Property(os => os.Adicao).HasPrecision(5, 2);
-                
                 b.Property(os => os.EsfericoPertoDireito).HasPrecision(5, 2);
                 b.Property(os => os.EsfericoPertoEsquerdo).HasPrecision(5, 2);
                 b.Property(os => os.CilindricoPertoDireito).HasPrecision(5, 2);
                 b.Property(os => os.CilindricoPertoEsquerdo).HasPrecision(5, 2);
                 
+                b.Property(os => os.DnpOd).HasPrecision(4, 1);
+                b.Property(os => os.DnpOe).HasPrecision(4, 1);
+                b.Property(os => os.AlturaMontagem).HasPrecision(4, 1);
+                
+                b.Property(os => os.ValorTotalBruto).HasPrecision(18, 2);
+                b.Property(os => os.DescontoReais).HasPrecision(18, 2);
+                b.Property(os => os.DescontoPercentual).HasPrecision(5, 2);
                 b.Property(os => os.ValorTotal).HasPrecision(18, 2);
+                b.Property(os => os.ValorEntrada).HasPrecision(18, 2);
 
-                // Relacionamento Cliente -> Ordens de Serviço
                 b.HasOne(os => os.Cliente)
                  .WithMany(c => c.OrdensServico)
                  .HasForeignKey(os => os.ClienteId)
                  .OnDelete(DeleteBehavior.Restrict);
 
-                // Relacionamento Vendedor (Usuario) -> Ordens de Serviço
-                b.HasOne(os => os.Usuario)
+                b.HasOne(os => os.Vendedor)
                  .WithMany()
-                 .HasForeignKey(os => os.UsuarioId)
+                 .HasForeignKey(os => os.VendedorId)
+                 .OnDelete(DeleteBehavior.Restrict);
+
+                b.HasOne(os => os.Armacao)
+                 .WithMany()
+                 .HasForeignKey(os => os.ArmacaoId)
+                 .OnDelete(DeleteBehavior.Restrict);
+
+                b.HasOne(os => os.Lente)
+                 .WithMany()
+                 .HasForeignKey(os => os.LenteId)
                  .OnDelete(DeleteBehavior.Restrict);
             });
 
-            // Mapeamento da Tabela PARCELAS_PAGAMENTO (Tabela 3 do TCC)
+            // Mapeamento da Tabela PARCELAS_PAGAMENTO
             modelBuilder.Entity<ParcelaPagamento>(b =>
             {
                 b.ToTable("parcelas_pagamento");
                 b.HasKey(p => p.Id);
                 b.Property(p => p.DescricaoParcela).IsRequired().HasMaxLength(150);
                 b.Property(p => p.Valor).HasPrecision(18, 2);
-                
-                // Armazena o Enum MetodoPagamento como String no banco (melhor legibilidade gerencial)
                 b.Property(p => p.Metodo).HasConversion<string>().HasMaxLength(50);
 
-                // Relacionamento OrdemServico -> Parcelas
                 b.HasOne(p => p.OrdemServico)
                  .WithMany(os => os.Parcelas)
                  .HasForeignKey(p => p.OrdemServicoId)
-                 .OnDelete(DeleteBehavior.Cascade); // Se a OS for deletada, as parcelas vão junto
+                 .OnDelete(DeleteBehavior.Cascade);
             });
 
-            // Mapeamento das Configurações Autônomas da Loção/Ótica (Módulo PIX Opcional)
+            // Mapeamento das Configurações da Loja
             modelBuilder.Entity<ConfiguracaoLoja>(b =>
             {
                 b.ToTable("configuracoes_loja");
                 b.HasKey(c => c.Id);
                 b.Property(c => c.NomeLoja).HasMaxLength(100).IsRequired();
-                b.Property(c => c.PixApiKey).HasMaxLength(500); // Espaço seguro para o token criptografado
+                b.Property(c => c.PixApiKey).HasMaxLength(500);
+            });
+
+            // =======================================================
+            // MAPEAMENTO DOS NOVOS MODELOS DE COMISSIONAMENTO (MÓDULO 5)
+            // =======================================================
+
+            // 1. Configuração de Comissão Global
+            modelBuilder.Entity<ConfiguracaoComissao>(b =>
+            {
+                b.ToTable("configuracao_comissao");
+                b.HasKey(cc => cc.Id);
+                b.Property(cc => cc.PercentualComissao).HasPrecision(5, 2);
+                b.Property(cc => cc.BaseCalculo).HasMaxLength(50).IsRequired();
+                b.Property(cc => cc.MomentoGeracao).HasMaxLength(50).IsRequired();
+
+                b.HasOne(cc => cc.UpdatedBy)
+                 .WithMany()
+                 .HasForeignKey(cc => cc.UpdatedById)
+                 .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            // 2. Registro de Comissões por OS
+            modelBuilder.Entity<Comissao>(b =>
+            {
+                b.ToTable("comissoes");
+                b.HasKey(c => c.Id);
+                b.Property(c => c.ValorBase).HasPrecision(18, 2);
+                b.Property(c => c.PercentualAplicado).HasPrecision(5, 2);
+                b.Property(c => c.ValorComissao).HasPrecision(18, 2);
+                b.Property(c => c.Status).HasMaxLength(30).IsRequired();
+                b.Property(c => c.PeriodoReferencia).HasMaxLength(7).IsRequired();
+                b.Property(c => c.Observacoes).HasMaxLength(250);
+
+                b.HasOne(c => c.OrdemServico)
+                 .WithMany()
+                 .HasForeignKey(c => c.OrdemServicoId)
+                 .OnDelete(DeleteBehavior.Restrict);
+
+                b.HasOne(c => c.Vendedor)
+                 .WithMany()
+                 .HasForeignKey(c => c.VendedorId)
+                 .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            // 3. Fechamento Mensal de Comissões
+            modelBuilder.Entity<FechamentoComissao>(b =>
+            {
+                b.ToTable("fechamentos_comissao");
+                b.HasKey(fc => fc.Id);
+                b.Property(fc => fc.PeriodoReferencia).HasMaxLength(7).IsRequired();
+                b.Property(fc => fc.TotalVendasBrutas).HasPrecision(18, 2);
+                b.Property(fc => fc.TotalComissao).HasPrecision(18, 2);
+                b.Property(fc => fc.Status).HasMaxLength(30).IsRequired();
+
+                b.HasOne(fc => fc.Vendedor)
+                 .WithMany()
+                 .HasForeignKey(fc => fc.VendedorId)
+                 .OnDelete(DeleteBehavior.Restrict);
+
+                b.HasOne(fc => fc.FechadoPor)
+                 .WithMany()
+                 .HasForeignKey(fc => fc.FechadoPorId)
+                 .OnDelete(DeleteBehavior.Restrict);
             });
         }
     }

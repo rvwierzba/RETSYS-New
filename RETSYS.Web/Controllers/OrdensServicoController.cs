@@ -29,15 +29,14 @@ namespace RETSYS.Web.Controllers
         public async Task<IActionResult> Index()
         {
             var usuarioIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            var perfilClaim = User.FindFirst(ClaimTypes.Role)?.Value ?? "VENDEDORA";
+            var perfilClaim = User.FindFirst(ClaimTypes.Role)?.Value ?? "VENDEDOR";
 
             IQueryable<OrdemServico> query = _context.OrdensServico.Include(os => os.Cliente);
 
-            // 🛡️ REGRA: Vendedora só acessa as próprias OSs e clientes (Pág. 1 do PDF)
-            if (perfilClaim == "VENDEDORA" && Guid.TryParse(usuarioIdClaim, out Guid vendedoraId))
+            // 🛡️ Ativado: O Vendedor só acessa as próprias OSs e clientes cadastrados por ele
+            if (perfilClaim == "VENDEDOR" && Guid.TryParse(usuarioIdClaim, out Guid vendedorId))
             {
-                // Se o seu campo na entidade for VendedoraId, descomente a linha abaixo:
-                // query = query.Where(os => os.VendedoraId == vendedoraId);
+                query = query.Where(os => os.VendedorId == vendedorId);
             }
 
             var ordens = await query
@@ -75,7 +74,7 @@ namespace RETSYS.Web.Controllers
         }
 
         // 2. Abre a tela de cadastro de uma nova OS (GET)
-        [HttpGet("/ordens/nova")]
+       [HttpGet("/ordens/nova")]
         public async Task<IActionResult> Criar()
         {
             var clientes = await _context.Clientes
@@ -89,17 +88,50 @@ namespace RETSYS.Web.Controllers
                 .Select(u => new { u.Id, u.Nome })
                 .ToListAsync();
 
+            
+            var armacoes = await _context.Armacoes
+                .Where(a => a.Ativo && a.QuantidadeEstoque > 0)
+                .Select(a => new { a.Id, a.ModeloReferencia, a.Cor, a.QuantidadeEstoque, a.PrecoVenda })
+                .ToListAsync();
+
+            var lentes = await _context.Lentes
+                .Where(l => l.Ativo)
+                .Select(l => new { l.Id, l.Laboratorio, l.Tipo, l.Tratamento, l.PrecoVenda })
+                .ToListAsync();
+
             return Inertia.Render("Orders/Create", new { 
                 Clientes = clientes, 
-                Vendedores = vendedores 
+                Vendedores = vendedores,
+                Armacoes = armacoes, 
+                Lentes = lentes     
             });
         }
 
-        // 3. Processa a gravação da OS (POST)
+        // 3. Processa a gravação da OS com validações financeiras completas e Motor de Comissão (POST)
         [HttpPost("/ordens")]
         public async Task<IActionResult> Store([FromBody] OrdemServico novaOS, [FromQuery] int quantidadeParcelas)
         {
-            // 🔄 REGRA: Numeração sequencial automática por ano (OS-AAAA-NNNNN) (Pág. 11 do PDF)
+            var perfilClaim = User.FindFirst(ClaimTypes.Role)?.Value ?? "VENDEDOR";
+
+            // Busca as configurações do vendedor para validar o teto de desconto autorizado
+            var vendedor = await _context.Usuarios.FindAsync(novaOS.VendedorId);
+            if (vendedor == null)
+            {
+                Inertia.Share("erro", "Vendedor responsável não localizado.");
+                return RedirectToAction(nameof(Criar));
+            }
+
+            // 🔄 Ativado: Cálculo e validação automática do limite de desconto do perfil
+            decimal totalBruto = novaOS.ValorTotalBruto > 0 ? novaOS.ValorTotalBruto : 1;
+            novaOS.DescontoPercentual = (novaOS.DescontoReais / totalBruto) * 100;
+
+            if (perfilClaim != "ADMIN" && novaOS.DescontoPercentual > vendedor.LimiteDesconto)
+            {
+                Inertia.Share("erro", "Desconto acima do limite autorizado. Solicite aprovação do administrador.");
+                return RedirectToAction(nameof(Criar));
+            }
+
+            // Numeração sequencial automática por ano (OS-AAAA-NNNNN)
             int anoAtual = DateTime.UtcNow.Year;
             int sequencialAno = await _context.OrdensServico.Where(os => os.DataVenda.Year == anoAtual).CountAsync() + 1;
             novaOS.NumeroOS = $"OS-{anoAtual}-{sequencialAno.ToString().PadLeft(5, '0')}";
@@ -108,7 +140,7 @@ namespace RETSYS.Web.Controllers
             novaOS.Status = "EM_ABERTO"; 
             novaOS.CalcularGrauDePerto();
 
-            // Gerador de parcelas baseado no seu modelo original
+            // Gerador de parcelas baseado no modelo financeiro
             int parcelas = quantidadeParcelas < 1 ? 1 : quantidadeParcelas;
             decimal valorParcela = Math.Round(novaOS.ValorTotal / parcelas, 2);
 
@@ -124,27 +156,83 @@ namespace RETSYS.Web.Controllers
                 });
             }
 
-            // Nota: As regras de desconto e comissão foram omitidas temporariamente para não quebrar o build
+            // =======================================================
+            // 🔥 MOTOR DE COMISSÕES INTEGRADO (MÓDULO 5)
+            // =======================================================
+            
+            // Busca a taxa global ativa configurada no sistema. Fallback padrão: 5%
+            var configComissao = await _context.ConfiguracoesComissao.FirstOrDefaultAsync(cc => cc.Ativo);
+            decimal percentualTaxa = configComissao?.PercentualComissao ?? 5.00m;
+
+            // A comissão só é instanciada se o vendedor puder pontuar comissões ativas
+            if (vendedor.ComissaoAtiva)
+            {
+                decimal valorComissaoCalculado = Math.Round(novaOS.ValorTotalBruto * (percentualTaxa / 100), 2);
+
+                var novaComissao = new Comissao
+                {
+                    Id = Guid.NewGuid(),
+                    OrdemServicoId = novaOS.Id,
+                    VendedorId = vendedor.Id, 
+                    ValorBase = novaOS.ValorTotalBruto,
+                    PercentualAplicado = percentualTaxa,
+                    ValorComissao = valorComissaoCalculado,
+                    Status = "PENDENTE",
+                    DataGeracao = DateTime.UtcNow,
+                    PeriodoReferencia = DateTime.UtcNow.ToString("yyyy-MM"), // Agrupador para fechamentos mensais
+                    Observacoes = $"Comissão automática gerada na emissão da {novaOS.NumeroOS}"
+                };
+
+                _context.Comissoes.Add(novaComissao);
+            }
+
+            // Salva todo o bloco atômico (OS, parcelas e snapshot da comissão)
             _context.OrdensServico.Add(novaOS);
             await _context.SaveChangesAsync();
 
             return RedirectToRoute(new { controller = "Dashboard", action = "Index" });
         }    
 
-        // 4. Modifica o status de produção da OS (POST)
+        // 4. Modifica o status de produção e executa a baixa/reposição física do estoque (POST)
         [HttpPost("/ordens/alterar-status/{id:guid}")]
         public async Task<IActionResult> AlterarStatus(Guid id, [FromQuery] string novoStatus)
         {
             var ordem = await _context.OrdensServico.FindAsync(id);
             if (ordem == null) return NotFound();
 
+            string statusAnterior = ordem.Status;
             var statusValidos = new[] { "EM_ABERTO", "EM_LABORATORIO", "PRONTO", "ENTREGUE", "CANCELADO" };
-            if (statusValidos.Contains(novoStatus))
+
+            if (!statusValidos.Contains(novoStatus) || statusAnterior == novoStatus)
             {
-                ordem.Status = novoStatus;
-                // Nota: Os gatilhos automáticos de estoque serão ativados quando as tabelas de armação/lente forem acopladas
-                await _context.SaveChangesAsync();
+                return RedirectToAction(nameof(Index));
             }
+
+            // 📦 Ativado: Controle inteligente do fluxo físico de mercadorias do estoque
+            bool estadoAtualAbateEstoque = (novoStatus == "EM_LABORATORIO" || novoStatus == "ENTREGUE");
+            bool estadoAnteriorJáHaviaAbatido = (statusAnterior == "EM_LABORATORIO" || statusAnterior == "ENTREGUE");
+
+            // Cenário A: OS entrou em produção ou saiu para entrega -> Remove 1 unidade do inventário
+            if (estadoAtualAbateEstoque && !estadoAnteriorJáHaviaAbatido)
+            {
+                var armacao = await _context.Armacoes.FindAsync(ordem.ArmacaoId);
+                if (armacao != null) armacao.QuantidadeEstoque = Math.Max(0, armacao.QuantidadeEstoque - 1);
+
+                var lente = await _context.Lentes.FindAsync(ordem.LenteId);
+                if (lente != null) lente.QuantidadeEstoque = Math.Max(0, lente.QuantidadeEstoque - 1);
+            }
+            // Cenário B: OS cancelada vindo de um estado que já tinha dado baixa -> Repõe os produtos
+            else if (novoStatus == "CANCELADO" && estadoAnteriorJáHaviaAbatido)
+            {
+                var armacao = await _context.Armacoes.FindAsync(ordem.ArmacaoId);
+                if (armacao != null) armacao.QuantidadeEstoque++;
+
+                var lente = await _context.Lentes.FindAsync(ordem.LenteId);
+                if (lente != null) lente.QuantidadeEstoque++;
+            }
+
+            ordem.Status = novoStatus;
+            await _context.SaveChangesAsync();
 
             return RedirectToAction(nameof(Index));
         }
