@@ -2,7 +2,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using InertiaCore;
 using RETSYS.Infrastructure.Data;
-using System; // Adicionado para reconhecer o DateTime
+using System;
 using System.Linq;
 using System.Threading.Tasks;
 
@@ -20,29 +20,30 @@ namespace RETSYS.Web.Controllers
         [HttpGet("/dashboard")]
         public async Task<IActionResult> Index([FromQuery] int? mes, [FromQuery] int? ano)
         {
-            // Define o mês e ano corrente como padrão caso venham nulos
             int mesFiltro = mes ?? DateTime.UtcNow.Month;
             int anoFiltro = ano ?? DateTime.UtcNow.Year;
 
-            // 1. Total faturado no período selecionado
+            // 1. Total faturado vindo da tabela os_financeiro
             var totalFaturado = await _context.OrdensServico
-                .Where(os => os.DataVenda.Month == mesFiltro && os.DataVenda.Year == anoFiltro)
-                .SumAsync(os => os.ValorTotal);
+                .Include(os => os.Financeiro)
+                .Where(os => os.DataEntrada.Month == mesFiltro && os.DataEntrada.Year == anoFiltro)
+                .SumAsync(os => os.Financeiro.ValorTotalLiquido);
 
-            // 2. Quantidade total de Ordens de Serviço no período
+            // 2. Quantidade total de Ordens de Serviço
             var totalOS = await _context.OrdensServico
-                .Where(os => os.DataVenda.Month == mesFiltro && os.DataVenda.Year == anoFiltro)
+                .Where(os => os.DataEntrada.Month == mesFiltro && os.DataEntrada.Year == anoFiltro)
                 .CountAsync();
 
-            // 3. Ranking de Desempenho dos Vendedores (Sincronizado com Vendedor)
+            // 3. Ranking de Desempenho dos Vendedores
             var rankingVendedores = await _context.OrdensServico
                 .Include(os => os.Vendedor)
-                .Where(os => os.DataVenda.Month == mesFiltro && os.DataVenda.Year == anoFiltro)
+                .Include(os => os.Financeiro)
+                .Where(os => os.DataEntrada.Month == mesFiltro && os.DataEntrada.Year == anoFiltro)
                 .GroupBy(os => os.Vendedor.Nome)
                 .Select(g => new
                 {
                     VendedorNome = g.Key,
-                    TotalVendas = g.Sum(os => os.ValorTotal),
+                    TotalVendas = g.Sum(os => os.Financeiro.ValorTotalLiquido),
                     QuantidadeOS = g.Count()
                 })
                 .OrderByDescending(v => v.TotalVendas)
@@ -51,16 +52,16 @@ namespace RETSYS.Web.Controllers
             // 4. Divisão de faturamento por Filial de Loja
             var faturamentoPorLoja = await _context.OrdensServico
                 .Include(os => os.Vendedor)
-                .Where(os => os.DataVenda.Month == mesFiltro && os.DataVenda.Year == anoFiltro)
+                .Include(os => os.Financeiro)
+                .Where(os => os.DataEntrada.Month == mesFiltro && os.DataEntrada.Year == anoFiltro)
                 .GroupBy(os => os.Vendedor.FilialLoja)
                 .Select(g => new
                 {
                     Loja = string.IsNullOrEmpty(g.Key) ? "Não Informada" : g.Key,
-                    Total = g.Sum(os => os.ValorTotal)
+                    Total = g.Sum(os => os.Financeiro.ValorTotalLiquido)
                 })
                 .ToListAsync();
 
-            // Envia os dados consolidados para a View do Vue 3
             return Inertia.Render("Dashboard/Index", new
             {
                 MesFiltro = mesFiltro,

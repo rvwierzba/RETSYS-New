@@ -22,30 +22,37 @@ namespace RETSYS.Web.Controllers
         {
             var ordensParaMontagem = await _context.OrdensServico
                 .Include(os => os.Cliente)
-                .Where(os => os.Status == "No Laboratório")
-                .OrderBy(os => os.DataVenda)
+                .Include(os => os.Receita) // Carrega a tabela satélite clínica
+                .Include(os => os.Financeiro)
+                    .ThenInclude(f => f.Lente) // Carrega os dados da lente para capturar o tipo homologado
+                .Where(os => os.Status == "EM_LABORATORIO") // Sincronizado com a string padrão de produção
+                .OrderBy(os => os.DataEntrada) // Corrigido: DataVenda -> DataEntrada
                 .Select(os => new
                 {
                     os.Id,
                     os.NumeroOS,
-                    os.TipoLente,
+                    TipoLente = os.Financeiro.Lente.Tipo, // Extraído da relação física de estoque da lente
                     ClienteNome = os.Cliente.Nome,
-                    // Dados clínicos brutos cruciais para a fabricação dos óculos
+                    
+                    // Dados clínicos cruciais redirecionados para o novo lar: os_receita
                     Especificacoes = new
                     {
-                        os.EsfericoLongeDireito,
-                        os.EsfericoLongeEsquerdo,
-                        os.CilindricoLongeDireito,
-                        os.CilindricoLongeEsquerdo,
-                        os.EixoLongeDireito,
-                        os.EixoLongeEsquerdo,
-                        os.EsfericoPertoDireito,
-                        os.EsfericoPertoEsquerdo,
-                        os.CilindricoPertoDireito,
-                        os.CilindricoPertoEsquerdo,
-                        os.EixoPertoDireito,
-                        os.EixoPertoEsquerdo,
-                        os.Adicao
+                        EsfericoLongeDireito = os.Receita.OdEsferico,
+                        EsfericoLongeEsquerdo = os.Receita.OeEsferico,
+                        CilindricoLongeDireito = os.Receita.OdCilindrico,
+                        CilindricoLongeEsquerdo = os.Receita.OeCilindrico,
+                        EixoLongeDireito = os.Receita.OdEixo,
+                        EixoLongeEsquerdo = os.Receita.OeEixo,
+                        
+                        // Lendo as propriedades computadas dinamicamente na memória da classe OsReceita
+                        EsfericoPertoDireito = os.Receita.OdEsfericoPerto,
+                        EsfericoPertoEsquerdo = os.Receita.OeEsfericoPerto,
+                        CilindricoPertoDireito = os.Receita.OdCilindricoPerto,
+                        CilindricoPertoEsquerdo = os.Receita.OeCilindricoPerto,
+                        EixoPertoDireito = os.Receita.OdEixoPerto,
+                        EixoPertoEsquerdo = os.Receita.OeEixoPerto,
+                        
+                        os.Receita.Adicao
                     }
                 })
                 .ToListAsync();

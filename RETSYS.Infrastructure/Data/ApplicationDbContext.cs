@@ -16,10 +16,12 @@ namespace RETSYS.Infrastructure.Data
         public DbSet<Lente> Lentes => Set<Lente>();
         public DbSet<Cliente> Clientes => Set<Cliente>();
         public DbSet<OrdemServico> OrdensServico => Set<OrdemServico>();
+        public DbSet<OsReceita> OsReceitas => Set<OsReceita>(); // Nova Tabela Clínica 1:1
+        public DbSet<OsFinanceiro> OsFinanceiros => Set<OsFinanceiro>(); // Nova Tabela Comercial 1:1
         public DbSet<ParcelaPagamento> ParcelasPagamento => Set<ParcelaPagamento>();
         public DbSet<ConfiguracaoLoja> ConfiguracoesLoja => Set<ConfiguracaoLoja>();
         
-        // Novas tabelas do Módulo de Comissionamento
+        // Tabelas do Módulo de Comissionamento
         public DbSet<ConfiguracaoComissao> ConfiguracoesComissao => Set<ConfiguracaoComissao>();
         public DbSet<Comissao> Comissoes => Set<Comissao>();
         public DbSet<FechamentoComissao> FechamentosComissao => Set<FechamentoComissao>();
@@ -89,68 +91,104 @@ namespace RETSYS.Infrastructure.Data
                 b.Property(l => l.PrecoVenda).HasPrecision(18, 2);
             });
 
-            // Mapeamento da Tabela CLIENTES
+            // Mapeamento da Tabela CLIENTES (Modificado conforme Ficha CRM unificada)
             modelBuilder.Entity<Cliente>(b =>
             {
                 b.ToTable("clientes");
                 b.HasKey(c => c.Id);
-                b.Property(c => c.Nome).IsRequired().HasMaxLength(250);
+                b.Property(c => c.Nome).IsRequired().HasMaxLength(150); // Alinhado para VARCHAR(150)
                 b.Property(c => c.CPF).IsRequired().HasMaxLength(14);
-                b.Property(c => c.Celular).IsRequired().HasMaxLength(20);
+                b.Property(c => c.Telefone).IsRequired().HasMaxLength(20); // Renomeado Celular -> Telefone
+                b.Property(c => c.Logradouro).IsRequired().HasMaxLength(150);
+                b.Property(c => c.Numero).IsRequired().HasMaxLength(10);
+                b.Property(c => c.Complemento).HasMaxLength(60);
+                b.Property(c => c.Bairro).IsRequired().HasMaxLength(80);
+                b.Property(c => c.Cidade).IsRequired().HasMaxLength(80);
+                b.Property(c => c.Estado).IsRequired().HasMaxLength(2);
+                b.Property(c => c.Cep).IsRequired().HasMaxLength(9);
+                b.Property(c => c.Convenio).HasMaxLength(100);
+                b.Property(c => c.Email).HasMaxLength(150);
+                b.Property(c => c.Observacoes).HasColumnType("text");
                 
                 b.HasIndex(c => c.CPF).IsUnique();
             });
 
-            // Mapeamento da Tabela ORDENS_SERVICO
+            // Mapeamento da Tabela ORDENS_SERVICO (Central / Cabeçalho)
             modelBuilder.Entity<OrdemServico>(b =>
             {
                 b.ToTable("ordens_servico");
                 b.HasKey(os => os.Id);
-                b.Property(os => os.NumeroOS).IsRequired().HasMaxLength(50);
-                b.Property(os => os.Medico).HasMaxLength(100);
-                b.Property(os => os.MedicoCrm).HasMaxLength(50);
-                b.Property(os => os.TipoLente).HasMaxLength(100);
-                b.Property(os => os.FormaPagamento).HasMaxLength(50);
-                b.Property(os => os.Status).HasMaxLength(50);
-                
-                b.Property(os => os.EsfericoLongeDireito).HasPrecision(5, 2);
-                b.Property(os => os.EsfericoLongeEsquerdo).HasPrecision(5, 2);
-                b.Property(os => os.CilindricoLongeDireito).HasPrecision(5, 2);
-                b.Property(os => os.CilindricoLongeEsquerdo).HasPrecision(5, 2);
-                b.Property(os => os.Adicao).HasPrecision(5, 2);
-                b.Property(os => os.EsfericoPertoDireito).HasPrecision(5, 2);
-                b.Property(os => os.EsfericoPertoEsquerdo).HasPrecision(5, 2);
-                b.Property(os => os.CilindricoPertoDireito).HasPrecision(5, 2);
-                b.Property(os => os.CilindricoPertoEsquerdo).HasPrecision(5, 2);
-                
-                b.Property(os => os.DnpOd).HasPrecision(4, 1);
-                b.Property(os => os.DnpOe).HasPrecision(4, 1);
-                b.Property(os => os.AlturaMontagem).HasPrecision(4, 1);
-                
-                b.Property(os => os.ValorTotalBruto).HasPrecision(18, 2);
-                b.Property(os => os.DescontoReais).HasPrecision(18, 2);
-                b.Property(os => os.DescontoPercentual).HasPrecision(5, 2);
-                b.Property(os => os.ValorTotal).HasPrecision(18, 2);
-                b.Property(os => os.ValorEntrada).HasPrecision(18, 2);
+                b.Property(os => os.NumeroOS).IsRequired().HasMaxLength(20); // VARCHAR(20) conforme especificado
+                b.Property(os => os.MedicoNome).HasMaxLength(100);
+                b.Property(os => os.MedicoCrm).HasMaxLength(20);
+                b.Property(os => os.Status).HasMaxLength(50).IsRequired();
+                b.Property(os => os.Observacoes).HasColumnType("text");
 
+                // Relacionamento 1:N (Um Cliente -> Várias OS)
                 b.HasOne(os => os.Cliente)
                  .WithMany(c => c.OrdensServico)
                  .HasForeignKey(os => os.ClienteId)
                  .OnDelete(DeleteBehavior.Restrict);
 
+                // Relacionamento 1:N (Um Vendedor -> Várias OS)
                 b.HasOne(os => os.Vendedor)
                  .WithMany()
                  .HasForeignKey(os => os.VendedorId)
                  .OnDelete(DeleteBehavior.Restrict);
+            });
 
-                b.HasOne(os => os.Armacao)
+            // Mapeamento da Tabela Satélite CLÍNICA (os_receita) - 1:1 com OrdemServico
+            modelBuilder.Entity<OsReceita>(b =>
+            {
+                b.ToTable("os_receita");
+                b.HasKey(r => r.OsId); // OsId serve de PK e FK ao mesmo tempo
+
+                b.Property(r => r.OdEsferico).HasPrecision(5, 2);
+                b.Property(r => r.OdCilindrico).HasPrecision(5, 2);
+                b.Property(r => r.OeEsferico).HasPrecision(5, 2);
+                b.Property(r => r.OeCilindrico).HasPrecision(5, 2);
+                b.Property(r => r.Adicao).HasPrecision(4, 2);
+                
+                b.Property(r => r.DnpOd).HasPrecision(4, 1);
+                b.Property(r => r.DnpOe).HasPrecision(4, 1);
+                b.Property(r => r.AlturaMontagem).HasPrecision(4, 1);
+                b.Property(r => r.ObsReceita).HasColumnType("text");
+
+                // Declaração explícita do vinculo 1:1 com cascade delete
+                b.HasOne(r => r.OrdemServico)
+                 .WithOne(os => os.Receita)
+                 .HasForeignKey<OsReceita>(r => r.OsId)
+                 .OnDelete(DeleteBehavior.Cascade);
+            });
+
+            // Mapeamento da Tabela Satélite COMERCIAL (os_financeiro) - 1:1 com OrdemServico
+            modelBuilder.Entity<OsFinanceiro>(b =>
+            {
+                b.ToTable("os_financeiro");
+                b.HasKey(f => f.OsId);
+
+                b.Property(f => f.ValorTotalBruto).HasPrecision(10, 2);
+                b.Property(f => f.DescontoReais).HasPrecision(10, 2);
+                b.Property(f => f.DescontoPercentual).HasPrecision(5, 2);
+                b.Property(f => f.ValorTotalLiquido).HasPrecision(10, 2);
+                b.Property(f => f.FormaPagamento).HasMaxLength(50).IsRequired();
+                b.Property(f => f.ValorEntrada).HasPrecision(10, 2);
+
+                // Configura o vínculo 1:1 com a OS pai
+                b.HasOne(f => f.OrdemServico)
+                 .WithOne(os => os.Financeiro)
+                 .HasForeignKey<OsFinanceiro>(f => f.OsId)
+                 .OnDelete(DeleteBehavior.Cascade);
+
+                // Os relacionamentos de estoque agora se prendem na tabela financeira
+                b.HasOne(f => f.Armacao)
                  .WithMany()
-                 .HasForeignKey(os => os.ArmacaoId)
+                 .HasForeignKey(f => f.ArmacaoId)
                  .OnDelete(DeleteBehavior.Restrict);
 
-                b.HasOne(os => os.Lente)
+                b.HasOne(f => f.Lente)
                  .WithMany()
-                 .HasForeignKey(os => os.LenteId)
+                 .HasForeignKey(f => f.LenteId)
                  .OnDelete(DeleteBehavior.Restrict);
             });
 
@@ -178,11 +216,7 @@ namespace RETSYS.Infrastructure.Data
                 b.Property(c => c.PixApiKey).HasMaxLength(500);
             });
 
-            // =======================================================
-            // MAPEAMENTO DOS NOVOS MODELOS DE COMISSIONAMENTO (MÓDULO 5)
-            // =======================================================
-
-            // 1. Configuração de Comissão Global
+            // Mapeamento do Módulo de Comissionamento (MÓDULO 5)
             modelBuilder.Entity<ConfiguracaoComissao>(b =>
             {
                 b.ToTable("configuracao_comissao");
@@ -197,7 +231,6 @@ namespace RETSYS.Infrastructure.Data
                  .OnDelete(DeleteBehavior.Restrict);
             });
 
-            // 2. Registro de Comissões por OS
             modelBuilder.Entity<Comissao>(b =>
             {
                 b.ToTable("comissoes");
@@ -220,7 +253,6 @@ namespace RETSYS.Infrastructure.Data
                  .OnDelete(DeleteBehavior.Restrict);
             });
 
-            // 3. Fechamento Mensal de Comissões
             modelBuilder.Entity<FechamentoComissao>(b =>
             {
                 b.ToTable("fechamentos_comissao");

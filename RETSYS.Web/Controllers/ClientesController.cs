@@ -39,7 +39,7 @@ namespace RETSYS.Web.Controllers
                     c.Id,
                     c.Nome,
                     c.CPF,
-                    c.Celular
+                    c.Telefone // Corrigido: Celular -> Telefone conforme o novo esquema do banco
                 })
                 .ToListAsync();
 
@@ -77,9 +77,9 @@ namespace RETSYS.Web.Controllers
         [HttpGet("/clientes/{id:guid}/historico")]
         public async Task<IActionResult> Historico(Guid id)
         {
-            // Busca o cliente respeitando a propriedade real 'Celular' do seu banco
+            // Busca o cliente respeitando a nova propriedade estrutural 'Telefone'
             var cliente = await _context.Clientes
-                .Select(c => new { c.Id, c.Nome, c.CPF, c.Celular })
+                .Select(c => new { c.Id, c.Nome, c.CPF, c.Telefone, c.Convenio, c.Email, c.Observacoes })
                 .FirstOrDefaultAsync(c => c.Id == id);
 
             if (cliente == null)
@@ -87,41 +87,50 @@ namespace RETSYS.Web.Controllers
                 return RedirectToAction(nameof(Index));
             }
 
-            // Busca todas as OSs vinculadas a este paciente para montar a evolução de grau
+            // Busca todas as OSs vinculadas a este paciente com o carregamento das tabelas 1:1
             var historicoOS = await _context.OrdensServico
+                .Include(os => os.Receita)
+                .Include(os => os.Financeiro)
                 .Where(os => os.ClienteId == id)
-                .OrderByDescending(os => os.DataVenda)
+                .OrderByDescending(os => os.DataEntrada) // Corrigido: DataVenda -> DataEntrada
                 .Select(os => new
                 {
                     os.NumeroOS,
-                    os.DataVenda,
-                    os.Medico,
-                    os.TipoLente,
-                    os.ValorTotal,
+                    DataVenda = os.DataEntrada, // Mantido o apelido para o front-end consumir sem quebras
+                    Medico = os.MedicoNome,      // Corrigido: Medico -> MedicoNome
+                    ValorTotal = os.Financeiro.ValorTotalLiquido, // Corrigido: lendo da tabela satélite comercial
                     os.Status,
                     Graus = new
                     {
-                        os.EsfericoLongeDireito,
-                        os.EsfericoLongeEsquerdo,
-                        os.CilindricoLongeDireito,
-                        os.CilindricoLongeEsquerdo,
-                        os.EixoLongeDireito,
-                        os.EixoLongeEsquerdo,
-                        os.EsfericoPertoDireito,
-                        os.EsfericoPertoEsquerdo,
-                        os.CilindricoPertoDireito,
-                        os.CilindricoPertoEsquerdo,
-                        os.EixoPertoDireito,
-                        os.EixoPertoEsquerdo,
-                        os.Adicao
+                        EsfericoLongeDireito = os.Receita.OdEsferico,
+                        CilindricoLongeDireito = os.Receita.OdCilindrico,
+                        EixoLongeDireito = os.Receita.OdEixo,
+                        EsfericoLongeEsquerdo = os.Receita.OeEsferico,
+                        CilindricoLongeEsquerdo = os.Receita.OeCilindrico,
+                        EixoLongeEsquerdo = os.Receita.OeEixo,
+                        os.Receita.Adicao,
+                        // Propriedades inteligentes calculadas em tempo real na memória da Entidade OsReceita
+                        EsfericoPertoDireito = os.Receita.OdEsfericoPerto,
+                        EsfericoPertoEsquerdo = os.Receita.OeEsfericoPerto,
+                        CilindricoPertoDireito = os.Receita.OdCilindricoPerto,
+                        CilindricoPertoEsquerdo = os.Receita.OeCilindricoPerto,
+                        EixoPertoDireito = os.Receita.OdEixoPerto,
+                        EixoPertoEsquerdo = os.Receita.OeEixoPerto
                     }
                 })
                 .ToListAsync();
 
+            // 🔥 Inteligência de CRM: Total gasto calculado dinamicamente com base nas ordens já finalizadas e entregues
+            decimal totalGastoHistorico = await _context.OrdensServico
+                .Include(os => os.Financeiro)
+                .Where(os => os.ClienteId == id && os.Status == "ENTREGUE")
+                .SumAsync(os => os.Financeiro.ValorTotalLiquido);
+
             return Inertia.Render("Clientes/Historico", new
             {
                 Cliente = cliente,
-                Historico = historicoOS
+                Historico = historicoOS,
+                TotalGasto = totalGastoHistorico // Enviado para preencher o indicador visual na tela
             });
         }
     }
