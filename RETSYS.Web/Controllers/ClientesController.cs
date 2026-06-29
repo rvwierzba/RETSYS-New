@@ -19,13 +19,14 @@ namespace RETSYS.Web.Controllers
         }
 
         // 1. Listagem e Busca Avançada (GET)
-        [HttpGet("/clientes")]
+       [HttpGet("/clientes")]
         public async Task<IActionResult> Index([FromQuery] string? busca)
         {
-            // Cria a query base apontando para a tabela de clientes
-            var query = _context.Clientes.AsQueryable();
+            var query = _context.Clientes
+                .Include(c => c.OrdensServico)
+                    .ThenInclude(os => os.Financeiro)
+                .AsQueryable();
 
-            // Se o usuário digitou algo no campo de busca, filtra por Nome ou CPF
             if (!string.IsNullOrWhiteSpace(busca))
             {
                 var termo = busca.Trim().ToLower();
@@ -39,11 +40,12 @@ namespace RETSYS.Web.Controllers
                     c.Id,
                     c.Nome,
                     c.CPF,
-                    c.Telefone // Corrigido: Celular -> Telefone conforme o novo esquema do banco
+                    c.Telefone,
+                    UltimaOs = c.OrdensServico.OrderByDescending(os => os.DataEntrada).Select(os => os.NumeroOS).FirstOrDefault() ?? "Nenhuma",
+                    TotalGasto = c.OrdensServico.Where(os => os.Status == "ENTREGUE").Sum(os => os.Financeiro.ValorTotalLiquido)
                 })
                 .ToListAsync();
 
-            // Renderiza Frontend/Pages/Clientes/Index.vue repassando a lista e o termo buscado
             return Inertia.Render("Clientes/Index", new { 
                 Clientes = listaClientes,
                 FiltroBusca = busca 

@@ -6,7 +6,7 @@ namespace RETSYS.Domain.Entities
     {
         public Guid OsId { get; set; } // FK e PK compartilhada
         public OrdemServico OrdemServico { get; set; } = null!;
-        
+       
         public Guid ArmacaoId { get; set; }
         public Armacao Armacao { get; set; } = null!;
         
@@ -19,7 +19,11 @@ namespace RETSYS.Domain.Entities
         public decimal ValorTotalLiquido { get; set; } // Valor final cobrado do cliente
         
         public string FormaPagamento { get; set; } = "DINHEIRO"; // DINHEIRO, PIX, CARTAO_CREDITO, etc.
-        public int Parcelas { get; set; } = 1;
+        public int? Parcelas { get; set; } = 1;
         public decimal? ValorEntrada { get; set; }
+        public decimal ValorArmacao { get; set; } // Preço de venda da armação no momento da OS
+        public decimal ValorLente { get; set; }   // Preço de venda da lente no momento da OS
+
+
     }
 }

@@ -123,6 +123,7 @@ namespace RETSYS.Infrastructure.Data
                 b.Property(os => os.MedicoCrm).HasMaxLength(20);
                 b.Property(os => os.Status).HasMaxLength(50).IsRequired();
                 b.Property(os => os.Observacoes).HasColumnType("text");
+                b.Property(os => os.MedicoTipo).HasMaxLength(30).IsRequired().HasDefaultValue("NAO_ESPECIFICADO");
 
                 // Relacionamento 1:N (Um Cliente -> Várias OS)
                 b.HasOne(os => os.Cliente)
@@ -173,6 +174,9 @@ namespace RETSYS.Infrastructure.Data
                 b.Property(f => f.ValorTotalLiquido).HasPrecision(10, 2);
                 b.Property(f => f.FormaPagamento).HasMaxLength(50).IsRequired();
                 b.Property(f => f.ValorEntrada).HasPrecision(10, 2);
+                b.Property(f => f.ValorArmacao).HasPrecision(10, 2).IsRequired();
+                b.Property(f => f.ValorLente).HasPrecision(10, 2).IsRequired();
+                b.Property(f => f.Parcelas).IsRequired(false);
 
                 // Configura o vínculo 1:1 com a OS pai
                 b.HasOne(f => f.OrdemServico)

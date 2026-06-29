@@ -28,7 +28,7 @@ namespace RETSYS.Domain.Entities
         // Relacionamentos 1:1 Obrigatórios (Novas tabelas do TCC)
         public OsReceita Receita { get; set; } = null!;
         public OsFinanceiro Financeiro { get; set; } = null!;
-        
+        public string MedicoTipo { get; set; } = "NAO_ESPECIFICADO"; // OFTALMOLOGISTA, OPTOMETRISTA, NAO_ESPECIFICADO
         // Relacionamento 1:Muitos com as parcelas financeiras
         public ICollection<ParcelaPagamento> Parcelas { get; set; } = new List<ParcelaPagamento>();
     }

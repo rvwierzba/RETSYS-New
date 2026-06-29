@@ -100,53 +100,61 @@ namespace RETSYS.Web.Controllers
 
         // 3. Processa a gravação Unificada da OS + Fluxo Automático de Cliente (POST)
         [HttpPost("/ordens")]
-        public async Task<IActionResult> Store([FromBody] JsonElement raiz, [FromQuery] int quantidadeParcelas)
+        public async Task<IActionResult> Store([FromBody] JsonElement raiz, [FromQuery] int? quantidadeParcelas)
         {
             var perfilClaim = User.FindFirst(ClaimTypes.Role)?.Value ?? "VENDEDOR";
 
             Guid vendedorId = Guid.Parse(raiz.GetProperty("vendedorId").GetString()!);
             var vendedor = await _context.Usuarios.FindAsync(vendedorId);
-            if (vendedor == null)
-            {
-                Inertia.Share("erro", "Vendedor responsável não localizado.");
-                return RedirectToAction(nameof(Criar));
-            }
-
-            // 💳 VALIDAÇÃO DE ALÇADA DE DESCONTO
-            decimal totalBruto = raiz.GetProperty("valorTotalBruto").GetDecimal();
-            decimal descontoReais = raiz.GetProperty("descontoReais").GetDecimal();
-            decimal descontoPercentual = totalBruto > 0 ? (descontoReais / totalBruto) * 100 : 0;
-
-            if (perfilClaim != "ADMIN" && descontoPercentual > vendedor.LimiteDesconto)
-            {
-                Inertia.Share("erro", "Desconto acima do limite autorizado. Solicite aprovação do administrador.");
-                return RedirectToAction(nameof(Criar));
-            }
+            if (vendedor == null) return BadRequest("Vendedor não localizado.");
 
             // 👤 FLUXO DO CLIENTE (CRM AUTOMÁTICO)
             string cpfInformado = raiz.GetProperty("cpf").GetString()!;
             var cliente = await _context.Clientes.FirstOrDefaultAsync(c => c.CPF == cpfInformado);
-
             if (cliente == null)
             {
-                // CPF Não cadastrado: Instancia um novo registro no CRM
                 cliente = new Cliente { Id = Guid.NewGuid(), CPF = cpfInformado };
                 _context.Clientes.Add(cliente);
             }
-
-            // Mapeia ou atualiza os dados cadastrais com as informações mais recentes do balcão
+            
+            // Atualiza cadastro básico
             cliente.Nome = raiz.GetProperty("nome").GetString()!;
             cliente.Telefone = raiz.GetProperty("telefone").GetString()!;
             cliente.Logradouro = raiz.GetProperty("logradouro").GetString()!;
             cliente.Numero = raiz.GetProperty("numero").GetString()!;
-            cliente.Complemento = raiz.TryGetProperty("complemento", out var comp) && comp.ValueKind != JsonValueKind.Null ? comp.GetString() : null;
             cliente.Bairro = raiz.GetProperty("bairro").GetString()!;
             cliente.Cidade = raiz.GetProperty("cidade").GetString()!;
             cliente.Estado = raiz.GetProperty("estado").GetString()!;
             cliente.Cep = raiz.GetProperty("cep").GetString()!;
-            cliente.Convenio = raiz.TryGetProperty("convenio", out var conv) && conv.ValueKind != JsonValueKind.Null ? conv.GetString() : null;
-            cliente.Email = raiz.TryGetProperty("email", out var mail) && mail.ValueKind != JsonValueKind.Null ? mail.GetString() : null;
             cliente.UpdatedAt = DateTime.UtcNow;
+
+            // 💳 INVERSÃO DA LÓGICA DE CÁLCULO E VALIDAÇÕES FINANCEIRAS
+            decimal valorArmacao = raiz.GetProperty("valorArmacao").GetDecimal();
+            decimal valorLente = raiz.GetProperty("valorLente").GetDecimal();
+            decimal totalBruto = valorArmacao + valorLente;
+
+            decimal descontoPercentual = raiz.GetProperty("descontoPercentual").GetDecimal();
+            
+            // Trava de Alçada de Desconto Corporativo
+            if (perfilClaim != "ADMIN" && descontoPercentual > vendedor.LimiteDesconto)
+            {
+                Inertia.Share("erro", "Desconto acima do limite autorizado. Solicite aprovação do administrador.");
+                return RedirectToAction("Criar");
+            }
+
+            decimal descontoReais = Math.Round(totalBruto * (descontoPercentual / 100), 2);
+            decimal valorTotalLiquido = totalBruto - descontoReais;
+
+            string formaPagamento = raiz.GetProperty("formaPagamento").GetString()!;
+            int? parcelasFinais = null;
+            int loopParcelas = 1;
+
+            // Condicional de Parcelamento exclusivo para Cartão de Crédito
+            if (formaPagamento == "CARTAO_CREDITO")
+            {
+                parcelasFinais = quantidadeParcelas ?? throw new Exception("Defina o número de parcelas para o cartão de crédito.");
+                loopParcelas = parcelasFinais.Value;
+            }
 
             // 📄 MONTAGEM DO CABEÇALHO DA OS
             var novaOS = new OrdemServico
@@ -157,17 +165,17 @@ namespace RETSYS.Web.Controllers
                 DataEntrada = DateTime.UtcNow,
                 DataPrevistaEntrega = raiz.GetProperty("dataPrevistaEntrega").GetDateTime(),
                 Status = "EM_ABERTO",
-                MedicoNome = raiz.GetProperty("medicoNome").GetString(),
-                MedicoCrm = raiz.GetProperty("medicoCrm").GetString(),
-                Observacoes = raiz.TryGetProperty("observacoes", out var obs) && obs.ValueKind != JsonValueKind.Null ? obs.GetString() : null
+                MedicoNome = raiz.TryGetProperty("medicoNome", out var mn) ? mn.GetString() : null,
+                MedicoCrm = raiz.TryGetProperty("medicoCrm", out var mc) ? mc.GetString() : null,
+                MedicoTipo = raiz.GetProperty("medicoTipo").GetString() ?? "NAO_ESPECIFICADO",
+                Observacoes = raiz.TryGetProperty("observacoes", out var obs) ? obs.GetString() : null
             };
 
-            // Numeração Sequencial por Ano
             int anoAtual = DateTime.UtcNow.Year;
             int sequencialAno = await _context.OrdensServico.Where(os => os.DataEntrada.Year == anoAtual).CountAsync() + 1;
             novaOS.NumeroOS = $"OS-{anoAtual}-{sequencialAno.ToString().PadLeft(5, '0')}";
 
-            // 👁️ MONTAGEM DA TABELA SATÉLITE CLÍNICA (os_receita)
+            // 👁️ MONTAGEM DA RECEITA (os_receita)
             novaOS.Receita = new OsReceita
             {
                 OsId = novaOS.Id,
@@ -180,65 +188,44 @@ namespace RETSYS.Web.Controllers
                 Adicao = raiz.TryGetProperty("adicao", out var ad) && ad.ValueKind != JsonValueKind.Null ? ad.GetDecimal() : null,
                 DnpOd = raiz.GetProperty("dnpOd").GetDecimal(),
                 DnpOe = raiz.GetProperty("dnpOe").GetDecimal(),
-                AlturaMontagem = raiz.TryGetProperty("alturaMontagem", out var alt) && alt.ValueKind != JsonValueKind.Null ? alt.GetDecimal() : null,
-                ObsReceita = raiz.TryGetProperty("obsReceita", out var obsR) && obsR.ValueKind != JsonValueKind.Null ? obsR.GetString() : null
+                AlturaMontagem = raiz.TryGetProperty("alturaMontagem", out var alt) && alt.ValueKind != JsonValueKind.Null ? alt.GetDecimal() : null
             };
 
-            // 💳 MONTAGEM DA TABELA SATÉLITE COMERCIAL (os_financeiro)
+            // 💳 MONTAGEM DO FINANCEIRO (os_financeiro)
             novaOS.Financeiro = new OsFinanceiro
             {
                 OsId = novaOS.Id,
                 ArmacaoId = Guid.Parse(raiz.GetProperty("armacaoId").GetString()!),
                 LenteId = Guid.Parse(raiz.GetProperty("lenteId").GetString()!),
+                ValorArmacao = valorArmacao,
+                ValorLente = valorLente,
                 ValorTotalBruto = totalBruto,
-                DescontoReais = descontoReais,
                 DescontoPercentual = descontoPercentual,
-                ValorTotalLiquido = raiz.GetProperty("valorTotalLiquido").GetDecimal(),
-                FormaPagamento = raiz.GetProperty("formaPagamento").GetString()!,
-                Parcelas = quantidadeParcelas,
+                DescontoReais = descontoReais,
+                ValorTotalLiquido = valorTotalLiquido,
+                FormaPagamento = formaPagamento,
+                Parcelas = parcelasFinais,
                 ValorEntrada = raiz.TryGetProperty("valorEntrada", out var ent) && ent.ValueKind != JsonValueKind.Null ? ent.GetDecimal() : null
             };
 
-            // 💸 GERADOR DE PARCELAS FINANCEIRAS
-            int parcelas = quantidadeParcelas < 1 ? 1 : quantidadeParcelas;
-            decimal valorParcela = Math.Round(novaOS.Financeiro.ValorTotalLiquido / parcelas, 2);
-
-            for (int i = 1; i <= parcelas; i++)
+            // Gerador de Parcelas
+            decimal valorParcela = Math.Round(valorTotalLiquido / loopParcelas, 2);
+            for (int i = 1; i <= loopParcelas; i++)
             {
                 novaOS.Parcelas.Add(new ParcelaPagamento
                 {
                     Id = Guid.NewGuid(),
                     NumeroParcela = i,
-                    DescricaoParcela = $"PARC. {i}/{parcelas} - REF OS: {novaOS.NumeroOS}",
-                    Valor = i == parcelas ? (novaOS.Financeiro.ValorTotalLiquido - (valorParcela * (parcelas - 1))) : valorParcela,
+                    DescricaoParcela = $"PARC. {i}/{loopParcelas} - OS: {novaOS.NumeroOS}",
+                    Valor = i == loopParcelas ? (valorTotalLiquido - (valorParcela * (loopParcelas - 1))) : valorParcela,
                     DataVencimento = DateTime.UtcNow.AddMonths(i)
-                });
-            }
-
-            // 💰 CÁLCULO DE COMISSÃO AUTOMÁTICA
-            var configComissao = await _context.ConfiguracoesComissao.FirstOrDefaultAsync(cc => cc.Ativo);
-            decimal percentualTaxa = configComissao?.PercentualComissao ?? 5.00m;
-
-            if (vendedor.ComissaoAtiva)
-            {
-                _context.Comissoes.Add(new Comissao
-                {
-                    Id = Guid.NewGuid(),
-                    OrdemServicoId = novaOS.Id,
-                    VendedorId = vendedor.Id,
-                    ValorBase = novaOS.Financeiro.ValorTotalBruto,
-                    PercentualAplicado = percentualTaxa,
-                    ValorComissao = Math.Round(novaOS.Financeiro.ValorTotalBruto * (percentualTaxa / 100), 2),
-                    Status = "PENDENTE",
-                    PeriodoReferencia = DateTime.UtcNow.ToString("yyyy-MM")
                 });
             }
 
             _context.OrdensServico.Add(novaOS);
             await _context.SaveChangesAsync();
-
             return RedirectToRoute(new { controller = "Dashboard", action = "Index" });
-        }    
+        }
 
         // 4. Modifica o status de produção e executa a baixa/reposição física do estoque (POST)
         [HttpPost("/ordens/alterar-status/{id:guid}")]
