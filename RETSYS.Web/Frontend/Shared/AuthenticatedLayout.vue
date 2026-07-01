@@ -1,17 +1,29 @@
 <template>
   <div class="min-h-screen bg-slate-50 font-sans text-slate-900 flex flex-col">
     
+    <!-- Cabeçalho Principal sticky -->
     <header class="bg-slate-950 text-white px-6 py-4 flex items-center justify-between border-b border-slate-800 sticky top-0 z-50">
       
       <nav class="flex items-center space-x-6 text-sm font-medium">
-        <span class="text-xl font-black tracking-wider text-white font-mono mr-4">
-          RET<span class="text-teal-400">SYS</span>
-        </span>
+        <!-- Divisão integrada com a nova logo WO e a marca RETSYS -->
+        <div class="flex items-center gap-3 mr-4">
+          <!-- Corrigido com :src dinâmico para ignorar a compilação do Vite -->
+          <img 
+            :src="'/img/logo-wo.png'" 
+            alt="WO Logo" 
+            class="h-9 w-auto object-contain hover:scale-105 transition duration-200"
+          />
+          <span class="text-xl font-black tracking-wider text-white font-mono">
+            RET<span class="text-teal-400">SYS</span>
+          </span>
+        </div>
         
         <Link href="/dashboard" class="hover:text-teal-400 transition">Dashboard</Link>
         <Link href="/ordens" class="hover:text-teal-400 transition">Ordens de Serviço</Link>
         <Link href="/clientes" class="hover:text-teal-400 transition">Clientes</Link>
         <Link href="/estoque" class="hover:text-teal-400 transition">Armações</Link>
+        <!-- Novo link para a gestão de Lentes e Tabelas de Preços, adicionado para a revisão de 01/07 -->
+        <Link href="/lentes" class="hover:text-teal-400 transition">Lentes</Link>
 
         <template v-if="perfil === 'Admin'">
           <Link href="/equipe" class="text-indigo-400 hover:text-indigo-300 transition pl-2 border-l border-slate-800">
@@ -23,11 +35,12 @@
         </template>
       </nav>
 
+      <!-- Perfil do Utilizador e Menu Suspenso -->
       <div class="relative flex items-center gap-4">
         <div class="text-right hidden sm:block">
           <p class="text-xs font-bold text-slate-200">{{ nomeUsuario }}</p>
           <p class="text-[10px] text-slate-400 font-mono">
-            Conectado há: <span class="text-teal-400 font-bold">{{ tempoConectado }}</span>
+            Ligado há: <span class="text-teal-400 font-bold">{{ tempoConectado }}</span>
           </p>
         </div>
 
@@ -67,10 +80,23 @@
 
     </header>
 
+    <!-- Conteúdo principal -->
     <main class="flex-grow">
       <slot />
     </main>
 
+    <!-- Rodapé Geral do Painel com Autoria WO -->
+    <footer class="py-6 border-t border-slate-200 bg-white mt-auto">
+      <div class="max-w-6xl mx-auto px-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-400 font-medium">
+        <p>© {{ new Date().getFullYear() }} RETSYS. Todos os direitos reservados.</p>
+        <p class="flex items-center gap-1.5">
+          <span>Desenvolvido e Direitos Reservados</span>
+          <span class="font-black text-slate-900 bg-slate-100 px-2.5 py-1 rounded border border-slate-200">WO</span>
+        </p>
+      </div>
+    </footer>
+
+    <!-- Widget de Spotify -->
     <div class="fixed bottom-4 right-4 z-40 hidden md:block">
       <SpotifyPlayer />
     </div>
@@ -88,7 +114,7 @@ const menuAberto = ref(false)
 const tempoConectado = ref('00:00:00')
 let cronometro = null
 
-// Captura de forma defensiva os dados que injetamos globais no middleware do C#
+// Captura defensiva dos dados injetados globais via middleware do ASP.NET Core
 const authData = computed(() => page.props.auth || {})
 const perfil = computed(() => authData.value.usuarioPerfil || 'Vendedor')
 const nomeUsuario = computed(() => authData.value.usuarioNome || 'Colaborador')
@@ -97,7 +123,7 @@ const fotoPerfil = computed(() => authData.value.usuarioFoto || null)
 onMounted(() => {
   const tempoInicio = Date.now()
   
-  // Cronômetro progressivo de tempo de conexão em tempo real
+  // Cronómetro progressivo de tempo de ligação ativa
   cronometro = setInterval(() => {
     const totalSegundos = Math.floor((Date.now() - tempoInicio) / 1000)
     const horas = String(Math.floor(totalSegundos / 3600)).padStart(2, '0')

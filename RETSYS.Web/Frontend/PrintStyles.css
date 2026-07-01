@@ -1,0 +1,138 @@
+/* =============================================================================
+   RETSYS - FOLHA DE ESTILO DE IMPRESSÃO PROFISSIONAL (A4 RETRATO)
+   Otimizado para impressão física e geração de PDF via window.print()
+=============================================================================
+*/
+
+@media print {
+  /* 1. Reset e Ocultação de elementos da interface web (Foco apenas no papel) */
+  html, body {
+    background-color: #ffffff !important;
+    color: #000000 !important;
+    font-family: "Courier New", Courier, monospace !important; /* Estilo clássico de alta legibilidade para ótica */
+    font-size: 11px !important;
+    line-height: 1.4 !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  /* Oculta tudo que não pertence ao documento impresso (menus, players, sidebars e botões) */
+  header,
+  footer,
+  nav,
+  button,
+  .no-print,
+  #spotify-player,
+  .fixed,
+  .btn,
+  .sidebar,
+  .flash-alert {
+    display: none !important;
+  }
+
+  /* Define as margens físicas do papel A4 */
+  @page {
+    size: A4 portrait;
+    margin: 20mm;
+  }
+
+  /* 2. Container de Impressão e Prevenção de Quebras de Página Orfãs */
+  .print-area {
+    display: block !important;
+    width: 100% !important;
+    box-shadow: none !important;
+    border: none !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  table, tr, img, .card, .block-prevent {
+    page-break-inside: avoid !important;
+  }
+
+  .force-page-break {
+    page-break-before: always !important;
+  }
+
+  /* 3. Estruturação e Layout de Dados (Tabelas e Quadros Clínicos) */
+  .table-print {
+    width: 100% !important;
+    border-collapse: collapse !important;
+    margin-top: 10px !important;
+    margin-bottom: 10px !important;
+  }
+
+  .table-print th {
+    background-color: #f1f5f9 !important;
+    color: #000000 !important;
+    font-weight: bold !important;
+    border: 1px solid #94a3b8 !important;
+    padding: 6px !important;
+    text-align: center !important;
+    text-transform: uppercase !important;
+  }
+
+  .table-print td {
+    border: 1px solid #94a3b8 !important;
+    padding: 6px !important;
+    text-align: center !important;
+  }
+
+  /* 4. Layout Simulado de Grid para o formulário de receita (OD/OE lado a lado) */
+  .print-grid {
+    display: table !important;
+    width: 100% !important;
+    margin-top: 8px !important;
+  }
+
+  .print-row {
+    display: table-row !important;
+  }
+
+  .print-col-3 {
+    display: table-cell !important;
+    width: 25% !important;
+    padding: 5px !important;
+    border: 1px solid #cbd5e1 !important;
+  }
+
+  /* 5. Estilização Visual dos Blocos da OS */
+  .print-header {
+    border-bottom: 2px solid #000000 !important;
+    padding-bottom: 15px !important;
+    margin-bottom: 20px !important;
+  }
+
+  .print-title {
+    font-size: 18px !important;
+    font-weight: 900 !important;
+    text-transform: uppercase !important;
+    letter-spacing: 1px !important;
+  }
+
+  .print-section-title {
+    font-size: 11px !important;
+    font-weight: bold !important;
+    background-color: #e2e8f0 !important;
+    padding: 4px 8px !important;
+    text-transform: uppercase !important;
+    margin-top: 15px !important;
+    border-left: 3px solid #0f172a !important;
+  }
+
+  .print-data-group {
+    margin-top: 8px !important;
+    margin-bottom: 8px !important;
+  }
+
+  /* Linhas pontilhadas e áreas de assinatura para validação física do cliente */
+  .print-signature-area {
+    margin-top: 50px !important;
+    border-top: 1px dashed #000000 !important;
+    padding-top: 8px !important;
+    text-align: center !important;
+    width: 250px !important;
+    margin-left: auto !important;
+    margin-right: auto !important;
+  }
+}

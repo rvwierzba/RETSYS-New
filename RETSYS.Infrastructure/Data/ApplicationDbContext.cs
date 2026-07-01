@@ -14,6 +14,8 @@ namespace RETSYS.Infrastructure.Data
         public DbSet<Marca> Marcas => Set<Marca>();
         public DbSet<Armacao> Armacoes => Set<Armacao>();
         public DbSet<Lente> Lentes => Set<Lente>();
+        public DbSet<LentePreco> LentesTabelaPrecos { get; set; }
+        public DbSet<LenteTratamento> LentesTratamentos { get; set; }
         public DbSet<Cliente> Clientes => Set<Cliente>();
         public DbSet<OrdemServico> OrdensServico => Set<OrdemServico>();
         public DbSet<OsReceita> OsReceitas => Set<OsReceita>(); // Nova Tabela Clínica 1:1
@@ -89,6 +91,18 @@ namespace RETSYS.Infrastructure.Data
                 b.Property(l => l.GraduacaoMax).HasPrecision(5, 2);
                 b.Property(l => l.PrecoCusto).HasPrecision(18, 2);
                 b.Property(l => l.PrecoVenda).HasPrecision(18, 2);
+            });
+
+            modelBuilder.Entity<LentePreco>(entity =>
+            {
+                entity.Property(lp => lp.IndiceRefracao).HasPrecision(4, 2);
+                entity.Property(lp => lp.PrecoCusto).HasPrecision(10, 2);
+                entity.Property(lp => lp.PrecoVenda).HasPrecision(10, 2);
+            });
+
+            modelBuilder.Entity<LenteTratamento>(entity =>
+            {
+                entity.Property(lt => lt.AcrescimoValor).HasPrecision(10, 2);
             });
 
             // Mapeamento da Tabela CLIENTES (Modificado conforme Ficha CRM unificada)

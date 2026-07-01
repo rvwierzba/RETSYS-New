@@ -57,9 +57,8 @@ namespace RETSYS.Web.Controllers
 
             // Grava o cookie criptografado no navegador do usuário
             await HttpContext.SignInAsync("Cookies", principal);
-
-            // Redireciona para o painel de marcas que já criamos
-            return RedirectToRoute(new { controller = "Marcas", action = "Index" });
+            
+            return RedirectToRoute(new { controller = "Dashboard", action = "Index" });
         }
 
         // 3. Efetua a Saída do Sistema (POST)

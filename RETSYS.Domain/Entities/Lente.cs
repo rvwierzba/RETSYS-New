@@ -1,4 +1,5 @@
 using System;
+using System.ComponentModel.DataAnnotations.Schema;
 
 namespace RETSYS.Domain.Entities
 {
@@ -35,6 +36,8 @@ namespace RETSYS.Domain.Entities
         
         public bool Ativo { get; set; } = true;
         
+        [Column("surfacada")]
+        public bool Surfacada { get; set; } = false;
         public DateTime CriadoEm { get; set; } = DateTime.UtcNow;
     }
 }
