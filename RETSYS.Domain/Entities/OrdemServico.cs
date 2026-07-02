@@ -11,8 +11,9 @@ namespace RETSYS.Domain.Entities
         public Guid ClienteId { get; set; }
         public Cliente Cliente { get; set; } = null!;
         
-        public Guid VendedorId { get; set; }
-        public Usuario Vendedor { get; set; } = null!;
+        // Torna-se Nullable para aceitar importações históricas do CRM sem vendedor ativo
+        public Guid? VendedorId { get; set; }
+        public Usuario? Vendedor { get; set; }
         
         public DateTime DataEntrada { get; set; } = DateTime.UtcNow;
         public DateTime DataPrevistaEntrega { get; set; }
@@ -25,11 +26,28 @@ namespace RETSYS.Domain.Entities
         public string? Observacoes { get; set; }
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
-        // Relacionamentos 1:1 Obrigatórios (Novas tabelas do TCC)
+        // Relacionamentos 1:1 Obrigatórios (Tabelas do TCC)
         public OsReceita Receita { get; set; } = null!;
         public OsFinanceiro Financeiro { get; set; } = null!;
         public string MedicoTipo { get; set; } = "NAO_ESPECIFICADO"; // OFTALMOLOGISTA, OPTOMETRISTA, NAO_ESPECIFICADO
+        
         // Relacionamento 1:Muitos com as parcelas financeiras
         public ICollection<ParcelaPagamento> Parcelas { get; set; } = new List<ParcelaPagamento>();
+
+        // =========================================================================
+        // NOVOS CAMPOS PARA SUPORTE A ORDENS RETROATIVAS / HISTÓRICAS
+        // =========================================================================
+        
+        // Identifica se a OS é um registro do passado (ignora baixa de estoque ativo e caixa de hoje)
+        public bool IsRetroativa { get; set; } = false;
+
+        // Armazena a descrição da armação antiga caso ela não exista no inventário de hoje
+        public string? ArmacaoModeloManual { get; set; }
+
+        // Armazena a descrição textual da lente comprada no passado
+        public string? LenteDescricaoManual { get; set; }
+
+        // Controle de exclusão lógica para integridade histórica do banco de dados
+        public bool Ativo { get; set; } = true;
     }
 }

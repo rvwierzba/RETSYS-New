@@ -62,7 +62,6 @@ namespace RETSYS.Web.Controllers
                         CilindricoLongeEsquerdo = os.Receita.OeCilindrico,
                         EixoLongeEsquerdo = os.Receita.OeEixo,
                         os.Receita.Adicao,
-                        // Propriedades computadas em tempo real na Entidade
                         EsfericoPertoDireito = os.Receita.OdEsfericoPerto,
                         EsfericoPertoEsquerdo = os.Receita.OeEsfericoPerto
                     }
@@ -98,7 +97,38 @@ namespace RETSYS.Web.Controllers
             });
         }
 
-        // 3. Processa a gravação Unificada da OS + Fluxo Automático de Cliente (POST)
+        // 3. Endpoint Unificado de Busca do CRM por CPF para o Fluxo Contínuo de Balcão (GET)
+        [HttpGet("/api/clientes/buscar-cpf/{cpf}")]
+        public async Task<IActionResult> BuscarPorCpf(string cpf)
+        {
+            var cleanCpf = new string(cpf.Where(char.IsDigit).ToArray());
+            if (string.IsNullOrEmpty(cleanCpf)) return BadRequest("CPF inválido.");
+
+            var cliente = await _context.Clientes
+                .FirstOrDefaultAsync(c => c.CPF.Replace(".", "").Replace("-", "") == cleanCpf || c.CPF == cpf);
+
+            if (cliente == null) return NotFound();
+
+            return Ok(new
+            {
+                id = cliente.Id,
+                nome = cliente.Nome,
+                cpf = cliente.CPF,
+                telefone = cliente.Telefone,
+                dataNascimento = cliente.DataNascimento?.ToString("yyyy-MM-dd"),
+                cep = cliente.Cep,
+                logradouro = cliente.Logradouro,
+                numero = cliente.Numero,
+                complemento = cliente.Complemento,
+                bairro = cliente.Bairro,
+                cidade = cliente.Cidade,
+                estado = cliente.Estado,
+                convenio = cliente.Convenio,
+                email = cliente.Email
+            });
+        }
+
+        // 4. Processa a gravação Unificada da OS + Fluxo Automático/Inclusivo de Cliente (POST)
         [HttpPost("/ordens")]
         public async Task<IActionResult> Store([FromBody] JsonElement raiz, [FromQuery] int? quantidadeParcelas)
         {
@@ -108,16 +138,16 @@ namespace RETSYS.Web.Controllers
             var vendedor = await _context.Usuarios.FindAsync(vendedorId);
             if (vendedor == null) return BadRequest("Vendedor não localizado.");
 
-            // 👤 FLUXO DO CLIENTE (CRM AUTOMÁTICO)
+            // 👤 FLUXO INTEGRADOR DO CLIENTE (CRM CONTÍNUO AUTOMÁTICO)
             string cpfInformado = raiz.GetProperty("cpf").GetString()!;
             var cliente = await _context.Clientes.FirstOrDefaultAsync(c => c.CPF == cpfInformado);
             if (cliente == null)
             {
-                cliente = new Cliente { Id = Guid.NewGuid(), CPF = cpfInformado };
+                cliente = new Cliente { Id = Guid.NewGuid(), CPF = cpfInformado, CreatedAt = DateTime.UtcNow };
                 _context.Clientes.Add(cliente);
             }
             
-            // Atualiza cadastro básico
+            // Atualiza ou cria o cadastro com tratamento defensivo contra propriedades Json vazias
             cliente.Nome = raiz.GetProperty("nome").GetString()!;
             cliente.Telefone = raiz.GetProperty("telefone").GetString()!;
             cliente.Logradouro = raiz.GetProperty("logradouro").GetString()!;
@@ -126,6 +156,14 @@ namespace RETSYS.Web.Controllers
             cliente.Cidade = raiz.GetProperty("cidade").GetString()!;
             cliente.Estado = raiz.GetProperty("estado").GetString()!;
             cliente.Cep = raiz.GetProperty("cep").GetString()!;
+            cliente.Complemento = raiz.TryGetProperty("complemento", out var comp) ? comp.GetString() : null;
+            cliente.Convenio = raiz.TryGetProperty("convenio", out var conv) ? conv.GetString() : null;
+            cliente.Email = raiz.TryGetProperty("email", out var em) ? em.GetString() : null;
+            
+            if (raiz.TryGetProperty("dataNascimento", out var dnProp) && !string.IsNullOrEmpty(dnProp.GetString()))
+            {
+                cliente.DataNascimento = DateTime.SpecifyKind(DateTime.Parse(dnProp.GetString()!), DateTimeKind.Utc);
+            }
             cliente.UpdatedAt = DateTime.UtcNow;
 
             // 💳 INVERSÃO DA LÓGICA DE CÁLCULO E VALIDAÇÕES FINANCEIRAS
@@ -139,7 +177,7 @@ namespace RETSYS.Web.Controllers
             if (perfilClaim != "ADMIN" && descontoPercentual > vendedor.LimiteDesconto)
             {
                 Inertia.Share("erro", "Desconto acima do limite autorizado. Solicite aprovação do administrador.");
-                return RedirectToAction("Criar");
+                return BadRequest("Desconto acima do limite autorizado.");
             }
 
             decimal descontoReais = Math.Round(totalBruto * (descontoPercentual / 100), 2);
@@ -149,7 +187,6 @@ namespace RETSYS.Web.Controllers
             int? parcelasFinais = null;
             int loopParcelas = 1;
 
-            // Condicional de Parcelamento exclusivo para Cartão de Crédito
             if (formaPagamento == "CARTAO_CREDITO")
             {
                 parcelasFinais = quantidadeParcelas ?? throw new Exception("Defina o número de parcelas para o cartão de crédito.");
@@ -163,19 +200,21 @@ namespace RETSYS.Web.Controllers
                 ClienteId = cliente.Id,
                 VendedorId = vendedor.Id,
                 DataEntrada = DateTime.UtcNow,
-                DataPrevistaEntrega = raiz.GetProperty("dataPrevistaEntrega").GetDateTime(),
+                DataPrevistaEntrega = DateTime.SpecifyKind(raiz.GetProperty("dataPrevistaEntrega").GetDateTime(), DateTimeKind.Utc),
                 Status = "EM_ABERTO",
                 MedicoNome = raiz.TryGetProperty("medicoNome", out var mn) ? mn.GetString() : null,
                 MedicoCrm = raiz.TryGetProperty("medicoCrm", out var mc) ? mc.GetString() : null,
                 MedicoTipo = raiz.GetProperty("medicoTipo").GetString() ?? "NAO_ESPECIFICADO",
-                Observacoes = raiz.TryGetProperty("observacoes", out var obs) ? obs.GetString() : null
+                Observacoes = raiz.TryGetProperty("observacoes", out var obs) ? obs.GetString() : null,
+                IsRetroativa = false,
+                Ativo = true
             };
 
             int anoAtual = DateTime.UtcNow.Year;
             int sequencialAno = await _context.OrdensServico.Where(os => os.DataEntrada.Year == anoAtual).CountAsync() + 1;
             novaOS.NumeroOS = $"OS-{anoAtual}-{sequencialAno.ToString().PadLeft(5, '0')}";
 
-            // 👁️ MONTAGEM DA RECEITA (os_receita)
+            // 👁️ MONTAGEM DA RECEITA SATÉLITE
             novaOS.Receita = new OsReceita
             {
                 OsId = novaOS.Id,
@@ -191,7 +230,7 @@ namespace RETSYS.Web.Controllers
                 AlturaMontagem = raiz.TryGetProperty("alturaMontagem", out var alt) && alt.ValueKind != JsonValueKind.Null ? alt.GetDecimal() : null
             };
 
-            // 💳 MONTAGEM DO FINANCEIRO (os_financeiro)
+            // 💳 MONTAGEM DO FINANCEIRO SATÉLITE
             novaOS.Financeiro = new OsFinanceiro
             {
                 OsId = novaOS.Id,
@@ -208,13 +247,14 @@ namespace RETSYS.Web.Controllers
                 ValorEntrada = raiz.TryGetProperty("valorEntrada", out var ent) && ent.ValueKind != JsonValueKind.Null ? ent.GetDecimal() : null
             };
 
-            // Gerador de Parcelas
+            // Gerador de Parcelas Comerciais
             decimal valorParcela = Math.Round(valorTotalLiquido / loopParcelas, 2);
             for (int i = 1; i <= loopParcelas; i++)
             {
                 novaOS.Parcelas.Add(new ParcelaPagamento
                 {
                     Id = Guid.NewGuid(),
+                    OrdemServicoId = novaOS.Id,
                     NumeroParcela = i,
                     DescricaoParcela = $"PARC. {i}/{loopParcelas} - OS: {novaOS.NumeroOS}",
                     Valor = i == loopParcelas ? (valorTotalLiquido - (valorParcela * (loopParcelas - 1))) : valorParcela,
@@ -224,10 +264,12 @@ namespace RETSYS.Web.Controllers
 
             _context.OrdensServico.Add(novaOS);
             await _context.SaveChangesAsync();
-            return RedirectToRoute(new { controller = "Dashboard", action = "Index" });
+
+            // CORRIGIDO: Retorna objeto OK JSON com o Número da OS gerada para alimentar a via A4 do Vue
+            return Ok(new { numeroOS = novaOS.NumeroOS });
         }
 
-        // 4. Modifica o status de produção e executa a baixa/reposição física do estoque (POST)
+        // 5. Modifica o status de produção e executa a baixa/reposição física do estoque (POST)
         [HttpPost("/ordens/alterar-status/{id:guid}")]
         public async Task<IActionResult> AlterarStatus(Guid id, [FromQuery] string novoStatus)
         {
@@ -239,6 +281,14 @@ namespace RETSYS.Web.Controllers
 
             if (!statusValidos.Contains(novoStatus) || statusAnterior == novoStatus)
             {
+                return RedirectToAction(nameof(Index));
+            }
+
+            // Ignora processamento físico de estoque se for um registro histórico vindo do CRM
+            if (ordem.IsRetroativa)
+            {
+                ordem.Status = novoStatus;
+                await _context.SaveChangesAsync();
                 return RedirectToAction(nameof(Index));
             }
 
@@ -268,7 +318,7 @@ namespace RETSYS.Web.Controllers
             return RedirectToAction(nameof(Index));
         }
 
-        // 5. Motor de Visão Computacional via Ollama + Moondream (POST)
+        // 6. Motor de Visão Computacional via Ollama + Moondream (POST)
         [HttpPost("/ordens/processar-receita-ia")]
         public async Task<IActionResult> ProcessarReceitaIA(IFormFile imagemReceita)
         {
