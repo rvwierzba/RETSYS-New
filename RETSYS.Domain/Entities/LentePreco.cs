@@ -25,11 +25,9 @@ namespace RETSYS.Domain.Entities
         [Column("indice_refracao", TypeName = "decimal(4,2)")]
         public decimal IndiceRefracao { get; set; } // Ex: 1.56, 1.67, 1.74
 
-        [Column("tratamento_id")]
-        public Guid? TratamentoId { get; set; }
-
-        [ForeignKey("TratamentoId")]
-        public virtual LenteTratamento? Tratamento { get; set; }
+        [Column("tratamento")]
+        [MaxLength(100)]
+        public string? Tratamento { get; set; } 
 
         [Required]
         [Column("preco_custo", TypeName = "decimal(10,2)")]

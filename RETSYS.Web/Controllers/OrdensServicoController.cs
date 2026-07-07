@@ -24,22 +24,41 @@ namespace RETSYS.Web.Controllers
             _context = context;
         }
 
-        // 1. Listagem de todas as OSs com Isolamento por Perfil (RBAC)
+        // 1. Listagem de todas as OSs com Isolamento por Perfil (RBAC) e Filtros de Composição (Seção 4)
         [HttpGet("/ordens")]
-        public async Task<IActionResult> Index()
+        public async Task<IActionResult> Index([FromQuery] string? filtroComposicao)
         {
             var usuarioIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             var perfilClaim = User.FindFirst(ClaimTypes.Role)?.Value ?? "VENDEDOR";
 
+            // Regra de Negócio: Filtros e resumos consideram apenas OS não canceladas (Seção 4)
             IQueryable<OrdemServico> query = _context.OrdensServico
                 .Include(os => os.Cliente)
                 .Include(os => os.Receita)
-                .Include(os => os.Financeiro);
+                .Include(os => os.Financeiro)
+                .Where(os => os.Status != "CANCELADO" && os.Status != "CANCELADA" && os.Ativo);
 
             if (perfilClaim == "VENDEDOR" && Guid.TryParse(usuarioIdClaim, out Guid vendedorId))
             {
                 query = query.Where(os => os.VendedorId == vendedorId);
             }
+
+            // APLICAÇÃO DOS FILTROS DE COMPOSIÇÃO DA REGRA DE 05/07 (SEÇÃO 4)
+            query = filtroComposicao switch
+            {
+                "armacao" => query.Where(os => os.Financeiro.ValorArmacao > 0),
+                "lente" => query.Where(os => os.Financeiro.ValorLente > 0),
+                "completo" => query.Where(os => os.Financeiro.ValorArmacao > 0 && os.Financeiro.ValorLente > 0),
+                _ => query // "total" traz todas as vendas não canceladas
+            };
+
+            // CÁLCULO DINÂMICO DO TOTAL FATURADO CONFORME O FILTRO ATIVO (SEÇÃO 4)
+            decimal totalFiltroAtivo = filtroComposicao switch
+            {
+                "armacao" => await query.SumAsync(os => os.Financeiro.ValorArmacao),
+                "lente" => await query.SumAsync(os => os.Financeiro.ValorLente),
+                _ => await query.SumAsync(os => os.Financeiro.ValorTotalLiquido) // Completo e Total usam o Líquido
+            };
 
             var ordens = await query
                 .OrderByDescending(os => os.DataEntrada)
@@ -68,7 +87,11 @@ namespace RETSYS.Web.Controllers
                 })
                 .ToListAsync();
 
-            return Inertia.Render("Orders/Index", new { Ordens = ordens });
+            return Inertia.Render("Orders/Index", new { 
+                Ordens = ordens,
+                FiltroAtivo = filtroComposicao ?? "total",
+                TotalFiltroAtivo = totalFiltroAtivo
+            });
         }
 
         // 2. Abre a tela de cadastro de uma nova OS (GET)
@@ -86,8 +109,18 @@ namespace RETSYS.Web.Controllers
                 .Select(a => new { a.Id, a.ModeloReferencia, a.Cor, a.QuantidadeEstoque, a.PrecoVenda })
                 .ToListAsync();
 
-            var lentes = await _context.Lentes
-                .Select(l => new { l.Id, l.Laboratorio, l.Tipo, l.Tratamento, l.PrecoVenda })
+            var lentes = await _context.LentesTabelaPrecos
+                .Include(lp => lp.Lente)
+                .Where(lp => lp.Ativo && lp.Lente.Ativo)
+                .Select(lp => new
+                {
+                    lp.Id, // LentePrecoId -> é isto que o front deve enviar como "lentePrecoId"
+                    lp.Lente.Laboratorio,
+                    lp.Lente.Tipo,
+                    lp.IndiceRefracao,
+                    lp.Tratamento,
+                    lp.PrecoVenda
+                })
                 .ToListAsync();
 
             return Inertia.Render("Orders/Create", new { 
@@ -102,10 +135,10 @@ namespace RETSYS.Web.Controllers
         public async Task<IActionResult> BuscarPorCpf(string cpf)
         {
             var cleanCpf = new string(cpf.Where(char.IsDigit).ToArray());
-            if (string.IsNullOrEmpty(cleanCpf)) return BadRequest("CPF inválido.");
+            if (string.IsNullOrEmpty(cleanCpf)) return BadRequest(new { mensagem = "CPF inválido." });
 
             var cliente = await _context.Clientes
-                .FirstOrDefaultAsync(c => c.CPF.Replace(".", "").Replace("-", "") == cleanCpf || c.CPF == cpf);
+                .FirstOrDefaultAsync(c => c.CPF.Replace(".", "").Replace("-", "") == cleanCpf);
 
             if (cliente == null) return NotFound();
 
@@ -132,141 +165,161 @@ namespace RETSYS.Web.Controllers
         [HttpPost("/ordens")]
         public async Task<IActionResult> Store([FromBody] JsonElement raiz, [FromQuery] int? quantidadeParcelas)
         {
-            var perfilClaim = User.FindFirst(ClaimTypes.Role)?.Value ?? "VENDEDOR";
-
-            Guid vendedorId = Guid.Parse(raiz.GetProperty("vendedorId").GetString()!);
-            var vendedor = await _context.Usuarios.FindAsync(vendedorId);
-            if (vendedor == null) return BadRequest("Vendedor não localizado.");
-
-            // 👤 FLUXO INTEGRADOR DO CLIENTE (CRM CONTÍNUO AUTOMÁTICO)
-            string cpfInformado = raiz.GetProperty("cpf").GetString()!;
-            var cliente = await _context.Clientes.FirstOrDefaultAsync(c => c.CPF == cpfInformado);
-            if (cliente == null)
+            try
             {
-                cliente = new Cliente { Id = Guid.NewGuid(), CPF = cpfInformado, CreatedAt = DateTime.UtcNow };
-                _context.Clientes.Add(cliente);
-            }
-            
-            // Atualiza ou cria o cadastro com tratamento defensivo contra propriedades Json vazias
-            cliente.Nome = raiz.GetProperty("nome").GetString()!;
-            cliente.Telefone = raiz.GetProperty("telefone").GetString()!;
-            cliente.Logradouro = raiz.GetProperty("logradouro").GetString()!;
-            cliente.Numero = raiz.GetProperty("numero").GetString()!;
-            cliente.Bairro = raiz.GetProperty("bairro").GetString()!;
-            cliente.Cidade = raiz.GetProperty("cidade").GetString()!;
-            cliente.Estado = raiz.GetProperty("estado").GetString()!;
-            cliente.Cep = raiz.GetProperty("cep").GetString()!;
-            cliente.Complemento = raiz.TryGetProperty("complemento", out var comp) ? comp.GetString() : null;
-            cliente.Convenio = raiz.TryGetProperty("convenio", out var conv) ? conv.GetString() : null;
-            cliente.Email = raiz.TryGetProperty("email", out var em) ? em.GetString() : null;
-            
-            if (raiz.TryGetProperty("dataNascimento", out var dnProp) && !string.IsNullOrEmpty(dnProp.GetString()))
-            {
-                cliente.DataNascimento = DateTime.SpecifyKind(DateTime.Parse(dnProp.GetString()!), DateTimeKind.Utc);
-            }
-            cliente.UpdatedAt = DateTime.UtcNow;
+                var perfilClaim = User.FindFirst(ClaimTypes.Role)?.Value ?? "VENDEDOR";
 
-            // 💳 INVERSÃO DA LÓGICA DE CÁLCULO E VALIDAÇÕES FINANCEIRAS
-            decimal valorArmacao = raiz.GetProperty("valorArmacao").GetDecimal();
-            decimal valorLente = raiz.GetProperty("valorLente").GetDecimal();
-            decimal totalBruto = valorArmacao + valorLente;
+                Guid vendedorId = Guid.Parse(raiz.GetProperty("vendedorId").GetString()!);
+                var vendedor = await _context.Usuarios.FindAsync(vendedorId);
+                if (vendedor == null) return BadRequest(new { mensagem = "Vendedor não localizado." });
 
-            decimal descontoPercentual = raiz.GetProperty("descontoPercentual").GetDecimal();
-            
-            // Trava de Alçada de Desconto Corporativo
-            if (perfilClaim != "ADMIN" && descontoPercentual > vendedor.LimiteDesconto)
-            {
-                Inertia.Share("erro", "Desconto acima do limite autorizado. Solicite aprovação do administrador.");
-                return BadRequest("Desconto acima do limite autorizado.");
-            }
+                // 👤 FLUXO INTEGRADOR DO CLIENTE (CRM CONTÍNUO AUTOMÁTICO)
+                string cpfInformado = new string(raiz.GetProperty("cpf").GetString()!.Where(char.IsDigit).ToArray());
 
-            decimal descontoReais = Math.Round(totalBruto * (descontoPercentual / 100), 2);
-            decimal valorTotalLiquido = totalBruto - descontoReais;
+                var cliente = await _context.Clientes
+                    .FirstOrDefaultAsync(c => c.CPF.Replace(".", "").Replace("-", "") == cpfInformado);
 
-            string formaPagamento = raiz.GetProperty("formaPagamento").GetString()!;
-            int? parcelasFinais = null;
-            int loopParcelas = 1;
+                if (cliente == null)
+                {
+                    cliente = new Cliente { Id = Guid.NewGuid(), CPF = cpfInformado, CreatedAt = DateTime.UtcNow };
+                    _context.Clientes.Add(cliente);
+                }
 
-            if (formaPagamento == "CARTAO_CREDITO")
-            {
-                parcelasFinais = quantidadeParcelas ?? throw new Exception("Defina o número de parcelas para o cartão de crédito.");
-                loopParcelas = parcelasFinais.Value;
-            }
+                // Autoriza ou cria o cadastro com tratamento defensivo contra propriedades Json vazias
+                cliente.Nome = raiz.GetProperty("nome").GetString()!;
+                cliente.Telefone = raiz.GetProperty("telefone").GetString()!;
+                cliente.Logradouro = raiz.GetProperty("logradouro").GetString()!;
+                cliente.Numero = raiz.GetProperty("numero").GetString()!;
+                cliente.Bairro = raiz.GetProperty("bairro").GetString()!;
+                cliente.Cidade = raiz.GetProperty("cidade").GetString()!;
+                cliente.Estado = raiz.GetProperty("estado").GetString()!;
+                cliente.Cep = raiz.GetProperty("cep").GetString()!;
+                cliente.Complemento = raiz.TryGetProperty("complemento", out var comp) ? comp.GetString() : null;
+                cliente.Convenio = raiz.TryGetProperty("convenio", out var conv) ? conv.GetString() : null;
+                cliente.Email = raiz.TryGetProperty("email", out var em) ? em.GetString() : null;
 
-            // 📄 MONTAGEM DO CABEÇALHO DA OS
-            var novaOS = new OrdemServico
-            {
-                Id = Guid.NewGuid(),
-                ClienteId = cliente.Id,
-                VendedorId = vendedor.Id,
-                DataEntrada = DateTime.UtcNow,
-                DataPrevistaEntrega = DateTime.SpecifyKind(raiz.GetProperty("dataPrevistaEntrega").GetDateTime(), DateTimeKind.Utc),
-                Status = "EM_ABERTO",
-                MedicoNome = raiz.TryGetProperty("medicoNome", out var mn) ? mn.GetString() : null,
-                MedicoCrm = raiz.TryGetProperty("medicoCrm", out var mc) ? mc.GetString() : null,
-                MedicoTipo = raiz.GetProperty("medicoTipo").GetString() ?? "NAO_ESPECIFICADO",
-                Observacoes = raiz.TryGetProperty("observacoes", out var obs) ? obs.GetString() : null,
-                IsRetroativa = false,
-                Ativo = true
-            };
+                if (raiz.TryGetProperty("dataNascimento", out var dnProp) && !string.IsNullOrEmpty(dnProp.GetString()))
+                {
+                    cliente.DataNascimento = DateTime.SpecifyKind(DateTime.Parse(dnProp.GetString()!), DateTimeKind.Utc);
+                }
+                cliente.UpdatedAt = DateTime.UtcNow;
 
-            int anoAtual = DateTime.UtcNow.Year;
-            int sequencialAno = await _context.OrdensServico.Where(os => os.DataEntrada.Year == anoAtual).CountAsync() + 1;
-            novaOS.NumeroOS = $"OS-{anoAtual}-{sequencialAno.ToString().PadLeft(5, '0')}";
+                // 💳 INVERSÃO DA LÓGICA DE CÁLCULO E VALIDAÇÕES FINANCEIRAS
+                decimal valorArmacao = raiz.GetProperty("valorArmacao").GetDecimal();
+                decimal valorLente = raiz.GetProperty("valorLente").GetDecimal();
+                decimal totalBruto = valorArmacao + valorLente; // Correção efetuada aqui adicionando 'decimal'
 
-            // 👁️ MONTAGEM DA RECEITA SATÉLITE
-            novaOS.Receita = new OsReceita
-            {
-                OsId = novaOS.Id,
-                OdEsferico = raiz.GetProperty("odEsferico").GetDecimal(),
-                OdCilindrico = raiz.GetProperty("odCilindrico").GetDecimal(),
-                OdEixo = raiz.GetProperty("odEixo").GetInt32(),
-                OeEsferico = raiz.GetProperty("oeEsferico").GetDecimal(),
-                OeCilindrico = raiz.GetProperty("oeCilindrico").GetDecimal(),
-                OeEixo = raiz.GetProperty("oeEixo").GetInt32(),
-                Adicao = raiz.TryGetProperty("adicao", out var ad) && ad.ValueKind != JsonValueKind.Null ? ad.GetDecimal() : null,
-                DnpOd = raiz.GetProperty("dnpOd").GetDecimal(),
-                DnpOe = raiz.GetProperty("dnpOe").GetDecimal(),
-                AlturaMontagem = raiz.TryGetProperty("alturaMontagem", out var alt) && alt.ValueKind != JsonValueKind.Null ? alt.GetDecimal() : null
-            };
+                decimal descontoPercentual = raiz.GetProperty("descontoPercentual").GetDecimal();
 
-            // 💳 MONTAGEM DO FINANCEIRO SATÉLITE
-            novaOS.Financeiro = new OsFinanceiro
-            {
-                OsId = novaOS.Id,
-                ArmacaoId = Guid.Parse(raiz.GetProperty("armacaoId").GetString()!),
-                LenteId = Guid.Parse(raiz.GetProperty("lenteId").GetString()!),
-                ValorArmacao = valorArmacao,
-                ValorLente = valorLente,
-                ValorTotalBruto = totalBruto,
-                DescontoPercentual = descontoPercentual,
-                DescontoReais = descontoReais,
-                ValorTotalLiquido = valorTotalLiquido,
-                FormaPagamento = formaPagamento,
-                Parcelas = parcelasFinais,
-                ValorEntrada = raiz.TryGetProperty("valorEntrada", out var ent) && ent.ValueKind != JsonValueKind.Null ? ent.GetDecimal() : null
-            };
+                // Trava de Alçada de Desconto Corporativo
+                if (perfilClaim != "ADMIN" && descontoPercentual > vendedor.LimiteDesconto)
+                {
+                    return BadRequest(new { mensagem = "Desconto acima do limite autorizado. Solicite aprovação do administrador." });
+                }
 
-            // Gerador de Parcelas Comerciais
-            decimal valorParcela = Math.Round(valorTotalLiquido / loopParcelas, 2);
-            for (int i = 1; i <= loopParcelas; i++)
-            {
-                novaOS.Parcelas.Add(new ParcelaPagamento
+                decimal descontoReais = Math.Round(totalBruto * (descontoPercentual / 100), 2);
+                decimal valorTotalLiquido = totalBruto - descontoReais;
+
+                string formaPagamento = raiz.GetProperty("formaPagamento").GetString()!;
+                int? parcelasFinais = null;
+                int loopParcelas = 1;
+
+                if (formaPagamento == "CARTAO_CREDITO")
+                {
+                    if (quantidadeParcelas == null || quantidadeParcelas <= 0)
+                    {
+                        return BadRequest(new { mensagem = "Defina o número de parcelas para o cartão de crédito." });
+                    }
+                    parcelasFinais = quantidadeParcelas.Value;
+                    loopParcelas = parcelasFinais.Value;
+                }
+
+                // 📄 MONTAGEM DO CABEÇALHO DA OS
+                var novaOS = new OrdemServico
                 {
                     Id = Guid.NewGuid(),
-                    OrdemServicoId = novaOS.Id,
-                    NumeroParcela = i,
-                    DescricaoParcela = $"PARC. {i}/{loopParcelas} - OS: {novaOS.NumeroOS}",
-                    Valor = i == loopParcelas ? (valorTotalLiquido - (valorParcela * (loopParcelas - 1))) : valorParcela,
-                    DataVencimento = DateTime.UtcNow.AddMonths(i)
-                });
+                    ClienteId = cliente.Id,
+                    VendedorId = vendedor.Id,
+                    DataEntrada = DateTime.UtcNow,
+                    DataPrevistaEntrega = DateTime.SpecifyKind(raiz.GetProperty("dataPrevistaEntrega").GetDateTime(), DateTimeKind.Utc),
+                    Status = "EM_ABERTO",
+                    MedicoNome = raiz.TryGetProperty("medicoNome", out var mn) ? mn.GetString() : null,
+                    MedicoCrm = raiz.TryGetProperty("medicoCrm", out var mc) ? mc.GetString() : null,
+                    MedicoTipo = raiz.GetProperty("medicoTipo").GetString() ?? "NAO_ESPECIFICADO",
+                    Observacoes = raiz.TryGetProperty("observacoes", out var obs) ? obs.GetString() : null,
+                    IsRetroativa = false,
+                    Ativo = true
+                };
+
+                // 👁️ MONTAGEM DA RECEITA SATÉLITE
+                novaOS.Receita = new OsReceita
+                {
+                    OsId = novaOS.Id,
+                    OdEsferico = raiz.GetProperty("odEsferico").GetDecimal(),
+                    OdCilindrico = raiz.GetProperty("odCilindrico").GetDecimal(),
+                    OdEixo = raiz.GetProperty("odEixo").GetInt32(),
+                    OeEsferico = raiz.GetProperty("oeEsferico").GetDecimal(),
+                    OeCilindrico = raiz.GetProperty("oeCilindrico").GetDecimal(),
+                    OeEixo = raiz.GetProperty("oeEixo").GetInt32(),
+                    Adicao = raiz.TryGetProperty("adicao", out var ad) && ad.ValueKind != JsonValueKind.Null ? ad.GetDecimal() : null,
+                    DnpOd = raiz.GetProperty("dnpOd").GetDecimal(),
+                    DnpOe = raiz.GetProperty("dnpOe").GetDecimal(),
+                    AlturaMontagem = raiz.TryGetProperty("alturaMontagem", out var alt) && alt.ValueKind != JsonValueKind.Null ? alt.GetDecimal() : null
+                };
+
+                // 💳 MONTAGEM DO FINANCEIRO SATÉLITE
+                novaOS.Financeiro = new OsFinanceiro
+                {
+                    OsId = novaOS.Id,
+                    ArmacaoId = Guid.Parse(raiz.GetProperty("armacaoId").GetString()!),
+                    LentePrecoId = Guid.Parse(raiz.GetProperty("lentePrecoId").GetString()!),
+                    ValorArmacao = valorArmacao,
+                    ValorLente = valorLente,
+                    ValorTotalBruto = totalBruto,
+                    DescontoPercentual = descontoPercentual,
+                    DescontoReais = descontoReais,
+                    ValorTotalLiquido = valorTotalLiquido,
+                    FormaPagamento = formaPagamento,
+                    Parcelas = parcelasFinais,
+                    ValorEntrada = raiz.TryGetProperty("valorEntrada", out var ent) && ent.ValueKind != JsonValueKind.Null ? ent.GetDecimal() : null
+                };
+
+                // Gerador de Parcelas Comerciais
+                decimal valorParcela = Math.Round(valorTotalLiquido / loopParcelas, 2);
+                for (int i = 1; i <= loopParcelas; i++)
+                {
+                    novaOS.Parcelas.Add(new ParcelaPagamento
+                    {
+                        Id = Guid.NewGuid(),
+                        OrdemServicoId = novaOS.Id,
+                        NumeroParcela = i,
+                        DescricaoParcela = $"PARC. {i}/{loopParcelas} - OS: {novaOS.NumeroOS}",
+                        Valor = i == loopParcelas ? (valorTotalLiquido - (valorParcela * (loopParcelas - 1))) : valorParcela,
+                        DataVencimento = DateTime.UtcNow.AddMonths(i)
+                    });
+                }
+
+                _context.OrdensServico.Add(novaOS);
+                await _context.SaveChangesAsync();
+
+                return Ok(new { numeroOS = novaOS.NumeroOS });
             }
-
-            _context.OrdensServico.Add(novaOS);
-            await _context.SaveChangesAsync();
-
-            // CORRIGIDO: Retorna objeto OK JSON com o Número da OS gerada para alimentar a via A4 do Vue
-            return Ok(new { numeroOS = novaOS.NumeroOS });
+            catch (KeyNotFoundException)
+            {
+                return BadRequest(new { mensagem = "Campo obrigatório ausente no payload enviado." });
+            }
+            catch (InvalidOperationException ex)
+            {
+                return BadRequest(new { mensagem = $"Erro ao ler um dos campos da OS: {ex.Message}" });
+            }
+            catch (FormatException)
+            {
+                return BadRequest(new { mensagem = "Formato inválido em algum dos campos enviados (data, número ou identificador)." });
+            }
+            catch (Exception ex)
+            {
+                return BadRequest(new { message = "Falha ao processar a Ordem de Serviço.", erro = ex.Message });
+            }
         }
 
         // 5. Modifica o status de produção e executa a baixa/reposição física do estoque (POST)
@@ -293,28 +346,29 @@ namespace RETSYS.Web.Controllers
             }
 
             bool estadoAtualAbateEstoque = (novoStatus == "EM_LABORATORIO" || novoStatus == "ENTREGUE");
-            bool estadoAnteriorJáHaviaAbatido = (statusAnterior == "EM_LABORATORIO" || statusAnterior == "ENTREGUE");
+            bool estadoAnteriorJaHaviaAbatido = (statusAnterior == "EM_LABORATORIO" || statusAnterior == "ENTREGUE");
 
-            if (estadoAtualAbateEstoque && !estadoAnteriorJáHaviaAbatido)
+            // Lente não possui controle de estoque (é confeccionada/surfacada sob encomenda).
+            // Baixa física se aplica apenas à armação.
+            if (estadoAtualAbateEstoque && !estadoAnteriorJaHaviaAbatido)
             {
                 var armacao = await _context.Armacoes.FindAsync(ordem.Financeiro.ArmacaoId);
                 if (armacao != null) armacao.QuantidadeEstoque = Math.Max(0, armacao.QuantidadeEstoque - 1);
-
-                var lente = await _context.Lentes.FindAsync(ordem.Financeiro.LenteId);
-                if (lente != null) lente.QuantidadeEstoque = Math.Max(0, lente.QuantidadeEstoque - 1);
             }
-            else if (novoStatus == "CANCELADO" && estadoAnteriorJáHaviaAbatido)
+            else if (novoStatus == "CANCELADO" && estadoAnteriorJaHaviaAbatido)
             {
                 var armacao = await _context.Armacoes.FindAsync(ordem.Financeiro.ArmacaoId);
                 if (armacao != null) armacao.QuantidadeEstoque++;
-
-                var lente = await _context.Lentes.FindAsync(ordem.Financeiro.LenteId);
-                if (lente != null) lente.QuantidadeEstoque++;
             }
 
             ordem.Status = novoStatus;
-            await _context.SaveChangesAsync();
 
+            if (novoStatus == "ENTREGUE")
+            {
+                ordem.DataEntregaReal = DateTime.UtcNow;
+            }
+
+            await _context.SaveChangesAsync();
             return RedirectToAction(nameof(Index));
         }
 
@@ -350,11 +404,11 @@ namespace RETSYS.Web.Controllers
                 using var conteudoHttp = new StringContent(jsonPayload, Encoding.UTF8, "application/json");
 
                 using var httpClient = new HttpClient();
-                httpClient.Timeout = TimeSpan.FromSeconds(60); 
+                httpClient.Timeout = TimeSpan.FromSeconds(60);
 
-                string urlOllama = "http://ollama:11434/api/generate"; 
+                string urlOllama = "http://ollama:11434/api/generate";
                 var respostaOllama = await httpClient.PostAsync(urlOllama, conteudoHttp);
-                
+
                 if (!respostaOllama.IsSuccessStatusCode)
                 {
                     return StatusCode((int)respostaOllama.StatusCode, new { mensagem = "O motor Ollama recusou a requisição ou está sobrecarregado." });
@@ -362,7 +416,7 @@ namespace RETSYS.Web.Controllers
 
                 string jsonString = await respostaOllama.Content.ReadAsStringAsync();
                 using var documentoJson = JsonDocument.Parse(jsonString);
-                
+
                 if (documentoJson.RootElement.TryGetProperty("response", out var elementoResposta))
                 {
                     string jsonExtraidoDaIa = elementoResposta.GetString();
@@ -377,8 +431,8 @@ namespace RETSYS.Web.Controllers
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { message = "Falha crítica no pipeline interno de inteligência artificial.", erro = ex.Message });
+                return StatusCode(500, new { mensagem = "Falha crítica no pipeline interno de inteligência artificial.", erro = ex.Message });
             }
-        } 
+        }
     }
 }

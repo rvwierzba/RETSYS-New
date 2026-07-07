@@ -36,16 +36,20 @@ namespace RETSYS.Web.Controllers
                 .ToListAsync();
 
             // Carrega toda a tabela/matriz de precificação parametrizada
+            // ✅ REMOVIDO: .Include(lp => lp.Tratamento) — agora Tratamento é string, não navegação
             var precos = await _context.LentesTabelaPrecos
                 .Include(lp => lp.Lente)
-                .Include(lp => lp.Tratamento)
                 .Where(lp => lp.Ativo)
                 .ToListAsync();
 
-            // Carrega os tratamentos antirreflexo/fotossensíveis cadastrados
-            var tratamentos = await _context.LentesTratamentos
-                .Where(t => t.Ativo)
-                .OrderBy(t => t.Nome)
+            // ✅ NOVO: Sugestões de tratamento para autocomplete no front,
+            // reaproveitando os valores de texto já cadastrados na própria matriz de preços
+            // (substitui a antiga tabela lentes_tratamentos)
+            var tratamentosSugeridos = await _context.LentesTabelaPrecos
+                .Where(lp => lp.Ativo && !string.IsNullOrEmpty(lp.Tratamento))
+                .Select(lp => lp.Tratamento)
+                .Distinct()
+                .OrderBy(t => t)
                 .ToListAsync();
 
             // Passa os dados estruturados como PROPS diretamente para o Vue 3 no Canvas
@@ -53,7 +57,7 @@ namespace RETSYS.Web.Controllers
             {
                 Lentes = lentes,
                 Precos = precos,
-                Tratamentos = tratamentos,
+                TratamentosSugeridos = tratamentosSugeridos, // ✅ NOVO: lista de strings p/ autocomplete
                 IsAdmin = isAdmin
             });
         }
@@ -79,29 +83,9 @@ namespace RETSYS.Web.Controllers
 
             return RedirectToAction(nameof(Index));
         }
+      
 
-        // 3. Cadastra um novo antirreflexo ou proteção fotossensível (POST /lentes/tratamentos)
-        [HttpPost("/lentes/tratamentos")]
-        public async Task<IActionResult> CadastrarTratamento([FromBody] LenteTratamento tratamento)
-        {
-            var role = User.FindFirst(ClaimTypes.Role)?.Value ?? "";
-            if (!role.Equals("Admin", StringComparison.OrdinalIgnoreCase))
-            {
-                return RedirectToAction(nameof(Index));
-            }
-
-            if (ModelState.IsValid)
-            {
-                tratamento.Id = Guid.NewGuid();
-                tratamento.Ativo = true;
-                _context.LentesTratamentos.Add(tratamento);
-                await _context.SaveChangesAsync();
-            }
-
-            return RedirectToAction(nameof(Index));
-        }
-
-        // 4. Remove um preço cadastrado na matriz (DELETE /lentes/precos/{id})
+        // 3. Remove um preço cadastrado na matriz (DELETE /lentes/precos/{id})
         [HttpDelete("/lentes/precos/{id:guid}")]
         public async Task<IActionResult> RemoverPreco(Guid id)
         {
@@ -122,24 +106,7 @@ namespace RETSYS.Web.Controllers
             return RedirectToAction(nameof(Index));
         }
 
-        // 5. Remove um tratamento opcional (DELETE /lentes/tratamentos/{id})
-        [HttpDelete("/lentes/tratamentos/{id:guid}")]
-        public async Task<IActionResult> RemoverTratamento(Guid id)
-        {
-            var role = User.FindFirst(ClaimTypes.Role)?.Value ?? "";
-            if (!role.Equals("Admin", StringComparison.OrdinalIgnoreCase))
-            {
-                return RedirectToAction(nameof(Index));
-            }
-
-            var tratamento = await _context.LentesTratamentos.FindAsync(id);
-            if (tratamento != null)
-            {
-                tratamento.Ativo = false; // Soft delete
-                await _context.SaveChangesAsync();
-            }
-
-            return RedirectToAction(nameof(Index));
-        }
+        // ❌ REMOVIDO POR COMPLETO: método RemoverTratamento(Guid id)
+        // Motivo: não existe mais entidade LenteTratamento nem tabela lentes_tratamentos.
     }
 }

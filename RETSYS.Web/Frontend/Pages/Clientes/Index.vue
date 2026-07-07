@@ -113,38 +113,80 @@
               <div>
                 <h4 class="font-bold text-amber-950 uppercase tracking-wider text-[10px] flex items-center gap-2">
                   <span class="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
-                  Vincular Registro Histórico de Compra Antiga para este Cliente
+                  Vincular Registro Histórico de Compra Antiga para este Cliente (Ficha de Papel)
                 </h4>
-                <p class="text-[10px] text-amber-600 mt-0.5">Marque se deseja importar o histórico de faturamento e lentes sem alterar o estoque físico ativo de hoje.</p>
+                <p class="text-[10px] text-amber-600 mt-0.5">Ative essa opção para salvar os valores de refração e gastos antigos diretamente na ficha sem abrir ordens falsas.</p>
               </div>
               <input type="checkbox" v-model="form.RegistrarHistorico" class="rounded border-amber-300 text-amber-600 focus:ring-amber-500" />
             </div>
 
-            <div v-if="form.RegistrarHistorico" class="grid grid-cols-1 md:grid-cols-4 gap-4 pt-3 border-t border-amber-200/50 animate-fadeIn">
-              <div>
-                <label class="block font-bold text-amber-900 uppercase mb-1.5">Data da Compra *</label>
-                <input v-model="form.HistoricoData" type="date" class="w-full rounded-xl border-amber-200 bg-white" :required="form.RegistrarHistorico" />
+            <div v-if="form.RegistrarHistorico" class="space-y-4 pt-3 border-t border-amber-200/50 animate-fadeIn">
+              <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div>
+                  <label class="block font-bold text-amber-900 uppercase mb-1.5">Data da Última Compra *</label>
+                  <input v-model="form.HistoricoData" type="date" class="w-full rounded-xl border-amber-200 bg-white" :required="form.RegistrarHistorico" />
+                </div>
+                <div>
+                  <label class="block font-bold text-amber-900 uppercase mb-1.5">Valor Total Gasto (R$) *</label>
+                  <input v-model.number="form.HistoricoValor" type="number" step="0.01" placeholder="R$ 0,00" class="w-full rounded-xl border-amber-200 bg-white font-mono font-bold" :required="form.RegistrarHistorico" />
+                </div>
+                <div class="md:col-span-2">
+                  <label class="block font-bold text-amber-900 uppercase mb-1.5">Produto Adquirido (Lente/Tratamento) *</label>
+                  <input v-model="form.HistoricoLente" type="text" placeholder="Escreva o modelo da lente antiga (Ex: Bifocal Tomada com AR)" class="w-full rounded-xl border-amber-200 bg-white" :required="form.RegistrarHistorico" />
+                </div>
               </div>
-              <div>
-                <label class="block font-bold text-amber-900 uppercase mb-1.5">Valor do Pedido (R$) *</label>
-                <input v-model.number="form.HistoricoValor" type="number" step="0.01" placeholder="R$ 0,00" class="w-full rounded-xl border-amber-200 bg-white font-mono font-bold" :required="form.RegistrarHistorico" />
-              </div>
-              <div class="md:col-span-2">
-                <label class="block font-bold text-amber-900 uppercase mb-1.5">Identificação / Texto da Lente *</label>
-                <input v-model="form.HistoricoLente" type="text" placeholder="Escreva a lente comprada na época (Ex: Progressiva com AR)" class="w-full rounded-xl border-amber-200 bg-white" :required="form.RegistrarHistorico" />
-              </div>
-            </div>
 
-            <div v-if="form.RegistrarHistorico" class="pt-2">
-              <label class="block font-bold text-amber-900 uppercase mb-1.5">Anexo da Receita Antiga (Foto/Scan)</label>
-              <div class="flex items-center gap-3">
-                <input type="file" id="arquivoReceita" accept="image/*" @change="vincularArquivoUpload" class="hidden" />
-                <label for="arquivoReceita" class="bg-amber-100 hover:bg-amber-200 text-amber-900 text-[10px] font-bold px-3 py-2 rounded-xl transition cursor-pointer select-none border border-amber-300 shadow-sm">
-                  {{ form.HistoricoFotoReceita ? 'Alterar Imagem' : '📸 Selecionar Arquivo Receita' }}
-                </label>
-                <span class="text-[10px] font-mono text-amber-700 truncate max-w-xs block">
-                  {{ form.HistoricoFotoReceita ? form.HistoricoFotoReceita.name : 'Nenhuma foto anexada no momento' }}
-                </span>
+              <div class="bg-white p-4 rounded-xl border border-amber-200/60 space-y-3">
+                <p class="font-bold text-amber-950 uppercase text-[10px] tracking-wider mb-1">Última Refração Conhecida (Graus Clínicos do Papel)</p>
+                
+                <div class="grid grid-cols-4 gap-2 font-bold text-[10px] text-slate-400 uppercase text-center border-b pb-1">
+                  <div>Olho</div>
+                  <div>Esférico</div>
+                  <div>Cilíndrico</div>
+                  <div>Eixo (°)</div>
+                </div>
+
+                <div class="grid grid-cols-4 gap-2 items-center">
+                  <div class="text-xs font-black text-slate-700 text-center">OD</div>
+                  <input v-model.number="form.UltimaOdEsferico" type="number" step="0.25" placeholder="0,00" class="rounded-xl border-slate-200 text-center font-mono py-1" />
+                  <input v-model.number="form.UltimaOdCilindrico" type="number" step="0.25" placeholder="0,00" class="rounded-xl border-slate-200 text-center font-mono py-1" />
+                  <input v-model.number="form.UltimaOdEixo" type="number" min="0" max="180" placeholder="0" class="rounded-xl border-slate-200 text-center font-mono py-1" />
+                </div>
+
+                <div class="grid grid-cols-4 gap-2 items-center">
+                  <div class="text-xs font-black text-slate-700 text-center">OE</div>
+                  <input v-model.number="form.UltimaOeEsferico" type="number" step="0.25" placeholder="0,00" class="rounded-xl border-slate-200 text-center font-mono py-1" />
+                  <input v-model.number="form.UltimaOeCilindrico" type="number" step="0.25" placeholder="0,00" class="rounded-xl border-slate-200 text-center font-mono py-1" />
+                  <input v-model.number="form.UltimaOeEixo" type="number" min="0" max="180" placeholder="0" class="rounded-xl border-slate-200 text-center font-mono py-1" />
+                </div>
+
+                <div class="grid grid-cols-3 gap-2 pt-2 border-t border-slate-100">
+                  <div>
+                    <label class="block font-bold text-slate-400 mb-1">Adição (AD)</label>
+                    <input v-model.number="form.UltimaAdicao" type="number" step="0.25" placeholder="0,00" class="w-full rounded-xl border-slate-200 text-center font-mono py-1" />
+                  </div>
+                  <div>
+                    <label class="block font-bold text-slate-400 mb-1">DNP Direita</label>
+                    <input v-model.number="form.UltimaDnpOd" type="number" step="0.5" placeholder="mm" class="w-full rounded-xl border-slate-200 text-center font-mono py-1" />
+                  </div>
+                  <div>
+                    <label class="block font-bold text-slate-400 mb-1">DNP Esquerda</label>
+                    <input v-model.number="form.UltimaDnpOe" type="number" step="0.5" placeholder="mm" class="w-full rounded-xl border-slate-200 text-center font-mono py-1" />
+                  </div>
+                </div>
+              </div>
+
+              <div class="pt-1">
+                <label class="block font-bold text-amber-900 uppercase mb-1.5">Anexo da Receita Antiga (Foto/Scan)</label>
+                <div class="flex items-center gap-3">
+                  <input type="file" id="arquivoReceita" accept="image/*" @change="vincularArquivoUpload" class="hidden" />
+                  <label for="arquivoReceita" class="bg-amber-100 hover:bg-amber-200 text-amber-900 text-[10px] font-bold px-3 py-2 rounded-xl transition cursor-pointer select-none border border-amber-300 shadow-sm">
+                    {{ form.HistoricoFotoReceita ? 'Alterar Imagem' : '📸 Selecionar Arquivo Receita' }}
+                  </label>
+                  <span class="text-[10px] font-mono text-amber-700 truncate max-w-xs block">
+                    {{ form.HistoricoFotoReceita ? form.HistoricoFotoReceita.name : 'Nenhuma foto anexada no momento' }}
+                  </span>
+                </div>
               </div>
             </div>
           </div>
@@ -191,7 +233,7 @@
                   >
                     <span>💬</span> {{ c.Telefone }}
                   </a>
-                  <span v-else class="text-slate-400">--</span>
+                  <span class="text-slate-400">--</span>
                 </td>
 
                 <td class="py-4 text-center font-mono text-xs text-teal-600 font-bold">
@@ -205,7 +247,7 @@
                 <td class="py-4 text-center">
                   <Link 
                     :href="`/clientes/${c.Id}/historico`"
-                    class="bg-slate-950 hover:bg-slate-800 text-white text-xs font-bold px-3 py-1.5 rounded-lg transition shadow-sm"
+                    class="bg-slate-950 hover:bg-slate-800 text-white text-xs font-bold px-3 py-1.5 rounded-lg transition shadow-sm font-mono"
                   >
                     Ficha Completa
                   </Link>
@@ -235,7 +277,6 @@ const props = defineProps({
 const termoBusca = ref(props.FiltroBusca || '')
 const exibirFormNovoCliente = ref(false) 
 
-// Estrutura de filtros reativos temporais combinados
 const filtroPeriodo = reactive({
   mes: props.MesFiltro || null,
   ano: props.AnoFiltro || null
@@ -246,7 +287,7 @@ const meses = [
   'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
 ]
 
-const anos = [2023, 2024, 2025, 2026, 2027, 2028]
+const anos = [2024, 2025, 2026, 2027, 2028]
 
 const form = useForm({
   Nome: '',
@@ -261,16 +302,26 @@ const form = useForm({
   Convenio: '',
   Email: '',
   
-  // Mapeamento dos campos históricos adicionais
   RegistrarHistorico: false,
   HistoricoData: '',
   HistoricoValor: 0,
   HistoricoLente: '',
-  HistoricoFotoReceita: null
+  HistoricoFotoReceita: null,
+
+  // Inicialização reativa das chaves de refração legadas da Seção 3
+  UltimaOdEsferico: 0,
+  UltimaOdCilindrico: 0,
+  UltimaOdEixo: 0,
+  UltimaOeEsferico: 0,
+  UltimaOeCilindrico: 0,
+  UltimaOeEixo: 0,
+  UltimaAdicao: null,
+  UltimaDnpOd: 0,
+  UltimaDnpOe: 0
 })
 
 const registrarTimeout = ref(null)
-const executarFiltroCombinado = () => {
+const ejecutarFiltroCombinado = () => {
   clearTimeout(registrarTimeout.value)
   registrarTimeout.value = setTimeout(() => {
     router.get('/clientes', { 
@@ -304,7 +355,7 @@ const buscarCepAutomático = async () => {
 const vincularArquivoUpload = (event) => {
   const arquivos = event.target.files
   if (arquivos.length > 0) {
-    form.HistoricoFotoReceita = archivos[0]
+    form.HistoricoFotoReceita = arquivos[0] // Correção efetuada do typo 'archivos'
   }
 }
 

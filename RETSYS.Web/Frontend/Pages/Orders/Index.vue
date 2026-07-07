@@ -1,26 +1,67 @@
 <template>
-  <!-- Injeta a moldura unificada com o Header e o Timer automáticos -->
   <AuthenticatedLayout>
     <div class="p-4 md:p-8 space-y-6 max-w-6xl mx-auto">
 
-      <!-- Cabeçalho Operacional -->
-      <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+      <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
         <div>
-          <h1 class="text-2xl font-black text-slate-950">Painel de Ordens de Serviço</h1>
-          <p class="text-sm text-slate-500">Consulte receitas, especificações de lentes e envie ordens para o laboratório.</p>
+          <h1 class="text-2xl font-black text-slate-950 font-mono tracking-tight">Painel de Ordens de Serviço</h1>
+          <p class="text-xs text-slate-500 mt-1">Consulte receitas, especificações de lentes, gerencie a esteira comercial e aplique filtros de faturamento.</p>
         </div>
         <button 
           @click="irParaNovaOrdem"
-          class="bg-teal-600 hover:bg-teal-700 text-white font-bold py-2.5 px-6 rounded-xl text-xs transition shadow-sm uppercase tracking-wider"
+          class="bg-teal-600 hover:bg-teal-700 text-white font-bold py-2.5 px-6 rounded-xl text-xs transition shadow-sm uppercase tracking-wider h-fit"
         >
           + Emitir Nova OS
         </button>
       </div>
 
-      <!-- Tabela Principal -->
+      <div class="grid grid-cols-1 lg:grid-cols-4 gap-4 bg-white p-4 rounded-2xl border border-slate-200 shadow-sm items-center">
+        
+        <div class="lg:col-span-3 flex flex-wrap gap-1.5">
+          <button 
+            @click="filtrarPorComposicao('total')"
+            :class="[filtroAtivoComp === 'total' ? 'bg-slate-950 text-white font-black' : 'bg-slate-50 text-slate-600 hover:bg-slate-100 font-semibold']"
+            class="px-4 py-2 rounded-xl text-xs uppercase tracking-wider transition border border-transparent"
+          >
+            📋 Total de Vendas
+          </button>
+          
+          <button 
+            @click="filtrarPorComposicao('armacao')"
+            :class="[filtroAtivoComp === 'armacao' ? 'bg-slate-950 text-white font-black' : 'bg-slate-50 text-slate-600 hover:bg-slate-100 font-semibold']"
+            class="px-4 py-2 rounded-xl text-xs uppercase tracking-wider transition border"
+          >
+            👓 Receita de Armações
+          </button>
+          
+          <button 
+            @click="irParaFiltro('lente')"
+            :class="[filtroAtivoComp === 'lente' ? 'bg-slate-950 text-white font-bold' : 'bg-slate-50 text-slate-600 font-medium']"
+            class="px-4 py-2 rounded-xl text-xs border border-transparent hover:bg-slate-100 transition"
+          >
+            🔬 Receita de Lenses
+          </button>
+          
+          <button 
+            @click="filtrarPorComposicao('completo')"
+            :class="[filtroAtivoComp === 'completo' ? 'bg-slate-950 text-white font-black' : 'bg-slate-50 text-slate-600 hover:bg-slate-100 font-semibold']"
+            class="px-4 py-2 rounded-xl text-xs uppercase tracking-wider transition border"
+          >
+            💎 Óculos Completo
+          </button>
+        </div>
+
+        <div class="bg-teal-50 border border-teal-200 rounded-xl p-3 text-center lg:text-right">
+          <span class="text-[10px] font-bold text-teal-800 uppercase tracking-wider block">Faturamento do Filtro</span>
+          <p class="text-lg font-black text-teal-700 font-mono mt-0.5">
+            R$ {{ formatarMoeda(totalExibido) }}
+          </p>
+        </div>
+      </div>
+
       <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
         <div v-if="!(Ordens ?? ordens) || (Ordens ?? ordens).length === 0" class="text-center py-12 border-2 border-dashed border-slate-100 rounded-xl text-slate-400 text-sm">
-          Nenhuma ordem de serviço emitida no sistema até o momento.
+          Nenhuma ordem de serviço localizada para os filtros e parâmetros indicados.
         </div>
 
         <div v-else class="overflow-x-auto">
@@ -41,7 +82,7 @@
                     {{ os.numeroOS || os.NumeroOS }}
                   </p>
                   <p class="text-xs text-slate-400">
-                    {{ formatarData(os.dataVenda || os.DataVenda) }}
+                    {{ formatarData(os.dataVenda || os.DataVenda || os.dataEntrada || os.DataEntrada) }}
                   </p>
                 </td>
                 <td class="py-4 font-semibold text-slate-800">
@@ -57,7 +98,7 @@
                 <td class="py-4 text-center">
                   <button 
                     @click="abrirPranchetaClinica(os)"
-                    class="bg-slate-950 hover:bg-slate-800 text-white text-xs font-bold px-3 py-1.5 rounded-lg transition shadow-sm"
+                    class="bg-slate-950 hover:bg-slate-800 text-white text-xs font-bold px-3 py-1.5 rounded-lg transition shadow-sm font-mono"
                   >
                     Ver Receita
                   </button>
@@ -68,13 +109,12 @@
         </div>
       </div>
 
-      <!-- Modal de Visualização (Prancheta Clínica) -->
       <div v-if="osSelecionada" class="fixed inset-0 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
         <div class="bg-white rounded-3xl border border-slate-200 shadow-2xl w-full max-w-3xl overflow-hidden animate-fadeIn">
           
           <div class="bg-slate-950 text-white p-6 flex items-center justify-between">
             <div>
-              <h2 class="text-base font-black uppercase tracking-wider">
+              <h2 class="text-base font-black uppercase tracking-wider font-mono">
                 Prancheta Clínica: {{ osSelecionada.numeroOS || osSelecionada.NumeroOS }}
               </h2>
               <p class="text-xs text-slate-400">
@@ -86,9 +126,8 @@
 
           <div class="p-6 space-y-6">
             
-            <!-- Refração de Longe -->
             <div class="space-y-3">
-              <h4 class="text-xs font-bold text-teal-600 uppercase tracking-widest border-b border-slate-100 pb-1">Refração de Longe</h4>
+              <h4 class="text-xs font-bold text-teal-600 uppercase tracking-widest border-b border-slate-100 pb-1 font-mono">Refração de Longe</h4>
               <div class="grid grid-cols-2 gap-4 text-xs font-mono">
                 <div class="bg-slate-50 p-3 rounded-xl border border-slate-150">
                   <p class="font-sans font-bold text-slate-400 mb-1">Olho Direito (OD)</p>
@@ -106,10 +145,9 @@
               </div>
             </div>
 
-            <!-- Refração de Perto -->
             <div class="space-y-3">
               <div class="flex items-center justify-between border-b border-slate-100 pb-1">
-                <h4 class="text-xs font-bold text-indigo-600 uppercase tracking-widest">Refração de Perto</h4>
+                <h4 class="text-xs font-bold text-indigo-600 uppercase tracking-widest font-mono">Refração de Perto</h4>
                 <span class="text-[10px] bg-indigo-50 text-indigo-700 font-bold font-mono px-2 py-0.5 rounded">
                   Adição: +{{ obterGrau(osSelecionada, 'adicao') }}
                 </span>
@@ -140,19 +178,34 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, computed } from 'vue'
 import { router } from '@inertiajs/vue3'
 import AuthenticatedLayout from '../../Shared/AuthenticatedLayout.vue'
 
-defineProps({
-  Ordens: Array,
-  ordens: Array
+const props = defineProps({
+  Ordens: Array, ordens: Array,
+  FiltroAtivo: String, filtroAtivo: String, // Estado retornado pelo switch case do back-end
+  TotalFiltroAtivo: Number, totalFiltroAtivo: Number // Somatório financeiro líquido do filtro ativo
 })
 
 const osSelecionada = ref(null)
 
+// Tratamento defensivo para normalizar propriedades enviadas em minúsculo ou PascalCase pelo serializer
+const filtroAtivoComp = computed(() => props.FiltroAtivo ?? props.filtroAtivo ?? 'total')
+const totalExibido = computed(() => props.TotalFiltroAtivo ?? props.totalFiltroAtivo ?? 0)
+
 const irParaNovaOrdem = () => {
   router.get('/ordens/nova')
+}
+
+// Dispara a requisição de filtragem reativa preservando o estado das linhas
+const filtrarPorComposicao = (tipo) => {
+  router.get('/ordens', { filtroComposicao: tipo }, { preserveState: true })
+}
+
+// Atalho semântico de clique interno
+const irParaFiltro = (tipo) => {
+  filtrarPorComposicao(tipo)
 }
 
 const abrirPranchetaClinica = (ordem) => {
@@ -161,7 +214,7 @@ const abrirPranchetaClinica = (ordem) => {
 
 const formatarMoeda = (valor) => {
   if (valor === undefined || valor === null) return '0,00'
-  return Number(valor).toFixed(2)
+  return Number(valor).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
 const formatarData = (dataRaw) => {

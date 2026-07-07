@@ -1,13 +1,17 @@
 <template>
   <AuthenticatedLayout>
     <div class="p-4 md:p-8 space-y-6 max-w-5xl mx-auto">
-      
+
       <div v-if="$page.props.flash?.erro" class="p-4 bg-red-50 border border-red-200 text-red-800 rounded-xl text-sm font-semibold shadow-sm no-print">
         🛑 {{ $page.props.flash.erro }}
       </div>
 
+      <div v-if="erroSubmissao" class="p-4 bg-red-50 border border-red-200 text-red-800 rounded-xl text-sm font-semibold shadow-sm no-print">
+        🛑 {{ erroSubmissao }}
+      </div>
+
       <div v-if="!exibirFaturaSucesso" class="bg-white rounded-3xl border border-slate-200 shadow-xl overflow-hidden no-print">
-        
+
         <div class="bg-slate-950 text-white p-6 flex items-center justify-between">
           <div>
             <h1 class="text-xl font-black tracking-wide">Central Unificada de Emissão de OS</h1>
@@ -17,19 +21,19 @@
         </div>
 
         <form @submit.prevent="salvarOrdemServico" class="p-6 space-y-8">
-          
+
           <div class="bg-slate-50 p-6 rounded-2xl border border-slate-200 space-y-4">
             <h3 class="text-sm font-black text-slate-700 uppercase tracking-wider flex items-center gap-2">
               <span class="w-2 h-2 rounded-full bg-slate-950"></span> 1. Identificação do Cliente (CRM)
             </h3>
-            
+
             <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
               <div>
                 <label class="block text-[11px] font-bold uppercase text-slate-400 tracking-wider mb-1.5">CPF do Cliente *</label>
                 <div class="flex gap-2">
                   <input v-model="form.cpf" type="text" placeholder="000.000.000-00" class="w-full rounded-xl border-slate-200 text-sm font-mono focus:border-teal-500 focus:ring-teal-500" required />
-                  <button type="button" @click="consultarCpfNoBanco" class="bg-slate-950 hover:bg-slate-800 text-white px-4 py-2.5 rounded-xl text-xs font-bold transition whitespace-nowrap">
-                    Buscar CPF
+                  <button type="button" @click="consultarCpfNoBanco" :disabled="consultandoCpf" class="bg-slate-950 hover:bg-slate-800 disabled:bg-slate-400 text-white px-4 py-2.5 rounded-xl text-xs font-bold transition whitespace-nowrap">
+                    {{ consultandoCpf ? 'Buscando...' : 'Buscar CPF' }}
                   </button>
                 </div>
               </div>
@@ -123,7 +127,7 @@
                   </label>
                   <span class="text-xs font-mono text-slate-500 truncate block max-w-[200px]">
                     {{ arquivoSelecionado ? arquivoSelecionado.name : 'Nenhum arquivo anexado' }}
-                  </span >
+                  </span>
                 </div>
                 <div class="flex items-start gap-2">
                   <input type="checkbox" id="termoOcr" v-model="termoAceito" class="mt-0.5 rounded border-slate-300 text-teal-600 focus:ring-teal-500" />
@@ -164,7 +168,7 @@
                 </select>
               </div>
             </div>
-            
+
             <div class="bg-white p-4 rounded-xl border border-slate-200 space-y-3 mt-4">
               <div class="grid grid-cols-4 gap-4 font-bold text-[11px] text-slate-400 uppercase tracking-wider text-center border-b pb-2">
                 <div>Olho</div>
@@ -172,7 +176,7 @@
                 <div>Cilíndrico</div>
                 <div>Eixo (°)</div>
               </div>
-              
+
               <div class="grid grid-cols-4 gap-4 items-center">
                 <div class="text-sm font-black text-slate-700 text-center">OD</div>
                 <input v-model.number="form.odEsferico" type="number" step="0.25" placeholder="0,00" class="rounded-xl border-slate-200 text-sm text-center font-mono focus:border-teal-500" />
@@ -192,13 +196,13 @@
               <div class="flex flex-col bg-teal-50/50 p-4 rounded-xl border border-teal-100">
                 <label class="block text-xs font-bold uppercase text-teal-800 tracking-wider mb-1.5">Adição (AD)</label>
                 <input v-model.number="form.adicao" type="number" step="0.25" placeholder="0.00" class="w-full rounded-xl border-teal-200 text-sm focus:border-teal-500 focus:ring-teal-500 bg-white font-mono text-teal-900" />
-                <p class="text-[10px] text-teal-600 mt-1 leading-tight">Obrigatório para lentes progressivas. Grau de perto calculado automaticamente via memória.</p>
+                <p class="text-[10px] text-teal-600 mt-1 leading-tight">Obrigatório para lentes progressivas. Se preenchida, a Altura de Montagem também será exigida.</p>
               </div>
               <div>
                 <label class="block text-[11px] font-bold uppercase text-slate-400 tracking-wider mb-1.5">Atendente / Responsável *</label>
                 <select v-model="form.vendedorId" class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500" required>
                   <option value="">Selecione o Vendedor</option>
-                  <option v-for="v in Vendedores" :key="v.Id" :value="v.Id">{{ v.Nome }}</option>
+                  <option v-for="v in Vendedores" :key="v.id" :value="v.id">{{ v.nome }}</option>
                 </select>
               </div>
             </div>
@@ -206,20 +210,24 @@
 
           <div class="bg-white p-6 rounded-2xl border border-slate-200 space-y-4">
             <h3 class="text-sm font-black text-slate-700 uppercase tracking-wider flex items-center gap-2">
-              <span class="w-2 h-2 rounded-full bg-indigo-500"></span> 3. Medidas Técnicas de Laboratório
+              <span class="w-2 h-2 rounded-full bg-indigo-500"></span> 3. Medidas Técnicas & Prazo de Entrega
             </h3>
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
               <div>
                 <label class="block text-xs font-bold uppercase text-slate-400 tracking-wider mb-2">DNP - Olho Direito (mm) *</label>
-                <input v-model.number="form.dnpOd" type="number" step="0.5" placeholder="0.0" class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500 font-mono" required />
+                <input v-model.number="form.dnpOd" type="number" step="0.5" min="0.1" placeholder="0.0" class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500 font-mono" required />
               </div>
               <div>
                 <label class="block text-xs font-bold uppercase text-slate-400 tracking-wider mb-2">DNP - Olho Esquerdo (mm) *</label>
-                <input v-model.number="form.dnpOe" type="number" step="0.5" placeholder="0.0" class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500 font-mono" required />
+                <input v-model.number="form.dnpOe" type="number" step="0.5" min="0.1" placeholder="0.0" class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500 font-mono" required />
               </div>
               <div>
                 <label class="block text-xs font-bold uppercase text-slate-400 tracking-wider mb-2">Altura de Montagem (mm)</label>
-                <input v-model.number="form.alturaMontagem" type="number" step="0.5" placeholder="Obrigatório para progressivas" class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500 font-mono" />
+                <input v-model.number="form.alturaMontagem" type="number" step="0.5" placeholder="Obrigatório p/ progressivas" class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500 font-mono" />
+              </div>
+              <div>
+                <label class="block text-xs font-bold uppercase text-slate-400 tracking-wider mb-2">Data Prevista de Entrega *</label>
+                <input v-model="form.dataPrevistaEntrega" type="date" class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500 font-mono" required />
               </div>
             </div>
             <div>
@@ -233,19 +241,32 @@
               <label class="block text-xs font-bold uppercase text-slate-400 tracking-wider mb-2">Armação Selecionada (Estoque Real) *</label>
               <select v-model="form.armacaoId" @change="processarSnapshotProdutos" class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500" required>
                 <option value="">Selecione o modelo do Inventário</option>
-                <option v-for="a in Armacoes" :key="a.Id" :value="a.Id">
-                  {{ a.ModeloReferencia }} ({{ a.Cor }}) — R$ {{ a.PrecoVenda.toLocaleString('pt-BR') }}
+                <option v-for="a in Armacoes" :key="a.id" :value="a.id">
+                  {{ a.modeloReferencia }} ({{ a.cor }}) — R$ {{ a.precoVenda.toLocaleString('pt-BR') }}
                 </option>
               </select>
             </div>
-            <div>
-              <label class="block text-xs font-bold uppercase text-slate-400 tracking-wider mb-2">Lente do Catálogo Disponível *</label>
-              <select v-model="form.lenteId" @change="processarSnapshotProdutos" class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500" required>
-                <option value="">Selecione a Lente da Matriz</option>
-                <option v-for="l in Lentes" :key="l.Id" :value="l.Id">
-                  {{ l.Laboratorio }} — {{ l.Tipo }} ({{ l.Tratamento }})
-                </option>
-              </select>
+            <div class="space-y-4">
+              <div>
+                <label class="block text-xs font-bold uppercase text-slate-400 tracking-wider mb-2">Lente do Catálogo Disponível *</label>
+                <select v-model="form.lenteId" @change="processarSnapshotProdutos" class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500" required>
+                  <option value="">Selecione a Lente da Matriz</option>
+                  <option v-for="l in Lentes" :key="l.id" :value="l.id">
+                    {{ l.laboratorio }} — {{ l.tipo }} {{ l.tratamento ? `(${l.tratamento})` : '(Sem Tratamento)' }} (Índice {{ l.indiceRefracao }}) — R$ {{ l.precoVenda.toLocaleString('pt-BR') }}
+                  </option>
+                </select>
+              </div>
+              
+              <div v-if="lenteManualAtiva" class="animate-fadeIn p-4 bg-teal-50/50 rounded-2xl border border-teal-200/60">
+                <label class="block text-xs font-bold uppercase text-teal-900 tracking-wider mb-2">Preço de Venda da Lente Surfaçada (Sob Encomenda) *</label>
+                <div class="relative mt-1 rounded-xl shadow-sm">
+                  <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
+                    <span class="text-sm font-semibold text-teal-600">R$</span>
+                  </div>
+                  <input v-model.number="form.valorLente" type="number" step="0.01" min="0" placeholder="0,00" @input="recalcularTotaisGenericos" class="w-full rounded-xl border-teal-200 pl-9 text-sm font-mono font-bold focus:border-teal-500 focus:ring-teal-500" required />
+                </div>
+                <p class="text-[10px] text-teal-600 mt-1.5 leading-tight">✓ Lente sob medida identificada. Insira o orçamento acordado com o laboratório parceiro.</p>
+              </div>
             </div>
           </div>
 
@@ -285,8 +306,8 @@
             <Link href="/ordens" class="px-5 py-3 text-sm font-semibold text-slate-500 hover:text-slate-800 transition">
               Cancelar
             </Link>
-            <button type="submit" :disabled="form.processing" class="bg-teal-600 hover:bg-teal-700 disabled:bg-slate-200 disabled:text-slate-400 text-white font-bold py-3.5 px-8 rounded-xl shadow-md transition text-sm min-w-[200px]">
-              <span v-if="form.processing">Processando Emissão...</span>
+            <button type="submit" :disabled="salvandoOS" class="bg-teal-600 hover:bg-teal-700 disabled:bg-slate-200 disabled:text-slate-400 text-white font-bold py-3.5 px-8 rounded-xl shadow-md transition text-sm min-w-[200px]">
+              <span v-if="salvandoOS">Processando Emissão...</span>
               <span v-else>Faturar Ordem de Serviço</span>
             </button>
           </div>
@@ -329,7 +350,7 @@
     </div>
 
     <div id="documento-impressao" class="hidden print:block print-area">
-      
+
       <div v-if="tipoComprovanteImpressao === 'completa'" class="space-y-6">
         <div class="print-header flex items-center justify-between border-b-2 border-black pb-4">
           <div>
@@ -348,8 +369,8 @@
           <p><strong>WhatsApp:</strong> {{ form.telefone }} | <strong>Endereço:</strong> {{ form.logradouro }}, {{ form.numero }} - {{ form.bairro }} (CEP: {{ form.cep }})</p>
 
           <h3 class="print-section-title font-bold bg-slate-100 p-1 text-xs uppercase">Dados Clínicos / Receita</h3>
-          <p><strong>Médico:</strong> {{ form.medicoNome }} ({{ form.medicoTipo }}) | <strong>CRM:</strong> {{ form.medicoCrm || 'Não informado' }}</p>
-          
+          <p><strong>Médico:</strong> {{ form.medicoNome || 'Não informado' }} ({{ form.medicoTipo }}) | <strong>CRM:</strong> {{ form.medicoCrm || 'Não informado' }}</p>
+
           <table class="table-print w-full text-center border-collapse border mt-2">
             <thead>
               <tr class="bg-slate-50 border-b">
@@ -362,20 +383,20 @@
             <tbody>
               <tr class="border-b">
                 <td class="p-2 border"><strong>OD</strong></td>
-                <td class="p-2 border">{{ form.odEsferico || '0,00' }}</td>
-                <td class="p-2 border">{{ form.odCilindrico || '0,00' }}</td>
-                <td class="p-2 border">{{ form.odEixo || '0' }}°</td>
+                <td class="p-2 border">{{ form.odEsferico ?? '0,00' }}</td>
+                <td class="p-2 border">{{ form.odCilindrico ?? '0,00' }}</td>
+                <td class="p-2 border">{{ form.odEixo ?? '0' }}°</td>
               </tr>
               <tr class="border-b">
                 <td class="p-2 border"><strong>OE</strong></td>
-                <td class="p-2 border">{{ form.oeEsferico || '0,00' }}</td>
-                <td class="p-2 border">{{ form.oeCilindrico || '0,00' }}</td>
-                <td class="p-2 border">{{ form.oeEixo || '0' }}°</td>
+                <td class="p-2 border">{{ form.oeEsferico ?? '0,00' }}</td>
+                <td class="p-2 border">{{ form.oeCilindrico ?? '0,00' }}</td>
+                <td class="p-2 border">{{ form.oeEixo ?? '0' }}°</td>
               </tr>
             </tbody>
           </table>
 
-          <p class="mt-2"><strong>Adição:</strong> {{ form.adicao || 'N/A' }} | <strong>DNP OD:</strong> {{ form.dnpOd }}mm | <strong>DNP OE:</strong> {{ form.dnpOe }}mm</p>
+          <p class="mt-2"><strong>Adição:</strong> {{ form.adicao ?? 'N/A' }} | <strong>DNP OD:</strong> {{ form.dnpOd }}mm | <strong>DNP OE:</strong> {{ form.dnpOe }}mm</p>
 
           <h3 class="print-section-title font-bold bg-slate-100 p-1 text-xs uppercase">Valores e Fechamento</h3>
           <p><strong>Forma de Pagamento:</strong> {{ form.formaPagamento }} {{ form.formaPagamento === 'CARTAO_CREDITO' ? `(${qtdParcelas}x)` : '' }}</p>
@@ -425,8 +446,9 @@
 </template>
 
 <script setup>
-import { ref, onMounted, nextTick } from 'vue'
+import { ref, watch, nextTick } from 'vue'
 import { useForm, Link, router } from '@inertiajs/vue3'
+import axios from 'axios'
 import AuthenticatedLayout from '../../Shared/AuthenticatedLayout.vue'
 
 const props = defineProps({
@@ -440,15 +462,19 @@ const exibirFaturaSucesso = ref(false)
 const tipoComprovanteImpressao = ref('completa')
 const osFaturadaResponse = ref({ numeroOS: 'OS-TEMP-00000' })
 
+// Controle manual de submit (o backend responde JSON puro em /ordens, incompatível
+// com o protocolo Inertia — por isso não usamos form.post/form.processing aqui)
+const salvandoOS = ref(false)
+const erroSubmissao = ref(null)
+
 const qtdParcelas = ref(1)
-const tratamentos = ref([])
-const indicesDisponiveis = ref([1.50, 1.56, 1.67, 1.74])
-const lenteSurfacada = ref(false)
+const lenteManualAtiva = ref(false) // Controle de edição manual para lentes surfaçadas
 
-// Estado reativo para alertar e gerenciar fluxo contínuo do CRM (Encontrar vs Cadastrar Rápido)
-const clienteLocalizado = ref(null) // null = sem busca, true = achou perfil, false = cadastrar rápido na hora
+// Estado reativo do fluxo de CRM (Encontrar vs Cadastrar Rápido)
+const clienteLocalizado = ref(null) // null = sem busca, true = achou perfil, false = cadastrar rápido
+const consultandoCpf = ref(false)
 
-// Estados da IA Moondream (Preservada)
+// Estados da IA Moondream
 const termoAceito = ref(false)
 const carregandoIA = ref(false)
 const arquivoSelecionado = ref(null)
@@ -467,7 +493,7 @@ const form = useForm({
   cep: '',
   convenio: '',
   email: '',
-  
+
   vendedorId: '',
   dataReceita: new Date().toISOString().split('T')[0],
   dataPrevistaEntrega: '',
@@ -489,10 +515,7 @@ const form = useForm({
   obsReceita: '',
 
   armacaoId: '',
-  lenteId: '',
-  lenteTipo: '',
-  lenteIndiceRefracao: '',
-  tratamentoId: null,
+  lenteId: '', // representa o LentePrecoId esperado pelo backend (props.Lentes)
 
   valorArmacao: 0,
   valorLente: 0,
@@ -504,91 +527,42 @@ const form = useForm({
   formaPagamento: 'DINHEIRO'
 })
 
-// Busca de tratamentos disponíveis no início
-onMounted(async () => {
-  try {
-    const res = await fetch('/api/lentes/tratamentos')
-    if (res.ok) {
-      tratamentos.value = await res.json()
-    }
-  } catch (err) {
-    console.error('Falha ao carregar tratamentos.')
+// Se o usuário mudar a forma de pagamento para algo diferente de crédito,
+// zera as parcelas para evitar inconsistência no payload/backend
+watch(() => form.formaPagamento, (novaForma) => {
+  if (novaForma !== 'CARTAO_CREDITO') {
+    qtdParcelas.value = 1
   }
 })
 
-// Detecta se a lente é surfaçada e busca as opções da matriz
-const carregarOpcoesLente = async () => {
-  const lente = props.Lentes.find(l => l.Id === form.lenteId)
-  if (!lente) {
-    lenteSurfacada.value = false
-    return
-  }
-
-  lenteSurfacada.value = lente.Surfacada
-
-  if (lente.Surfacada) {
-    form.valorLente = 0.00
-    form.lenteTipo = 'SURFAÇADA'
-    form.lenteIndiceRefracao = '1.50'
-    form.tratamentoId = null
-    recalcularTotaisGenericos()
-  } else {
-    try {
-      const res = await fetch(`/api/lentes/${form.lenteId}/opcoes-matriz`)
-      if (res.ok) {
-        const dados = await res.json()
-        indicesDisponiveis.value = [...new Set(dados.map(d => d.indiceRefracao))]
-      }
-    } catch (e) {
-      console.error(e)
-    }
-  }
-}
-
-// Consulta inteligente ao endpoint do C# para matriz de preços
-const obterPrecoLenteDinamico = async () => {
-  if (!form.lenteId || !form.lenteTipo || !form.lenteIndiceRefracao) return
-
-  try {
-    const query = `lenteId=${form.lenteId}&tipo=${form.lenteTipo}&indiceRefracao=${form.lenteIndiceRefracao}` +
-                  (form.tratamentoId ? `&tratamentoId=${form.tratamentoId}` : '')
-    const res = await fetch(`/api/lentes/calcular-preco?${query}`)
-    if (res.ok) {
-      const d = await res.json()
-      form.valorLente = d.precoVenda
-      recalcularTotaisGenericos()
-    }
-  } catch (err) {
-    console.error(err)
-  }
-}
-
+// Ao selecionar armação/lente, pega o preço direto do snapshot enviado pelo backend
+// (props.Lentes já vem por variação de preço, com precoVenda pronto)
 const processarSnapshotProdutos = () => {
-  const armacao = props.Armacoes.find(a => a.Id === form.armacaoId)
-  form.valorArmacao = armacao ? armacao.PrecoVenda : 0
-  recalcularTotaisGenericos()
-}
+  const armacao = props.Armacoes.find(a => a.id === form.armacaoId)
+  form.valorArmacao = armacao ? armacao.precoVenda : 0
 
-const recalcularPrecosManuaisLente = () => {
-  recalcularTotaisGenericos()
-}
+  const lente = props.Lentes.find(l => l.id === form.lenteId)
+  if (lente) {
+    form.valorLente = lente.precoVenda
+    // Ativa campo de digitação se o preço de catálogo for zero (surfaçada sob medida)
+    lenteManualAtiva.value = lente.precoVenda === 0
+  } else {
+    form.valorLente = 0
+    lenteManualAtiva.value = false
+  }
 
-const recalcularDescontoPorPorcentagem = () => {
   recalcularTotaisGenericos()
 }
 
 const recalcularTotaisGenericos = () => {
-  const armacao = props.Armacoes.find(a => a.Id === form.armacaoId)
-  form.valorArmacao = armacao ? armacao.PrecoVenda : 0
-
   form.valorTotalBruto = form.valorArmacao + form.valorLente
 
   const pct = form.descontoPercentual || 0
   form.descontoReais = Number(((form.valorTotalBruto * pct) / 100).toFixed(2))
-  form.valorTotalLiquido = form.valorTotalBruto - form.DescontoReais
+  form.valorTotalLiquido = form.valorTotalBruto - form.descontoReais
 }
 
-// BUSCA INTEGRADOR CPF NO BANCO - ATUALIZADO COM FLUXO DE FILTRAGEM E PRÉ-CADASTRO (ÁUDIO 4)
+// BUSCA INTEGRADOR CPF NO BANCO - FLUXO DE FILTRAGEM E PRÉ-CADASTRO
 const consultarCpfNoBanco = async () => {
   const cpfLimpo = form.cpf.replace(/\D/g, '')
   if (cpfLimpo.length !== 11) {
@@ -596,12 +570,28 @@ const consultarCpfNoBanco = async () => {
     return
   }
 
+  const limparCamposCliente = () => {
+    form.nome = ''
+    form.telefone = ''
+    form.dataNascimento = ''
+    form.convenio = ''
+    form.cep = ''
+    form.logradouro = ''
+    form.numero = ''
+    form.complemento = ''
+    form.bairro = ''
+    form.cidade = ''
+    form.estado = ''
+    form.email = ''
+  }
+
+  consultandoCpf.value = true
   try {
     const resposta = await fetch(`/api/clientes/buscar-cpf/${cpfLimpo}`)
+
     if (resposta.ok) {
       const dados = await resposta.json()
       if (dados && dados.id) {
-        // Cliente localizado: Povoa os campos na hora e fixa o feedback visual
         form.nome = dados.nome || ''
         form.telefone = dados.telefone || ''
         form.dataNascimento = dados.dataNascimento ? dados.dataNascimento.split('T')[0] : ''
@@ -614,27 +604,25 @@ const consultarCpfNoBanco = async () => {
         form.cidade = dados.cidade || ''
         form.estado = dados.estado || ''
         form.email = dados.email || ''
-        filtroPeriodo.clienteExistente = true
+        clienteLocalizado.value = true
         alert(`Cliente localizado com sucesso: ${dados.nome}`)
       } else {
-        // Se o CPF não existir no banco, limpa os campos para o cadastro rápido contínuo
-        form.nome = ''
-        form.telefone = ''
-        form.dataNascimento = ''
-        form.convenio = ''
-        form.cep = ''
-        form.logradouro = ''
-        form.numero = ''
-        form.complemento = ''
-        form.bairro = ''
-        form.cidade = ''
-        form.estado = ''
-        form.email = ''
+        limparCamposCliente()
+        clienteLocalizado.value = false
         alert('CPF não localizado. Insira os dados nos campos abaixo para realizar o cadastro rápido diretamente por essa tela!')
       }
+    } else if (resposta.status === 404) {
+      limparCamposCliente()
+      clienteLocalizado.value = false
+      alert('CPF não localizado. Insira os dados nos campos abaixo para realizar o cadastro rápido diretamente por essa tela!')
+    } else {
+      alert('Não foi possível consultar o CPF agora. Tente novamente em instantes.')
     }
   } catch (err) {
     console.error(err)
+    alert('Erro de conexão ao consultar o CPF. Verifique sua internet e tente novamente.')
+  } finally {
+    consultandoCpf.value = false
   }
 }
 
@@ -651,6 +639,8 @@ const buscarEnderecoViaCep = async () => {
         form.bairro = dados.bairro || ''
         form.cidade = dados.localidade || ''
         form.estado = dados.uf || ''
+      } else {
+        alert('CEP não encontrado. Preencha o endereço manualmente.')
       }
     }
   } catch (err) {
@@ -665,12 +655,153 @@ const manipularArquivo = (event) => {
   }
 }
 
-const salvarOrdemServico = () => {
-  form.post('/orders', {
-    preserveScroll: true,
-    onSuccess: () => {
-      alert('Ordem de Serviço gerada e cliente vinculado com sucesso!')
+// Integração com o endpoint real do backend: POST /ordens/processar-receita-ia
+const ejecutarOcrInteligente = async () => {
+  if (!arquivoSelecionado.value || !termoAceito.value) return
+
+  carregandoIA.value = true
+  try {
+    const formData = new FormData()
+    formData.append('imagemReceita', arquivoSelecionado.value)
+
+    const resposta = await axios.post('/ordens/processar-receita-ia', formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    })
+
+    const dados = resposta.data
+    form.medicoNome = dados.medicoNome || form.medicoNome
+    form.odEsferico = dados.odEsferico ?? form.odEsferico
+    form.odCilindrico = dados.odCilindrico ?? form.odCilindrico
+    form.odEixo = dados.odEixo ?? form.odEixo
+    form.oeEsferico = dados.oeEsferico ?? form.oeEsferico
+    form.oeCilindrico = dados.oeCilindrico ?? form.oeCilindrico
+    form.oeEixo = dados.oeEixo ?? form.oeEixo
+    form.adicao = dados.adicao ?? form.adicao
+    alert('Leitura da receita concluída! Revise os campos antes de continuar.')
+  } catch (err) {
+    console.error(err)
+    const msg = err.response?.data?.mensagem || 'Não foi possível processar a receita. Preencha manualmente.'
+    alert(msg)
+  } finally {
+    carregandoIA.value = false
+  }
+}
+
+const validarCamposObrigatorios = () => {
+  const cpfLimpo = form.cpf.replace(/\D/g, '')
+  if (cpfLimpo.length !== 11) {
+    erroSubmissao.value = 'Informe um CPF válido (11 dígitos).'
+    return false
+  }
+  if (!form.nome.trim()) {
+    erroSubmissao.value = 'Informe o nome completo do cliente.'
+    return false
+  }
+  if (!form.vendedorId) {
+    erroSubmissao.value = 'Selecione o vendedor/atendente responsável.'
+    return false
+  }
+  if (!form.dataPrevistaEntrega) {
+    erroSubmissao.value = 'Informe a data prevista de entrega.'
+    return false
+  }
+  if (!form.dnpOd || form.dnpOd <= 0) {
+    erroSubmissao.value = 'Informe um valor válido para DNP do Olho Direito.'
+    return false
+  }
+  if (!form.dnpOe || form.dnpOe <= 0) {
+    erroSubmissao.value = 'Informe um valor válido para DNP do Olho Esquerdo.'
+    return false
+  }
+  if (!form.armacaoId) {
+    erroSubmissao.value = 'Selecione uma armação do inventário.'
+    return false
+  }
+  if (!form.lenteId) {
+    erroSubmissao.value = 'Selecione uma lente do catálogo.'
+    return false
+  }
+  if (form.adicao && (!form.alturaMontagem || form.alturaMontagem <= 0)) {
+    erroSubmissao.value = 'Para lentes com Adição informada, a Altura de Montagem é obrigatória.'
+    return false
+  }
+  if (form.formaPagamento === 'CARTAO_CREDITO' && (!qtdParcelas.value || qtdParcelas.value < 1)) {
+    erroSubmissao.value = 'Selecione a quantidade de parcelas do cartão de crédito.'
+    return false
+  }
+  return true
+}
+
+const salvarOrdemServico = async () => {
+  erroSubmissao.value = null
+
+  if (!validarCamposObrigatorios()) return
+
+  salvandoOS.value = true
+
+  try {
+    const query = form.formaPagamento === 'CARTAO_CREDITO'
+      ? `?quantidadeParcelas=${qtdParcelas.value}`
+      : ''
+
+    const payload = {
+      vendedorId: form.vendedorId,
+      cpf: form.cpf.replace(/\D/g, ''),
+      nome: form.nome,
+      telefone: form.telefone,
+      dataNascimento: form.dataNascimento || null,
+      logradouro: form.logradouro,
+      numero: form.numero,
+      complemento: form.complemento,
+      bairro: form.bairro,
+      cidade: form.cidade,
+      estado: form.estado,
+      cep: form.cep,
+      convenio: form.convenio,
+      email: form.email,
+
+      dataPrevistaEntrega: form.dataPrevistaEntrega,
+      medicoNome: form.medicoNome,
+      medicoCrm: form.medicoCrm,
+      medicoTipo: form.medicoTipo,
+      observacoes: form.observacoes,
+
+      odEsferico: form.odEsferico,
+      odCilindrico: form.odCilindrico,
+      odEixo: form.odEixo,
+      oeEsferico: form.oeEsferico,
+      oeCilindrico: form.oeCilindrico,
+      oeEixo: form.oeEixo,
+      adicao: form.adicao,
+      dnpOd: form.dnpOd,
+      dnpOe: form.dnpOe,
+      alturaMontagem: form.alturaMontagem,
+
+      armacaoId: form.armacaoId,
+      lentePrecoId: form.lenteId,
+      valorArmacao: form.valorArmacao,
+      valorLente: form.valorLente,
+      descontoPercentual: form.descontoPercentual,
+
+      formaPagamento: form.formaPagamento,
+      valorEntrada: form.valorEntrada
     }
-  })
+
+    const { data } = await axios.post(`/ordens${query}`, payload)
+
+    osFaturadaResponse.value = { numeroOS: data.numeroOS }
+    exibirFaturaSucesso.value = true
+
+  } catch (err) {
+    const respData = err.response?.data
+    erroSubmissao.value =
+      typeof respData === 'string' ? respData :
+      respData?.mensagem || respData?.message || respData?.erro ||
+      'Erro ao emitir a Ordem de Serviço. Verifique os dados informados.'
+    console.error(err)
+  } finally {
+    salvandoOS.value = false
+  }
 }
 </script>
+

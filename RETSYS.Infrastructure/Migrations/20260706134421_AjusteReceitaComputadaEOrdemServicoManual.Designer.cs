@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using RETSYS.Infrastructure.Data;
@@ -11,9 +12,11 @@ using RETSYS.Infrastructure.Data;
 namespace RETSYS.Infrastructure.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260706134421_AjusteReceitaComputadaEOrdemServicoManual")]
+    partial class AjusteReceitaComputadaEOrdemServicoManual
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -128,9 +131,6 @@ namespace RETSYS.Infrastructure.Migrations
                     b.Property<DateTime?>("DataNascimento")
                         .HasColumnType("timestamp with time zone");
 
-                    b.Property<DateTime?>("DataReceita")
-                        .HasColumnType("timestamp with time zone");
-
                     b.Property<DateTime?>("DataUltimaCompra")
                         .HasColumnType("timestamp with time zone");
 
@@ -169,33 +169,6 @@ namespace RETSYS.Infrastructure.Migrations
                         .IsRequired()
                         .HasMaxLength(20)
                         .HasColumnType("character varying(20)");
-
-                    b.Property<decimal?>("UltimaAdicao")
-                        .HasColumnType("numeric");
-
-                    b.Property<decimal?>("UltimaDnpOd")
-                        .HasColumnType("numeric");
-
-                    b.Property<decimal?>("UltimaDnpOe")
-                        .HasColumnType("numeric");
-
-                    b.Property<decimal?>("UltimaOdCilindrico")
-                        .HasColumnType("numeric");
-
-                    b.Property<int?>("UltimaOdEixo")
-                        .HasColumnType("integer");
-
-                    b.Property<decimal?>("UltimaOdEsferico")
-                        .HasColumnType("numeric");
-
-                    b.Property<decimal?>("UltimaOeCilindrico")
-                        .HasColumnType("numeric");
-
-                    b.Property<int?>("UltimaOeEixo")
-                        .HasColumnType("integer");
-
-                    b.Property<decimal?>("UltimaOeEsferico")
-                        .HasColumnType("numeric");
 
                     b.Property<DateTime>("UpdatedAt")
                         .HasColumnType("timestamp with time zone");
@@ -426,7 +399,7 @@ namespace RETSYS.Infrastructure.Migrations
                         .HasColumnName("ativo");
 
                     b.Property<decimal>("IndiceRefracao")
-                        .HasPrecision(4, 2)
+                        .HasPrecision(3, 2)
                         .HasColumnType("decimal(4,2)")
                         .HasColumnName("indice_refracao");
 
@@ -435,12 +408,11 @@ namespace RETSYS.Infrastructure.Migrations
                         .HasColumnName("lente_id");
 
                     b.Property<decimal>("PrecoCusto")
-                        .HasPrecision(10, 2)
                         .HasColumnType("decimal(10,2)")
                         .HasColumnName("preco_custo");
 
                     b.Property<decimal>("PrecoVenda")
-                        .HasPrecision(10, 2)
+                        .HasPrecision(18, 2)
                         .HasColumnType("decimal(10,2)")
                         .HasColumnName("preco_venda");
 
@@ -449,16 +421,46 @@ namespace RETSYS.Infrastructure.Migrations
                         .HasColumnType("text")
                         .HasColumnName("tipo");
 
-                    b.Property<string>("Tratamento")
-                        .HasMaxLength(100)
-                        .HasColumnType("character varying(100)")
-                        .HasColumnName("tratamento");
+                    b.Property<Guid?>("TratamentoId")
+                        .HasColumnType("uuid")
+                        .HasColumnName("tratamento_id");
 
                     b.HasKey("Id");
 
                     b.HasIndex("LenteId");
 
+                    b.HasIndex("TratamentoId");
+
                     b.ToTable("lentes_tabela_precos", (string)null);
+                });
+
+            modelBuilder.Entity("RETSYS.Domain.Entities.LenteTratamento", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal>("AcrescimoValor")
+                        .HasColumnType("decimal(10,2)")
+                        .HasColumnName("acrescimo_valor");
+
+                    b.Property<bool>("Ativo")
+                        .HasColumnType("boolean")
+                        .HasColumnName("ativo");
+
+                    b.Property<string>("Descricao")
+                        .HasColumnType("text")
+                        .HasColumnName("descricao");
+
+                    b.Property<string>("Nome")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasColumnName("nome");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("lentes_tratamentos", (string)null);
                 });
 
             modelBuilder.Entity("RETSYS.Domain.Entities.Marca", b =>
@@ -837,7 +839,14 @@ namespace RETSYS.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
+                    b.HasOne("RETSYS.Domain.Entities.LenteTratamento", "Tratamento")
+                        .WithMany()
+                        .HasForeignKey("TratamentoId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.Navigation("Lente");
+
+                    b.Navigation("Tratamento");
                 });
 
             modelBuilder.Entity("RETSYS.Domain.Entities.OrdemServico", b =>

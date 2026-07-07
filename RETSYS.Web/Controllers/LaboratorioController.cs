@@ -22,19 +22,19 @@ namespace RETSYS.Web.Controllers
         {
             var ordensParaMontagem = await _context.OrdensServico
                 .Include(os => os.Cliente)
-                .Include(os => os.Receita) // Carrega a tabela satélite clínica
+                .Include(os => os.Receita)
                 .Include(os => os.Financeiro)
-                    .ThenInclude(f => f.Lente) // Carrega os dados da lente para capturar o tipo homologado
-                .Where(os => os.Status == "EM_LABORATORIO") // Sincronizado com a string padrão de produção
-                .OrderBy(os => os.DataEntrada) // Corrigido: DataVenda -> DataEntrada
+                    .ThenInclude(f => f.LentePreco) // Ajustado: Lente -> LentePreco
+                        .ThenInclude(lp => lp.Lente) // Um nível abaixo para chegar ao Tipo da lente base
+                .Where(os => os.Status == "EM_LABORATORIO")
+                .OrderBy(os => os.DataEntrada)
                 .Select(os => new
                 {
                     os.Id,
                     os.NumeroOS,
-                    TipoLente = os.Financeiro.Lente.Tipo, // Extraído da relação física de estoque da lente
+                    TipoLente = os.Financeiro.LentePreco.Lente.Tipo, // Caminho corrigido
                     ClienteNome = os.Cliente.Nome,
                     
-                    // Dados clínicos cruciais redirecionados para o novo lar: os_receita
                     Especificacoes = new
                     {
                         EsfericoLongeDireito = os.Receita.OdEsferico,
@@ -44,7 +44,6 @@ namespace RETSYS.Web.Controllers
                         EixoLongeDireito = os.Receita.OdEixo,
                         EixoLongeEsquerdo = os.Receita.OeEixo,
                         
-                        // Lendo as propriedades computadas dinamicamente na memória da classe OsReceita
                         EsfericoPertoDireito = os.Receita.OdEsfericoPerto,
                         EsfericoPertoEsquerdo = os.Receita.OeEsfericoPerto,
                         CilindricoPertoDireito = os.Receita.OdCilindricoPerto,

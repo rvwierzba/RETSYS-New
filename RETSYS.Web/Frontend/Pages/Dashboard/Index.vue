@@ -1,8 +1,7 @@
 <template>
   <AuthenticatedLayout>
-    <div class="p-4 md:p-8 space-y-6 max-w-6xl mx-auto">
+    <div class="p-4 md:p-8 space-y-6 max-w-7xl mx-auto">
       
-      <!-- CABEÇALHO GERAL DO PAINEL COM FILTRAGEM TEMPORAL -->
       <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
         <div>
           <h1 class="text-2xl font-black text-slate-950 font-mono tracking-tight flex items-center gap-2">
@@ -18,77 +17,97 @@
           <select v-model="filtros.mes" @change="atualizarDashboard" class="rounded-xl border-slate-200 text-xs font-bold text-slate-700 focus:border-teal-500 focus:ring-teal-500 bg-slate-50">
             <option v-for="(nome, index) in meses" :key="index + 1" :value="index + 1">{{ nome }}</option>
           </select>
-          <select v-model="filtros.ano" @change="atualizarDashboard" class="rounded-xl border-slate-200 text-xs font-bold text-slate-700 focus:border-teal-500 focus:ring-teal-500 bg-slate-50">
-            <option v-for="ano in anos" :key="ano" :value="ano">{{ ano }}</option>
+          <select v-model="filtros.ano" @change="atualizarDashboard" class="rounded-xl border-slate-200 text-xs font-bold text-slate-700 focus:border-teal-500 focus:ring-teal-500" required>
+            <option v-for="a in [2024, 2025, 2026, 2027]" :key="a" :value="a">{{ a }}</option>
           </select>
         </div>
       </div>
 
-      <!-- CARDS DE RESUMO DO DIA (EXIGÊNCIA 01/07 - TOPO DO PAINEL) -->
-      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
         
-        <!-- OS EMITIDAS HOJE -->
         <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
           <div>
             <span class="text-[10px] font-bold uppercase text-slate-400 tracking-wider">OS Emitidas Hoje</span>
             <p class="text-2xl font-black text-slate-950 mt-1 font-mono">
-              {{ kpisHoje.osHoje ?? kpisHoje.OsHoje ?? 0 }}
+              {{ kpisHoje.osHoje }}
             </p>
           </div>
           <div class="w-10 h-10 rounded-xl bg-teal-50 text-teal-600 flex items-center justify-center text-sm font-bold">✓</div>
         </div>
 
-        <!-- VALOR FATURADO HOJE -->
         <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
           <div>
             <span class="text-[10px] font-bold uppercase text-slate-400 tracking-wider">Faturado Hoje</span>
             <p class="text-2xl font-black text-teal-600 mt-1 font-mono">
-              R$ {{ formatMoeda(kpisHoje.faturadoHoje ?? kpisHoje.FaturadoHoje ?? 0) }}
+              R$ {{ formatMoeda(kpisHoje.faturadoHoje) }}
             </p>
           </div>
           <div class="w-10 h-10 rounded-xl bg-teal-50 text-teal-600 flex items-center justify-center text-sm font-bold">$</div>
         </div>
 
-        <!-- OS PRONTAS EM ABERTO -->
+        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between ring-2 ring-offset-0" :class="[eAdmin ? 'ring-indigo-100' : 'ring-teal-100']">
+          <div>
+            <span class="text-[10px] font-bold uppercase text-slate-400 tracking-wider">Minha Comissão</span>
+            <p class="text-2xl font-black mt-1 font-mono" :class="[eAdmin ? 'text-indigo-600' : 'text-teal-600']">
+              R$ {{ formatMoeda(comissaoMes) }}
+            </p>
+            <span class="text-[9px] text-slate-400 block mt-0.5 leading-none">
+              {{ eAdmin ? 'Total consolidado a pagar' : 'Sua comissão acumulada' }}
+            </span>
+          </div>
+          <div class="w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold" :class="[eAdmin ? 'bg-indigo-50 text-indigo-600' : 'bg-teal-50 text-teal-600']">💰</div>
+        </div>
+
         <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
           <div>
             <span class="text-[10px] font-bold uppercase text-slate-400 tracking-wider">Aguardando Retirada</span>
-            <p class="text-2xl font-black text-indigo-600 mt-1 font-mono">
-              {{ kpisHoje.osProntas ?? kpisHoje.OsProntas ?? 0 }} <span class="text-xs text-slate-400 font-normal">OS</span>
+            <p class="text-2xl font-black text-slate-800 mt-1 font-mono">
+              {{ kpisHoje.osProntas }} <span class="text-xs text-slate-400 font-normal">OS</span>
             </p>
           </div>
-          <div class="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center text-sm font-bold">📦</div>
+          <div class="w-10 h-10 rounded-xl bg-slate-50 text-slate-600 flex items-center justify-center text-sm font-bold">📦</div>
         </div>
 
-        <!-- OS COM ENTREGA ATRASADA (BADGE VERMELHO SE FOR MAIOR QUE ZERO) -->
         <div 
-          :class="[(kpisHoje.osAtrasadas ?? kpisHoje.OsAtrasadas ?? 0) > 0 ? 'bg-red-50/60 border-red-200 ring-2 ring-red-100' : 'bg-white border-slate-200']"
+          :class="[kpisHoje.osVencidas > 0 ? 'bg-red-50/60 border-red-200 ring-2 ring-red-100' : 'bg-white border-slate-200']"
           class="p-5 rounded-2xl border shadow-sm flex items-center justify-between transition duration-200"
         >
           <div>
             <span class="text-[10px] font-bold uppercase text-slate-400 tracking-wider">Entregas Vencidas</span>
-            <p class="text-2xl font-black mt-1 font-mono" :class="[(kpisHoje.osAtrasadas ?? kpisHoje.OsAtrasadas ?? 0) > 0 ? 'text-red-700 animate-pulse' : 'text-slate-900']">
-              {{ kpisHoje.osAtrasadas ?? kpisHoje.OsAtrasadas ?? 0 }}
+            <p class="text-2xl font-black mt-1 font-mono" :class="[kpisHoje.osVencidas > 0 ? 'text-red-700 animate-pulse' : 'text-slate-900']">
+              {{ kpisHoje.osVencidas }}
             </p>
+            <span class="text-[9px] text-slate-400 block mt-0.5 leading-none">Atrasadas em laboratório</span>
           </div>
-          <div class="w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold" :class="[(kpisHoje.osAtrasadas ?? kpisHoje.OsAtrasadas ?? 0) > 0 ? 'bg-red-100 text-red-700' : 'bg-slate-100 text-slate-700']">🛑</div>
+          <div class="w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold" :class="[kpisHoje.osVencidas > 0 ? 'bg-red-100 text-red-700' : 'bg-slate-100 text-slate-700']">🛑</div>
         </div>
+
+        <div 
+          :class="[kpisHoje.osAtrasadas > 0 ? 'bg-amber-50/60 border-amber-200' : 'bg-white border-slate-200']"
+          class="p-5 rounded-2xl border shadow-sm flex items-center justify-between transition duration-200"
+        >
+          <div>
+            <span class="text-[10px] font-bold uppercase text-slate-400 tracking-wider">Retiradas Atrasadas</span>
+            <p class="text-2xl font-black mt-1 font-mono" :class="[kpisHoje.osAtrasadas > 0 ? 'text-amber-800' : 'text-slate-900']">
+              {{ kpisHoje.osAtrasadas }}
+            </p>
+            <span class="text-[9px] text-slate-400 block mt-0.5 leading-none">Entregues fora do prazo</span>
+          </div>
+          <div class="w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold" :class="[kpisHoje.osAtrasadas > 0 ? 'bg-amber-100 text-amber-800' : 'bg-slate-100 text-slate-700']">⚠️</div>
+        </div>
+
       </div>
 
-      <!-- SEÇÃO CENTRAL: GRÁFICO DE 30 DIAS, ÚLTIMAS OS & ALERTAS DE ESTOQUE -->
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
-        <!-- COLUNA 1 & 2: FATURAMENTO E ATENDIMENTOS -->
         <div class="lg:col-span-2 space-y-6">
           
-          <!-- GRÁFICO DE FATURAMENTO DOS ÚLTIMOS 30 DIAS (SVG INTERATIVO AUTOSUSTENTÁVEL) -->
           <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
             <div>
               <h3 class="text-sm font-black text-slate-950 uppercase tracking-wider font-mono">Curva de Faturamento (Últimos 30 Dias)</h3>
               <p class="text-xs text-slate-400">Evolução diária dos recebimentos em reais de faturamentos de balcão.</p>
             </div>
 
-            <!-- Gráfico de Linha em SVG Dinâmico -->
             <div class="relative w-full h-52 pt-4 bg-slate-50/50 rounded-xl border border-slate-100 overflow-hidden">
               <div v-if="graficoDados.length === 0" class="absolute inset-0 flex items-center justify-center text-slate-400 text-xs">
                 Nenhum faturamento registrado no intervalo dos últimos 30 dias.
@@ -101,18 +120,14 @@
                   </linearGradient>
                 </defs>
 
-                <!-- Malha de Grade Traseira -->
                 <line x1="20" y1="30" x2="480" y2="30" stroke="#f1f5f9" stroke-width="1" />
                 <line x1="20" y1="100" x2="480" y2="100" stroke="#f1f5f9" stroke-width="1" />
                 <line x1="20" y1="170" x2="480" y2="170" stroke="#e2e8f0" stroke-width="1.5" />
 
-                <!-- Preenchimento Sob a Linha -->
                 <path :d="chartAreaPath" fill="url(#chart-grad)" />
 
-                <!-- Linha Principal do Gráfico -->
                 <path :d="chartPath" fill="none" stroke="#0d9488" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
 
-                <!-- Pontos Interativos com Tooltips implícitos -->
                 <circle 
                   v-for="(p, idx) in chartPoints" 
                   :key="idx" 
@@ -127,7 +142,6 @@
             </div>
           </div>
 
-          <!-- TABELA: ÚLTIMAS 5 OS EMITIDAS EM TEMPO REAL -->
           <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
             <h3 class="text-sm font-black text-slate-950 uppercase tracking-wider font-mono">Últimos Atendimentos Registrados</h3>
             
@@ -154,7 +168,7 @@
                       <span 
                         :class="[
                           os.Status === 'ENTREGUE' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' :
-                          os.Status === 'CANCELADA' ? 'bg-red-50 text-red-700 border-red-100' :
+                          os.Status === 'CANCELADA' || os.Status === 'CANCELADO' ? 'bg-red-50 text-red-700 border-red-100' :
                           os.Status === 'PRONTO' ? 'bg-indigo-50 text-indigo-700 border-indigo-100' :
                           'bg-amber-50 text-amber-700 border-amber-100'
                         ]"
@@ -172,21 +186,19 @@
           </div>
         </div>
 
-        <!-- COLUNA 3: ALERTAS (REQUISITO 01/07 - ADMIN VÊ TUDO, VENDEDOR SEM ALERTA DE ESTOQUE) -->
         <div class="space-y-6">
           
-          <!-- SEÇÃO DE ENTREGAS VENCIDAS (ALERTA DE SEGURANÇA COMUM) -->
           <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
             <h3 class="text-sm font-black text-slate-950 uppercase tracking-wider font-mono flex items-center gap-1.5 text-red-700">
               <span class="w-2.5 h-2.5 rounded-full bg-red-600 animate-pulse"></span>
-              Entregas Atrasadas
+              Ordens de Entrega Vencidas
             </h3>
             
             <div v-if="entregasAtrasadas.length === 0" class="p-4 bg-emerald-50 text-emerald-800 rounded-xl text-xs font-bold flex items-center gap-2 border border-emerald-100">
-              <span>✓ Todas as ordens de serviço estão rigorosamente em dia!</span>
+              <span>✓ Todas as ordens em laboratório estão dentro do prazo de entrega!</span>
             </div>
 
-            <div v-else class="space-y-3">
+            <div class="space-y-3" v-else>
               <div v-for="alerta in entregasAtrasadas" :key="alerta.NumeroOS" class="p-3.5 bg-red-50/60 rounded-xl border border-red-100/60 flex items-center justify-between text-xs transition hover:bg-red-50">
                 <div>
                   <p class="font-bold text-slate-900 font-mono">{{ alerta.NumeroOS }}</p>
@@ -199,18 +211,17 @@
             </div>
           </div>
 
-          <!-- SEÇÃO DE PRODUTOS ABAIXO DO MÍNIMO (EXCLUSIVO PARA ADMIN - EXIGÊNCIA 01/07) -->
           <div v-if="eAdmin" class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
             <h3 class="text-sm font-black text-slate-950 uppercase tracking-wider font-mono flex items-center gap-1.5 text-amber-700">
               <span class="w-2.5 h-2.5 rounded-full bg-amber-500"></span>
-              Alerta de Reposição (Estoque)
+              Alerta de Reposição (Armações)
             </h3>
 
             <div v-if="estoqueVencendo.length === 0" class="p-4 bg-emerald-50 text-emerald-800 rounded-xl text-xs font-bold flex items-center gap-2 border border-emerald-100">
-              <span>✓ Todo o estoque de armações está acima do mínimo estipulado.</span>
+              <span>✓ Todo o estoque de armações do inventário está seguro.</span>
             </div>
 
-            <div v-else class="space-y-3">
+            <div class="space-y-3" v-else>
               <div v-for="produto in estoqueVencendo" :key="produto.ModeloReferencia" class="p-3 bg-amber-50/60 rounded-xl border border-amber-100/60 flex items-center justify-between text-xs">
                 <div>
                   <p class="font-black text-slate-900">{{ produto.ModeloReferencia }}</p>
@@ -225,10 +236,8 @@
         </div>
       </div>
 
-      <!-- SEÇÃO HISTÓRICA MENSAL: RANKING E METAS GLOBAIS (ADMINISTRATIVO / SUPORTE) -->
       <div v-if="eAdmin" class="grid grid-cols-1 md:grid-cols-3 gap-6 pt-2 border-t border-slate-200/60">
         
-        <!-- CARD FATURAMENTO DO MÊS -->
         <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
           <div>
             <span class="text-[10px] font-bold uppercase text-slate-400 tracking-wider">Faturamento do Mês</span>
@@ -239,7 +248,6 @@
           <div class="w-10 h-10 rounded-xl bg-teal-50 text-teal-600 flex items-center justify-center text-sm font-bold">$</div>
         </div>
 
-        <!-- CARD TOTAL DE OS DO MÊS -->
         <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
           <div>
             <span class="text-[10px] font-bold uppercase text-slate-400 tracking-wider">OS Emitidas no Mês</span>
@@ -250,7 +258,6 @@
           <div class="w-10 h-10 rounded-xl bg-slate-50 text-slate-700 flex items-center justify-center text-sm font-bold">OS</div>
         </div>
 
-        <!-- STATUS CORPORATIVO -->
         <div class="bg-slate-950 p-6 rounded-2xl text-white flex flex-col justify-between">
           <div>
             <span class="text-[10px] font-bold uppercase text-slate-400 tracking-wider">Status Corporativo</span>
@@ -263,10 +270,8 @@
         </div>
       </div>
 
-      <!-- RANKING DE COLABORADORES & DIVISÃO POR LOJAS (EXCLUSIVO PARA ADMIN/GERENTE) -->
       <div v-if="eAdmin" class="grid grid-cols-1 lg:grid-cols-3 gap-6 pt-4">
         
-        <!-- RANKING DE VENDEDORES -->
         <div class="lg:col-span-2 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
           <h3 class="text-sm font-black text-slate-950 uppercase tracking-wider font-mono">Ranking de Desempenho dos Vendedores</h3>
           
@@ -294,7 +299,6 @@
           </div>
         </div>
 
-        <!-- DIVISÃO POR FILIAIS -->
         <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
           <h3 class="text-sm font-black text-slate-950 uppercase tracking-wider font-mono">Faturamento consolidado por Loja</h3>
           
@@ -330,14 +334,15 @@ const props = defineProps({
   PerfilUsuario: String, perfilUsuario: String,
   IsAdmin: Boolean, isAdmin: Boolean,
   
-  // KPIs Diários do Topo (01/07)
+  // KPIs Diários do Topo (Contrato do Backend Atualizado 05/07)
   ResumoHoje: Object, resumoHoje: Object,
+  MinhaComissaoMes: Number, minhaComissaoMes: Number, // Injetado reativamente conforme Seção 1
   
   // Dados Gráficos e Histórico Central
   FaturamentoGrafico: Array, faturamentoGrafico: Array,
   UltimasOS: Array, ultimasOS: Array,
 
-  // Alertas (01/07)
+  // Alertas
   AlertasEstoque: Array, alertasEstoque: Array,
   AlertasEntregasVencidas: Array, alertasEntregasVencidas: Array,
 
@@ -356,9 +361,11 @@ const filtros = reactive({
   ano: props.AnoFiltro ?? props.anoFiltro ?? new Date().getFullYear()
 })
 
-// Mapeamentos Defensivos dos payloads (Evita incompatibilidades de caixa alta/baixa do serializer JSON)
+// Mapeamentos Defensivos dos payloads (Mapeia chaves exatas do DashboardController)
 const eAdmin = computed(() => props.IsAdmin ?? props.isAdmin ?? (props.PerfilUsuario ?? props.perfilUsuario ?? '').toLowerCase() === 'admin')
-const kpisHoje = computed(() => props.ResumoHoje ?? props.resumoHoje ?? { osHoje: 0, faturadoHoje: 0, osProntas: 0, osAtrasadas: 0 })
+const kpisHoje = computed(() => props.ResumoHoje ?? props.resumoHoje ?? { osHoje: 0, faturadoHoje: 0, osProntas: 0, osVencidas: 0, osAtrasadas: 0 })
+const comissaoMes = computed(() => props.MinhaComissaoMes ?? props.minhaComissaoMes ?? 0)
+
 const graficoDados = computed(() => props.FaturamentoGrafico ?? props.faturamentoGrafico ?? [])
 const ultimasOrdens = computed(() => props.UltimasOS ?? props.ultimasOS ?? [])
 const estoqueVencendo = computed(() => props.AlertasEstoque ?? props.alertasEstoque ?? [])
@@ -383,13 +390,12 @@ const formatMoeda = (valor) => {
 }
 
 // =========================================================================
-// MOTOR DE CÁLCULO DO GRÁFICO SVG INTEGRADO PARA MÁXIMA PORTABILIDADE (01/07)
+// MOTOR DE CÁLCULO DO GRÁFICO SVG INTEGRADO PARA MÁXIMA PORTABILIDADE
 // =========================================================================
 const chartPoints = computed(() => {
   const dados = graficoDados.value
   if (dados.length === 0) return []
   
-  // Encontra o valor máximo para dimensionar a proporção de altura do gráfico
   const maxVal = Math.max(...dados.map(d => d.Valor ?? d.valor ?? 0), 100)
   
   return dados.map((d, index) => {

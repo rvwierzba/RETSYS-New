@@ -2,7 +2,6 @@
   <AuthenticatedLayout>
     <div class="p-4 md:p-8 space-y-6 max-w-6xl mx-auto">
       
-      <!-- Cabeçalho Principal da Gestão de Lentes -->
       <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
         <div>
           <h1 class="text-2xl font-black text-slate-950 font-mono tracking-tight flex items-center gap-2">
@@ -10,52 +9,40 @@
             Catálogo e Matriz de Lentes
           </h1>
           <p class="text-xs text-slate-500 mt-1">
-            Configure os preços de venda de lentes por tipo e índice de refração, controle adicionais de tratamentos e utilize o importador de IA.
+            Configure os preços cheios de venda de lentes por variação de laboratório, tipo, índice de refração e rótulo descritivo de tratamento.
           </p>
         </div>
 
-        <!-- Seleção de Abas Operacionais -->
         <div class="flex items-center gap-1.5 bg-slate-100 p-1.5 rounded-xl border border-slate-200/60 self-start md:self-auto">
           <button 
             @click="abaAtiva = 'precos'" 
-            :class="[abaAtiva === 'precos' ? 'bg-white text-slate-950 shadow-sm' : 'text-slate-500 hover:text-slate-800']"
-            class="px-4 py-2 rounded-lg text-xs font-bold transition"
+            :class="[abaAtiva === 'precos' ? 'bg-white text-slate-950 shadow-sm font-black' : 'text-slate-500 hover:text-slate-800 font-medium']"
+            class="px-4 py-2 rounded-lg text-xs transition"
           >
             Matriz de Preços
           </button>
           <button 
-            @click="abaAtiva = 'tratamentos'" 
-            :class="[abaAtiva === 'tratamentos' ? 'bg-white text-slate-950 shadow-sm' : 'text-slate-500 hover:text-slate-800']"
-            class="px-4 py-2 rounded-lg text-xs font-bold transition"
-          >
-            Tratamentos
-          </button>
-          <button 
             v-if="isAdmin"
             @click="abaAtiva = 'importar'" 
-            :class="[abaAtiva === 'importar' ? 'bg-white text-slate-950 shadow-sm' : 'text-slate-500 hover:text-slate-800']"
-            class="px-4 py-2 rounded-lg text-xs font-bold transition flex items-center gap-1"
+            :class="[abaAtiva === 'importar' ? 'bg-white text-slate-950 shadow-sm font-black' : 'text-slate-500 hover:text-slate-800 font-medium']"
+            class="px-4 py-2 rounded-lg text-xs transition flex items-center gap-1"
           >
             <span>Importador IA</span>
-            <span class="bg-teal-500/20 text-teal-700 px-1 py-0.5 rounded text-[8px] uppercase">Novo</span>
+            <span class="bg-indigo-500/20 text-indigo-700 px-1.5 py-0.5 rounded text-[8px] font-bold uppercase">Ollama</span>
           </button>
         </div>
       </div>
 
-      <!-- =========================================================================
-           ABA 1: MATRIZ DE PREÇOS (TABELA DE PREÇOS)
-           ========================================================================= -->
       <div v-if="abaAtiva === 'precos'" class="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
-        <!-- Listagem e Filtro de Preços -->
         <div class="lg:col-span-2 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
           <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-            <h3 class="text-sm font-black text-slate-950 uppercase tracking-wider font-mono">Preços Configurados</h3>
+            <h3 class="text-sm font-black text-slate-950 uppercase tracking-wider font-mono">Tabela de Preços Ativa</h3>
             <input 
               v-model="filtroBusca"
               type="text" 
-              placeholder="Filtrar por laboratório ou tipo..." 
-              class="rounded-xl border-slate-200 text-xs focus:border-teal-500 focus:ring-teal-500 max-w-xs"
+              placeholder="Filtrar por laboratório, tipo ou tratamento..." 
+              class="rounded-xl border-slate-200 text-xs focus:border-teal-500 focus:ring-teal-500 max-w-xs placeholder:text-slate-400"
             />
           </div>
 
@@ -68,7 +55,7 @@
               <thead>
                 <tr class="border-b border-slate-100 text-slate-400 font-bold uppercase tracking-wider">
                   <th class="pb-3">Laboratório / Bloco</th>
-                  <th class="pb-3">Tipo</th>
+                  <th class="pb-3">Tipo / Tratamento</th>
                   <th class="pb-3 text-center">Índice</th>
                   <th class="pb-3 text-center" v-if="isAdmin">Preço Custo</th>
                   <th class="pb-3 text-right">Preço Venda</th>
@@ -76,19 +63,22 @@
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="preco in precosFiltrados" :key="preco.Id" class="border-b border-slate-50 hover:bg-slate-50/50 transition">
+                <tr v-for="preco in precosFiltrados" :key="preco.id" class="border-b border-slate-50 hover:bg-slate-50/50 transition">
                   <td class="py-3">
-                    <p class="font-bold text-slate-800">{{ preco.Lente?.Laboratorio || 'Genérico' }}</p>
-                    <p class="text-[10px] text-slate-400 font-mono">{{ preco.Lente?.Tipo || 'Lente Base' }}</p>
+                    <p class="font-bold text-slate-800">{{ preco.laboratorio }}</p>
+                    <p class="text-[10px] text-slate-400 font-mono">{{ preco.blocoTipo }}</p>
                   </td>
                   <td class="py-3 font-semibold text-slate-600">
-                    <span class="px-2 py-0.5 rounded bg-slate-100 border text-[10px]">{{ preco.Tipo }}</span>
+                    <span class="px-2 py-0.5 rounded bg-slate-100 border text-[10px] uppercase font-sans">{{ preco.tipo }}</span>
+                    <p class="text-[10px] text-teal-600 font-bold mt-1" v-if="preco.tratamento">
+                      ✨ {{ preco.tratamento }}
+                    </p>
                   </td>
-                  <td class="py-3 text-center font-mono font-bold text-slate-700">{{ preco.IndiceRefracao }}</td>
-                  <td class="py-3 text-center font-mono text-slate-500" v-if="isAdmin">R$ {{ formatMoeda(preco.PrecoCusto) }}</td>
-                  <td class="py-3 text-right font-black text-teal-600 font-mono text-sm">R$ {{ formatMoeda(preco.PrecoVenda) }}</td>
+                  <td class="py-3 text-center font-mono font-bold text-slate-700">{{ preco.indiceRefracao }}</td>
+                  <td class="py-3 text-center font-mono text-slate-500" v-if="isAdmin">R$ {{ formatMoeda(preco.precoCusto) }}</td>
+                  <td class="py-3 text-right font-black text-teal-600 font-mono text-sm">R$ {{ formatMoeda(preco.precoVenda) }}</td>
                   <td class="py-3 text-center" v-if="isAdmin">
-                    <button @click="removerPreco(preco.Id)" class="text-red-500 hover:text-red-700 font-bold px-2 py-1 text-[10px] transition">
+                    <button @click="removerPreco(preco.id)" class="text-red-500 hover:text-red-700 font-bold px-2 py-1 text-[10px] transition font-mono">
                       Remover
                     </button>
                   </td>
@@ -98,7 +88,6 @@
           </div>
         </div>
 
-        <!-- Painel Lateral: Adicionar novo preço na Matriz (Exclusivo Admin) -->
         <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4 h-fit">
           <h3 class="text-sm font-black text-slate-950 uppercase tracking-wider font-mono">Novo Preço Matriz</h3>
           
@@ -111,14 +100,14 @@
               <label class="block font-bold text-slate-400 uppercase mb-1">Lente Base *</label>
               <select v-model="formPreco.LenteId" class="w-full rounded-xl border-slate-200" required>
                 <option value="">Selecione o Bloco de Lente</option>
-                <option v-for="l in Lentes" :key="l.Id" :value="l.Id">
-                  [{{ l.Laboratorio }}] {{ l.Tipo }} {{ l.Surfacada ? '(SURFAÇADA)' : '' }}
+                <option v-for="l in LentesMapeadas" :key="l.id" :value="l.id">
+                  [{{ l.laboratorio }}] {{ l.tipo }} {{ l.surfacada ? '(SURFAÇADA)' : '' }}
                 </option>
               </select>
             </div>
 
             <div>
-              <label class="block font-bold text-slate-400 uppercase mb-1">Tipo de Lente *</label>
+              <label class="block font-bold text-slate-400 uppercase mb-1">Tipo de Variação *</label>
               <select v-model="formPreco.Tipo" class="w-full rounded-xl border-slate-200" required>
                 <option value="MONOFOCAL">Monofocal</option>
                 <option value="BIFOCAL">Bifocal</option>
@@ -127,17 +116,25 @@
               </select>
             </div>
 
-            <div class="grid grid-cols-2 gap-3">
+            <div class="grid grid-cols-1 gap-3">
               <div>
                 <label class="block font-bold text-slate-400 uppercase mb-1">Índice Refração *</label>
                 <input v-model.number="formPreco.IndiceRefracao" type="number" step="0.01" placeholder="Ex: 1.56" class="w-full rounded-xl border-slate-200 font-mono" required />
               </div>
+              
               <div>
-                <label class="block font-bold text-slate-400 uppercase mb-1">Tratamento Opcional</label>
-                <select v-model="formPreco.TratamentoId" class="w-full rounded-xl border-slate-200">
-                  <option :value="null">Sem Tratamento</option>
-                  <option v-for="t in Tratamentos" :key="t.Id" :value="t.Id">{{ t.Nome }}</option>
-                </select>
+                <label class="block font-bold text-teal-800 uppercase mb-1">Tratamento Descritivo *</label>
+                <input 
+                  v-model="formPreco.Tratamento" 
+                  type="text" 
+                  list="tratamentos-sugeridos" 
+                  placeholder="Ex: Antirreflexo Premium, Fotossensível" 
+                  class="w-full rounded-xl border-slate-200 font-medium" 
+                  required 
+                />
+                <datalist id="tratamentos-sugeridos">
+                  <option v-for="t in props.TratamentosSugeridos" :key="t" :value="t" />
+                </datalist>
               </div>
             </div>
 
@@ -159,69 +156,6 @@
         </div>
       </div>
 
-      <!-- =========================================================================
-           ABA 2: GESTÃO DE TRATAMENTOS (ANTIRREFLEXOS E ADICIONAIS)
-           ========================================================================= -->
-      <div v-if="abaAtiva === 'tratamentos'" class="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        
-        <!-- Listagem de Tratamentos -->
-        <div class="lg:col-span-2 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
-          <h3 class="text-sm font-black text-slate-950 uppercase tracking-wider font-mono">Tratamentos Cadastrados</h3>
-          
-          <div v-if="Tratamentos.length === 0" class="text-center py-12 border-2 border-dashed border-slate-100 rounded-xl text-slate-400 text-xs">
-            Nenhum tratamento antirreflexo ou fotossensível cadastrado.
-          </div>
-
-          <div v-else class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div v-for="t in Tratamentos" :key="t.Id" class="p-4 bg-slate-50 rounded-xl border border-slate-200 flex items-center justify-between">
-              <div>
-                <p class="font-bold text-slate-900 text-xs">{{ t.Nome }}</p>
-                <p class="text-[10px] text-slate-400 mt-0.5 truncate max-w-[180px]">{{ t.Descricao || 'Sem descrição' }}</p>
-              </div>
-              <div class="text-right">
-                <span class="font-black text-teal-600 font-mono text-xs">+ R$ {{ formatMoeda(t.AcrescimoValor) }}</span>
-                <button v-if="isAdmin" @click="removerTratamento(t.Id)" class="block text-[9px] text-red-500 hover:text-red-700 font-bold ml-auto mt-1">
-                  Excluir
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <!-- Painel Lateral: Adicionar novo Tratamento -->
-        <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4 h-fit">
-          <h3 class="text-sm font-black text-slate-950 uppercase tracking-wider font-mono">Novo Tratamento</h3>
-
-          <div v-if="!isAdmin" class="p-4 bg-slate-50 text-slate-500 rounded-xl text-xs text-center border">
-            🔐 Apenas utilizadores administradores podem registar novos tratamentos e adicionais comerciais.
-          </div>
-
-          <form v-else @submit.prevent="cadastrarTratamento" class="space-y-4 text-xs">
-            <div>
-              <label class="block font-bold text-slate-400 uppercase mb-1">Nome do Tratamento *</label>
-              <input v-model="formTratamento.Nome" type="text" placeholder="Ex: Antirreflexo Premium Crizal" class="w-full rounded-xl border-slate-200" required />
-            </div>
-
-            <div>
-              <label class="block font-bold text-slate-400 uppercase mb-1">Acréscimo de Valor (R$) *</label>
-              <input v-model.number="formTratamento.AcrescimoValor" type="number" step="0.01" class="w-full rounded-xl border-slate-200 font-mono" required />
-            </div>
-
-            <div>
-              <label class="block font-bold text-slate-400 uppercase mb-1">Descrição</label>
-              <textarea v-model="formTratamento.Descricao" rows="3" placeholder="Informações técnicas..." class="w-full rounded-xl border-slate-200"></textarea>
-            </div>
-
-            <button type="submit" class="w-full bg-slate-950 hover:bg-slate-800 text-white font-bold py-3 rounded-xl transition shadow-sm uppercase tracking-wider text-[10px]">
-              Salvar Tratamento
-            </button>
-          </form>
-        </div>
-      </div>
-
-      <!-- =========================================================================
-           ABA 3: IMPORTADOR INTELIGENTE POR IA (PDF / RAW TEXT)
-           ========================================================================= -->
       <div v-if="abaAtiva === 'importar' && isAdmin" class="bg-white p-6 rounded-2xl border border-slate-200 shadow-xl space-y-4 max-w-3xl mx-auto animate-fadeIn">
         <div>
           <h3 class="text-sm font-black text-slate-950 uppercase tracking-wider font-mono flex items-center gap-1.5">
@@ -270,8 +204,9 @@ const page = usePage()
 
 const props = defineProps({
   Lentes: { type: Array, default: () => [] },
+  precos: { type: Array, default: () => [] },
   Precos: { type: Array, default: () => [] },
-  Tratamentos: { type: Array, default: () => [] },
+  TratamentosSugeridos: { type: Array, default: () => ['Antirreflexo Comum', 'Antirreflexo Premium', 'Filtro Azul (BlueCut)', 'Fotossensível (Transitions)', 'Resina Incolor'] },
   IsAdmin: { type: Boolean, default: false }
 })
 
@@ -279,35 +214,53 @@ const abaAtiva = ref('precos')
 const filtroBusca = ref('')
 const carregandoImportacao = ref(false)
 
-// Garante que a verificação de perfil seja defensiva e segura
 const isAdmin = computed(() => props.IsAdmin ?? (page.props.auth?.usuarioPerfil || '').toLowerCase() === 'admin')
 
-// Filtro em tempo de digitação reativo
-const precosFiltrados = computed(() => {
-  const t = filtroBusca.value.toLowerCase()
-  if (!t) return props.Precos
+// Normalização de chaves de resposta da API (PascalCase / camelCase)
+const listaPrecosNormalizada = computed(() => {
+  const bruta = props.Precos ?? props.precos ?? []
+  return bruta.map(p => ({
+    id: p.Id ?? p.id,
+    laboratorio: p.Lente?.Laboratorio ?? p.lente?.laboratorio ?? 'Genérico',
+    blocoTipo: p.Lente?.Tipo ?? p.lente?.tipo ?? 'Lente Base',
+    tipo: p.Tipo ?? p.tipo,
+    indiceRefracao: p.IndiceRefracao ?? p.indiceRefracao,
+    tratamento: p.Tratamento ?? p.tratamento, // String direta da linha (Seção 6)
+    precoCusto: p.PrecoCusto ?? p.precoCusto ?? 0,
+    precoVenda: p.PrecoVenda ?? p.precoVenda ?? 0
+  }))
+})
 
-  return props.Precos.filter(p => 
-    (p.Lente?.Laboratorio || '').toLowerCase().includes(t) ||
-    (p.Lente?.Tipo || '').toLowerCase().includes(t) ||
-    (p.Tipo || '').toLowerCase().includes(t)
+const LentesMapeadas = computed(() => {
+  return (props.Lentes ?? []).map(l => ({
+    id: l.Id ?? l.id,
+    laboratorio: l.Laboratorio ?? l.laboratorio,
+    tipo: l.Tipo ?? l.tipo,
+    surfacada: l.Surfacada ?? l.surfacada ?? false
+  }))
+})
+
+// Filtro reativo em tempo de digitação
+const precosFiltrados = computed(() => {
+  const t = filtroBusca.value.toLowerCase().trim()
+  if (!t) return listaPrecosNormalizada.value
+
+  return listaPrecosNormalizada.value.filter(p => 
+    p.laboratorio.toLowerCase().includes(t) ||
+    p.blocoTipo.toLowerCase().includes(t) ||
+    p.tipo.toLowerCase().includes(t) ||
+    (p.tratamento || '').toLowerCase().includes(t)
   )
 })
 
-// Formulários reativos para controlo Inertia
+// Formulário reconfigurado (Seção 6 - Tratamento passou a ser string)
 const formPreco = useForm({
   LenteId: '',
   Tipo: 'MONOFOCAL',
   IndiceRefracao: null,
-  TratamentoId: null,
+  Tratamento: '', 
   PrecoCusto: 0,
   PrecoVenda: 0
-})
-
-const formTratamento = useForm({
-  Nome: '',
-  Descricao: '',
-  AcrescimoValor: 0
 })
 
 const formImportacao = ref({
@@ -320,9 +273,9 @@ const formatMoeda = (valor) => {
   return Number(valor).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
-// Métodos de Cadastro via POST Inertia para consistência nas páginas
 const cadastrarPreco = () => {
   formPreco.post('/lentes/precos', {
+    preserveScroll: true,
     onSuccess: () => {
       formPreco.reset()
       alert('Preço inserido com sucesso na matriz ativa!')
@@ -330,29 +283,12 @@ const cadastrarPreco = () => {
   })
 }
 
-const cadastrarTratamento = () => {
-  formTratamento.post('/lentes/tratamentos', {
-    onSuccess: () => {
-      formTratamento.reset()
-      alert('Tratamento de lentes adicionado com sucesso!')
-    }
-  })
-}
-
-// Remoções seguras via DELETE
 const removerPreco = (id) => {
   if (confirm('Tem certeza de que deseja remover este preço da matriz?')) {
-    router.delete(`/lentes/precos/${id}`)
+    router.delete(`/lentes/precos/${id}`, { preserveScroll: true })
   }
 }
 
-const removerTratamento = (id) => {
-  if (confirm('Tem certeza de que deseja remover este tratamento do sistema?')) {
-    router.delete(`/lentes/tratamentos/${id}`)
-  }
-}
-
-// Importador Inteligente por IA via endpoint de API dedicado (Ollama local)
 const processarTabelaPorIA = async () => {
   carregandoImportacao.value = true
   try {
@@ -369,7 +305,7 @@ const processarTabelaPorIA = async () => {
     if (resposta.ok) {
       alert(resultado.mensagem)
       formImportacao.value.TextoBruto = ''
-      router.reload() // Atualiza os dados do ecrã sem descer a navegação
+      router.reload() 
     } else {
       alert('Erro IA: ' + (resultado.erro || 'Falha desconhecida.'))
     }

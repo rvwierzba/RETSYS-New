@@ -9,21 +9,19 @@ namespace RETSYS.Infrastructure.Data
         {
         }
 
-        // Declaração dos DbSets (As tabelas do banco de dados)
         public DbSet<Usuario> Usuarios => Set<Usuario>();
         public DbSet<Marca> Marcas => Set<Marca>();
         public DbSet<Armacao> Armacoes => Set<Armacao>();
         public DbSet<Lente> Lentes => Set<Lente>();
-        public DbSet<LentePreco> LentesTabelaPrecos { get; set; }
-        public DbSet<LenteTratamento> LentesTratamentos { get; set; }
+        public DbSet<LentePreco> LentesTabelaPrecos => Set<LentePreco>();
+        // ❌ REMOVIDO: public DbSet<LenteTratamento> LentesTratamentos => Set<LenteTratamento>();
         public DbSet<Cliente> Clientes => Set<Cliente>();
         public DbSet<OrdemServico> OrdensServico => Set<OrdemServico>();
-        public DbSet<OsReceita> OsReceitas => Set<OsReceita>(); // Nova Tabela Clínica 1:1
-        public DbSet<OsFinanceiro> OsFinanceiros => Set<OsFinanceiro>(); // Nova Tabela Comercial 1:1
+        public DbSet<OsReceita> OsReceitas => Set<OsReceita>();
+        public DbSet<OsFinanceiro> OsFinanceiros => Set<OsFinanceiro>();
         public DbSet<ParcelaPagamento> ParcelasPagamento => Set<ParcelaPagamento>();
         public DbSet<ConfiguracaoLoja> ConfiguracoesLoja => Set<ConfiguracaoLoja>();
-        
-        // Tabelas do Módulo de Comissionamento
+
         public DbSet<ConfiguracaoComissao> ConfiguracoesComissao => Set<ConfiguracaoComissao>();
         public DbSet<Comissao> Comissoes => Set<Comissao>();
         public DbSet<FechamentoComissao> FechamentosComissao => Set<FechamentoComissao>();
@@ -32,7 +30,7 @@ namespace RETSYS.Infrastructure.Data
         {
             base.OnModelCreating(modelBuilder);
 
-            // Mapeamento da Tabela USUARIOS
+            // USUARIOS
             modelBuilder.Entity<Usuario>(b =>
             {
                 b.ToTable("usuarios");
@@ -48,7 +46,7 @@ namespace RETSYS.Infrastructure.Data
                 b.HasIndex(u => u.Email).IsUnique();
             });
 
-            // Mapeamento da Tabela MARCAS
+            // MARCAS
             modelBuilder.Entity<Marca>(b =>
             {
                 b.ToTable("marcas");
@@ -57,7 +55,7 @@ namespace RETSYS.Infrastructure.Data
                 b.Property(m => m.Descricao).HasMaxLength(250);
             });
 
-            // Mapeamento da Tabela ARMACOES
+            // ARMACOES
             modelBuilder.Entity<Armacao>(b =>
             {
                 b.ToTable("armacoes");
@@ -77,7 +75,7 @@ namespace RETSYS.Infrastructure.Data
                  .OnDelete(DeleteBehavior.Restrict);
             });
 
-            // Mapeamento da Tabela LENTES
+            // LENTES (catálogo base, sem preço/estoque)
             modelBuilder.Entity<Lente>(b =>
             {
                 b.ToTable("lentes");
@@ -85,34 +83,43 @@ namespace RETSYS.Infrastructure.Data
                 b.Property(l => l.CodigoSku).IsRequired().HasMaxLength(50);
                 b.Property(l => l.Laboratorio).IsRequired().HasMaxLength(100);
                 b.Property(l => l.Tipo).IsRequired().HasMaxLength(50);
-                b.Property(l => l.Tratamento).HasMaxLength(100);
-                b.Property(l => l.IndiceRefracao).HasPrecision(4, 2);
                 b.Property(l => l.GraduacaoMin).HasPrecision(5, 2);
                 b.Property(l => l.GraduacaoMax).HasPrecision(5, 2);
-                b.Property(l => l.PrecoCusto).HasPrecision(18, 2);
-                b.Property(l => l.PrecoVenda).HasPrecision(18, 2);
+
+                // Uma Lente base -> Várias variações de preço/tratamento
+                b.HasMany(l => l.Precos)
+                 .WithOne(lp => lp.Lente)
+                 .HasForeignKey(lp => lp.LenteId)
+                 .OnDelete(DeleteBehavior.Cascade);
             });
 
-            modelBuilder.Entity<LentePreco>(entity =>
+            // LENTE_PRECO (variações: índice + tratamento (texto livre) + preço)
+            modelBuilder.Entity<LentePreco>(b =>
             {
-                entity.Property(lp => lp.IndiceRefracao).HasPrecision(4, 2);
-                entity.Property(lp => lp.PrecoCusto).HasPrecision(10, 2);
-                entity.Property(lp => lp.PrecoVenda).HasPrecision(10, 2);
+                b.ToTable("lentes_tabela_precos");
+                b.HasKey(lp => lp.Id);
+                b.Property(lp => lp.IndiceRefracao).HasPrecision(4, 2);
+                b.Property(lp => lp.PrecoCusto).HasPrecision(10, 2);
+                b.Property(lp => lp.PrecoVenda).HasPrecision(10, 2);
+
+                // ✅ NOVO: Tratamento agora é apenas um rótulo de texto livre
+                //    (sem FK, sem tabela lentes_tratamentos, sem acrescimo_valor)
+                b.Property(lp => lp.Tratamento).HasMaxLength(100);
+
+                // ❌ REMOVIDO: relacionamento HasOne(lp => lp.Tratamento) com LenteTratamento
             });
 
-            modelBuilder.Entity<LenteTratamento>(entity =>
-            {
-                entity.Property(lt => lt.AcrescimoValor).HasPrecision(10, 2);
-            });
+            // ❌ REMOVIDO POR COMPLETO: bloco de configuração de LenteTratamento
+            // modelBuilder.Entity<LenteTratamento>(b => { ... });
 
-            // Mapeamento da Tabela CLIENTES (Modificado conforme Ficha CRM unificada)
+            // CLIENTES (com campos de migração)
             modelBuilder.Entity<Cliente>(b =>
             {
                 b.ToTable("clientes");
                 b.HasKey(c => c.Id);
-                b.Property(c => c.Nome).IsRequired().HasMaxLength(150); // Alinhado para VARCHAR(150)
+                b.Property(c => c.Nome).IsRequired().HasMaxLength(150);
                 b.Property(c => c.CPF).IsRequired().HasMaxLength(14);
-                b.Property(c => c.Telefone).IsRequired().HasMaxLength(20); // Renomeado Celular -> Telefone
+                b.Property(c => c.Telefone).IsRequired().HasMaxLength(20);
                 b.Property(c => c.Logradouro).IsRequired().HasMaxLength(150);
                 b.Property(c => c.Numero).IsRequired().HasMaxLength(10);
                 b.Property(c => c.Complemento).HasMaxLength(60);
@@ -123,60 +130,73 @@ namespace RETSYS.Infrastructure.Data
                 b.Property(c => c.Convenio).HasMaxLength(100);
                 b.Property(c => c.Email).HasMaxLength(150);
                 b.Property(c => c.Observacoes).HasColumnType("text");
-                
+
+                // Campos de migração (legado, opcionais)
+                b.Property(c => c.ValorGasto).HasPrecision(10, 2);
+                b.Property(c => c.ProdutoAdquirido).HasMaxLength(150);
+
                 b.HasIndex(c => c.CPF).IsUnique();
             });
 
-            // Mapeamento da Tabela ORDENS_SERVICO (Central / Cabeçalho)
+            // ORDENS_SERVICO
             modelBuilder.Entity<OrdemServico>(b =>
             {
                 b.ToTable("ordens_servico");
                 b.HasKey(os => os.Id);
-                b.Property(os => os.NumeroOS).IsRequired().HasMaxLength(20); // VARCHAR(20) conforme especificado
+                b.Property(os => os.NumeroOS).IsRequired().HasMaxLength(20);
                 b.Property(os => os.MedicoNome).HasMaxLength(100);
                 b.Property(os => os.MedicoCrm).HasMaxLength(20);
                 b.Property(os => os.Status).HasMaxLength(50).IsRequired();
                 b.Property(os => os.Observacoes).HasColumnType("text");
                 b.Property(os => os.MedicoTipo).HasMaxLength(30).IsRequired().HasDefaultValue("NAO_ESPECIFICADO");
 
-                // Relacionamento 1:N (Um Cliente -> Várias OS)
+                // Limites de tamanho para os campos manuais de OS retroativa
+                b.Property(os => os.ArmacaoModeloManual).HasMaxLength(150);
+                b.Property(os => os.LenteDescricaoManual).HasMaxLength(200);
+
                 b.HasOne(os => os.Cliente)
                  .WithMany(c => c.OrdensServico)
                  .HasForeignKey(os => os.ClienteId)
                  .OnDelete(DeleteBehavior.Restrict);
 
-                // Relacionamento 1:N (Um Vendedor -> Várias OS)
                 b.HasOne(os => os.Vendedor)
                  .WithMany()
                  .HasForeignKey(os => os.VendedorId)
                  .OnDelete(DeleteBehavior.Restrict);
             });
 
-            // Mapeamento da Tabela Satélite CLÍNICA (os_receita) - 1:1 com OrdemServico
+            // OS_RECEITA (1:1)
             modelBuilder.Entity<OsReceita>(b =>
             {
                 b.ToTable("os_receita");
-                b.HasKey(r => r.OsId); // OsId serve de PK e FK ao mesmo tempo
+                b.HasKey(r => r.OsId);
 
                 b.Property(r => r.OdEsferico).HasPrecision(5, 2);
                 b.Property(r => r.OdCilindrico).HasPrecision(5, 2);
                 b.Property(r => r.OeEsferico).HasPrecision(5, 2);
                 b.Property(r => r.OeCilindrico).HasPrecision(5, 2);
                 b.Property(r => r.Adicao).HasPrecision(4, 2);
-                
+
                 b.Property(r => r.DnpOd).HasPrecision(4, 1);
                 b.Property(r => r.DnpOe).HasPrecision(4, 1);
                 b.Property(r => r.AlturaMontagem).HasPrecision(4, 1);
                 b.Property(r => r.ObsReceita).HasColumnType("text");
 
-                // Declaração explícita do vinculo 1:1 com cascade delete
+                // Garante que o EF nunca tente mapear as propriedades computadas
+                b.Ignore(r => r.OdEsfericoPerto);
+                b.Ignore(r => r.OeEsfericoPerto);
+                b.Ignore(r => r.OdCilindricoPerto);
+                b.Ignore(r => r.OeCilindricoPerto);
+                b.Ignore(r => r.OdEixoPerto);
+                b.Ignore(r => r.OeEixoPerto);
+
                 b.HasOne(r => r.OrdemServico)
                  .WithOne(os => os.Receita)
                  .HasForeignKey<OsReceita>(r => r.OsId)
                  .OnDelete(DeleteBehavior.Cascade);
             });
 
-            // Mapeamento da Tabela Satélite COMERCIAL (os_financeiro) - 1:1 com OrdemServico
+            // OS_FINANCEIRO (1:1) — referenciando LentePreco
             modelBuilder.Entity<OsFinanceiro>(b =>
             {
                 b.ToTable("os_financeiro");
@@ -192,25 +212,24 @@ namespace RETSYS.Infrastructure.Data
                 b.Property(f => f.ValorLente).HasPrecision(10, 2).IsRequired();
                 b.Property(f => f.Parcelas).IsRequired(false);
 
-                // Configura o vínculo 1:1 com a OS pai
                 b.HasOne(f => f.OrdemServico)
                  .WithOne(os => os.Financeiro)
                  .HasForeignKey<OsFinanceiro>(f => f.OsId)
                  .OnDelete(DeleteBehavior.Cascade);
 
-                // Os relacionamentos de estoque agora se prendem na tabela financeira
                 b.HasOne(f => f.Armacao)
                  .WithMany()
                  .HasForeignKey(f => f.ArmacaoId)
                  .OnDelete(DeleteBehavior.Restrict);
 
-                b.HasOne(f => f.Lente)
+                // Aponta para a variação exata (LentePreco), não mais para Lente
+                b.HasOne(f => f.LentePreco)
                  .WithMany()
-                 .HasForeignKey(f => f.LenteId)
+                 .HasForeignKey(f => f.LentePrecoId)
                  .OnDelete(DeleteBehavior.Restrict);
             });
 
-            // Mapeamento da Tabela PARCELAS_PAGAMENTO
+            // PARCELAS_PAGAMENTO
             modelBuilder.Entity<ParcelaPagamento>(b =>
             {
                 b.ToTable("parcelas_pagamento");
@@ -225,7 +244,7 @@ namespace RETSYS.Infrastructure.Data
                  .OnDelete(DeleteBehavior.Cascade);
             });
 
-            // Mapeamento das Configurações da Loja
+            // CONFIGURACOES_LOJA
             modelBuilder.Entity<ConfiguracaoLoja>(b =>
             {
                 b.ToTable("configuracoes_loja");
@@ -234,7 +253,7 @@ namespace RETSYS.Infrastructure.Data
                 b.Property(c => c.PixApiKey).HasMaxLength(500);
             });
 
-            // Mapeamento do Módulo de Comissionamento (MÓDULO 5)
+            // MÓDULO DE COMISSIONAMENTO
             modelBuilder.Entity<ConfiguracaoComissao>(b =>
             {
                 b.ToTable("configuracao_comissao");

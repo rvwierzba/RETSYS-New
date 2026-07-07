@@ -43,7 +43,7 @@ namespace RETSYS.Web.Controllers
             DateTime hoje = DateTime.UtcNow.Date;
 
             // =========================================================================
-            // CARDS DE RESUMO DO DIA (EXIGÊNCIA 01/07 - TOPO)
+            // CARDS DE RESUMO DO DIA (TOPO)
             // =========================================================================
             
             // OS Emitidas Hoje
@@ -61,14 +61,40 @@ namespace RETSYS.Web.Controllers
             if (!isAdmin) queryProntas = queryProntas.Where(os => os.VendedorId == vendedorIdFiltro);
             int osProntasCount = await queryProntas.CountAsync();
 
-            // OS com entrega atrasada (Badge Vermelho: Data prevista menor que hoje e não entregue/cancelada)
-            var queryAtrasadas = _context.OrdensServico
-                .Where(os => os.DataPrevistaEntrega.Date < hoje && os.Status != "ENTREGUE" && os.Status != "CANCELADA");
-            if (!isAdmin) queryAtrasadas = queryAtrasadas.Where(os => os.VendedorId == vendedorIdFiltro);
-            int osAtrasadasCount = await queryAtrasadas.CountAsync();
+            // =========================================================================
+            // 🛡️ REQUISITO 05/07 - SEÇÃO 7.2: DISTINÇÃO ENTRE VENCIDAS X ATRASADAS
+            // =========================================================================
+
+            // Entregas Vencidas: Passou do prazo estimado e ainda NÃO foi entregue ao cliente 
+            var queryVencidas = _context.OrdensServico
+                .Where(os => os.DataPrevistaEntrega.Date < hoje && os.Status != "ENTREGUE" && os.Status != "CANCELADO" && os.Status != "CANCELADA");
+            if (!isAdmin) queryVencidas = queryVencidas.Where(os => os.VendedorId == vendedorIdFiltro);
+            int osVencidasCount = await queryVencidas.CountAsync();
+
+            // Entregas Atrasadas: Já foi entregue (ENTREGUE), mas a data real superou o prazo 
+            var queryAtrasadasReal = _context.OrdensServico
+                .Where(os => os.Status == "ENTREGUE" && os.DataEntregaReal.HasValue && os.DataEntregaReal.Value.Date > os.DataPrevistaEntrega.Date);
+            if (!isAdmin) queryAtrasadasReal = queryAtrasadasReal.Where(os => os.VendedorId == vendedorIdFiltro);
+            int osAtrasadasRealCount = await queryAtrasadasReal.CountAsync();
 
             // =========================================================================
-            // SEÇÃO CENTRAL: GRÁFICO DE 30 DIAS & LISTA DE ÚLTIMAS 5 OS (EXIGÊNCIA 01/07)
+            // 💰 REQUISITO 05/07 - SEÇÃO 1: CARD DINÂMICO "MINHA COMISSÃO"
+            // =========================================================================
+            string periodoAtual = hoje.ToString("yyyy-MM"); 
+
+            var queryComissaoMes = _context.Comissoes
+                .Where(c => c.PeriodoReferencia == periodoAtual 
+                         && (c.Status == "PENDENTE" || c.Status == "PAGO")); 
+
+            if (!isAdmin)
+            {
+                queryComissaoMes = queryComissaoMes.Where(c => c.VendedorId == vendedorIdFiltro); // Vendedora vê apenas a sua 
+            }
+
+            decimal minhaComissaoMes = await queryComissaoMes.SumAsync(c => c.ValorComissao); // Soma acumulada real 
+
+            // =========================================================================
+            // SEÇÃO CENTRAL: GRÁFICO DE 30 DIAS & LISTA DE ÚLTIMAS 5 OS
             // =========================================================================
 
             // Gráfico de faturamento dos últimos 30 dias (linha)
@@ -79,7 +105,6 @@ namespace RETSYS.Web.Controllers
             
             if (!isAdmin) queryGrafico = queryGrafico.Where(os => os.VendedorId == vendedorIdFiltro);
 
-            // Coleta a data como DateTime e formata em memória para garantir portabilidade entre bancos de dados
             var faturamentoUltimos30DiasRaw = await queryGrafico
                 .GroupBy(os => os.DataEntrada.Date)
                 .Select(g => new
@@ -119,14 +144,14 @@ namespace RETSYS.Web.Controllers
                 .ToListAsync();
 
             // =========================================================================
-            // ALERTAS: PRODUTOS BAIXOS & ENTREGAS VENCIDAS (EXIGÊNCIA 01/07)
+            // ALERTAS: PRODUTOS BAIXOS & ENTREGAS VENCIDAS
             // =========================================================================
 
-            // Alerta 1: Produtos com estoque abaixo do mínimo (Estoque < 3 un - Apenas Admin vê)
-            var produtosEstoqueBaixo = new List<EstoqueBaixoDto>();
+            // Alerta 1: Produtos com estoque baixo (Apenas Armações sofrem contagem - Seção 6)
+            var armacoesEstoqueBaixo = new List<EstoqueBaixoDto>();
             if (isAdmin)
             {
-                produtosEstoqueBaixo = await _context.Armacoes
+                armacoesEstoqueBaixo = await _context.Armacoes
                     .Where(a => a.QuantidadeEstoque < 3)
                     .Select(a => new EstoqueBaixoDto 
                     { 
@@ -136,33 +161,23 @@ namespace RETSYS.Web.Controllers
                     .ToListAsync();
             }
 
-            // Alerta 2: OS com data prevista de entrega vencida (Processado em memória para evitar erros de TimeSpan no EF)
+            // Alerta 2: Listagem de OS com data prevista de entrega vencida
             var queryAlertasVencidos = _context.OrdensServico
                 .Include(os => os.Cliente)
-                .Where(os => os.DataPrevistaEntrega.Date < hoje && os.Status != "ENTREGUE" && os.Status != "CANCELADA");
+                .Where(os => os.DataPrevistaEntrega.Date < hoje && os.Status != "ENTREGUE" && os.Status != "CANCELADO" && os.Status != "CANCELADA");
 
             if (!isAdmin) queryAlertasVencidos = queryAlertasVencidos.Where(os => os.VendedorId == vendedorIdFiltro);
 
             var osVencidasAlertasRaw = await queryAlertasVencidos
-                .Select(os => new
-                {
-                    os.NumeroOS,
-                    ClienteNome = os.Cliente.Nome,
-                    os.DataPrevistaEntrega
-                })
+                .Select(os => new { os.NumeroOS, ClienteNome = os.Cliente.Nome, os.DataPrevistaEntrega })
                 .ToListAsync();
 
             var osVencidasAlertas = osVencidasAlertasRaw
-                .Select(os => new
-                {
-                    os.NumeroOS,
-                    os.ClienteNome,
-                    DiasAtraso = (hoje - os.DataPrevistaEntrega.Date).Days
-                })
+                .Select(os => new { os.NumeroOS, os.ClienteNome, DiasAtraso = (hoje - os.DataPrevistaEntrega.Date).Days })
                 .ToList();
 
             // =========================================================================
-            // METRICAS HISTÓRICAS DA BARRA LATERAL / ABAS FILTRADAS
+            // METRICAS HISTÓRICAS DA BARRA LATERAL
             // =========================================================================
             var queryTotalFaturado = _context.OrdensServico
                 .Include(os => os.Financeiro)
@@ -173,7 +188,6 @@ namespace RETSYS.Web.Controllers
             var totalFaturadoMensal = await queryTotalFaturado.SumAsync(os => os.Financeiro.ValorTotalLiquido);
             var totalOSMensal = await queryTotalFaturado.CountAsync();
 
-            // Ranking de vendedores e faturamento de lojas (Mapeado usando DTOs seguros no C#)
             var rankingVendedores = new List<VendedorRankingDto>();
             var faturamentoPorLoja = new List<FaturamentoLojaDto>();
 
@@ -184,12 +198,7 @@ namespace RETSYS.Web.Controllers
                     .Include(os => os.Financeiro)
                     .Where(os => os.DataEntrada.Month == mesFiltro && os.DataEntrada.Year == anoFiltro)
                     .GroupBy(os => os.Vendedor.Nome)
-                    .Select(g => new VendedorRankingDto
-                    {
-                        VendedorNome = g.Key,
-                        TotalVendas = g.Sum(os => os.Financeiro.ValorTotalLiquido),
-                        QuantidadeOS = g.Count()
-                    })
+                    .Select(g => new VendedorRankingDto { VendedorNome = g.Key, TotalVendas = g.Sum(os => os.Financeiro.ValorTotalLiquido), QuantidadeOS = g.Count() })
                     .OrderByDescending(v => v.TotalVendas)
                     .ToListAsync();
 
@@ -198,11 +207,7 @@ namespace RETSYS.Web.Controllers
                     .Include(os => os.Financeiro)
                     .Where(os => os.DataEntrada.Month == mesFiltro && os.DataEntrada.Year == anoFiltro)
                     .GroupBy(os => os.Vendedor.FilialLoja)
-                    .Select(g => new FaturamentoLojaDto
-                    {
-                        Loja = string.IsNullOrEmpty(g.Key) ? "Não Informada" : g.Key,
-                        Total = g.Sum(os => os.Financeiro.ValorTotalLiquido)
-                    })
+                    .Select(g => new FaturamentoLojaDto { Loja = string.IsNullOrEmpty(g.Key) ? "Não Informada" : g.Key, Total = g.Sum(os => os.Financeiro.ValorTotalLiquido) })
                     .ToListAsync();
             }
 
@@ -212,23 +217,21 @@ namespace RETSYS.Web.Controllers
                 PerfilUsuario = usuarioLogado.Perfil.ToString(),
                 IsAdmin = isAdmin,
                 
-                // KPIs do Topo (Diários)
                 ResumoHoje = new {
                     OsHoje = osHojeCount,
                     FaturadoHoje = faturadoHoje,
                     OsProntas = osProntasCount,
-                    OsAtrasadas = osAtrasadasCount
+                    OsVencidas = osVencidasCount,          // Seção 7.2: Parado no laboratório 
+                    OsAtrasadas = osAtrasadasRealCount     // Seção 7.2: Entregue fora do prazo 
                 },
 
-                // Dados Centrais
+                MinhaComissaoMes = minhaComissaoMes,       // Seção 1: Acumulado mensal real enviado p/ o front [cite: 14]
+
                 FaturamentoGrafico = faturamentoUltimos30Dias,
                 UltimasOS = ultimas5OS,
-
-                // Alertas
-                AlertasEstoque = produtosEstoqueBaixo,
+                AlertasEstoque = armacoesEstoqueBaixo,
                 AlertasEntregasVencidas = osVencidasAlertas,
 
-                // Filtros Mensais de Apoio
                 MesFiltro = mesFiltro,
                 AnoFiltro = anoFiltro,
                 TotalFaturadoMensal = totalFaturadoMensal,
@@ -240,7 +243,7 @@ namespace RETSYS.Web.Controllers
     }
 
     // =========================================================================
-    // DTOs AUXILIARES PARA PREVENÇÃO DE EXPRESSÕES DINÂMICAS LINQ (CS1963)
+    // CLASSES AUXILIARES (PRESERVADAS PARA SUPORTE LOCAL DE CONSULTAS LINQ)
     // =========================================================================
 
     public class VendedorRankingDto

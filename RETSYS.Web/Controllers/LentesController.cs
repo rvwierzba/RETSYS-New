@@ -19,13 +19,13 @@ namespace RETSYS.Web.Controllers
             _context = context;
         }
 
-        // 1. Busca inteligente do preço de venda com base na matriz de preços e tratamento
+        // 1. Busca inteligente do preço de venda com base na matriz de preços e tratamento (texto livre)
         [HttpGet("calcular-preco")]
         public async Task<IActionResult> CalcularPreco(
             [FromQuery] Guid lenteId,
             [FromQuery] string tipo,
             [FromQuery] decimal indiceRefracao,
-            [FromQuery] Guid? tratamentoId)
+            [FromQuery] string? tratamento) // ✅ ALTERADO: era Guid? tratamentoId, agora string opcional
         {
             try
             {
@@ -47,34 +47,30 @@ namespace RETSYS.Web.Controllers
                     });
                 }
 
-                // Busca o preço base na matriz cadastrada para a combinação exata de tipo e índice
-                var precoMatriz = await _context.LentesTabelaPrecos
-                    .FirstOrDefaultAsync(lp => lp.LenteId == lenteId && 
-                                               lp.Tipo == tipo && 
-                                               lp.IndiceRefracao == indiceRefracao && 
-                                               lp.Ativo);
+                // ✅ ALTERADO: o preço já vem "fechado" na matriz (Tipo + Índice + Tratamento),
+                // pois cada combinação agora é uma linha própria na tabela de preços.
+                var query = _context.LentesTabelaPrecos
+                    .Where(lp => lp.LenteId == lenteId &&
+                                 lp.Tipo == tipo &&
+                                 lp.IndiceRefracao == indiceRefracao &&
+                                 lp.Ativo);
+
+                // Filtra pelo tratamento textual, se informado; caso contrário busca a linha "sem tratamento"
+                query = string.IsNullOrEmpty(tratamento)
+                    ? query.Where(lp => string.IsNullOrEmpty(lp.Tratamento))
+                    : query.Where(lp => lp.Tratamento == tratamento);
+
+                var precoMatriz = await query.FirstOrDefaultAsync();
 
                 if (precoMatriz == null)
                 {
-                    return BadRequest(new { mensagem = "Não há preço configurado para este Tipo e Índice de refração selecionados." });
-                }
-
-                decimal precoVendaFinal = precoMatriz.PrecoVenda;
-
-                // Se houver um tratamento opcional selecionado, soma o valor de acréscimo
-                if (tratamentoId.HasValue)
-                {
-                    var tratamento = await _context.LentesTratamentos.FindAsync(tratamentoId.Value);
-                    if (tratamento != null && tratamento.Ativo)
-                    {
-                        precoVendaFinal += tratamento.AcrescimoValor;
-                    }
+                    return BadRequest(new { mensagem = "Não há preço configurado para este Tipo, Índice de refração e Tratamento selecionados." });
                 }
 
                 return Ok(new
                 {
                     surfacada = false,
-                    precoVenda = precoVendaFinal
+                    precoVenda = precoMatriz.PrecoVenda
                 });
             }
             catch (Exception ex)
@@ -83,26 +79,30 @@ namespace RETSYS.Web.Controllers
             }
         }
 
-        // 2. Retorna a lista de tratamentos ativos para preencher os combos do formulário
+        // ❌ REMOVIDO: método ListarTratamentos() — não existe mais tabela lentes_tratamentos.
+
+        // ✅ NOVO: substitui o antigo ListarTratamentos, retornando os valores de texto já cadastrados,
+        // para alimentar o autocomplete/combo do formulário no front.
         [HttpGet("tratamentos")]
         public async Task<IActionResult> ListarTratamentos()
         {
-            var tratamentos = await _context.LentesTratamentos
-                .Where(t => t.Ativo)
-                .OrderBy(t => t.Nome)
-                .Select(t => new { t.Id, t.Nome, t.AcrescimoValor })
+            var tratamentos = await _context.LentesTabelaPrecos
+                .Where(lp => lp.Ativo && !string.IsNullOrEmpty(lp.Tratamento))
+                .Select(lp => lp.Tratamento)
+                .Distinct()
+                .OrderBy(t => t)
                 .ToListAsync();
 
             return Ok(tratamentos);
         }
 
-        // 3. Retorna os índices e tipos disponíveis para uma lente específica montar a tela de opções
+        // 3. Retorna os índices, tipos e tratamentos disponíveis para uma lente específica montar a tela de opções
         [HttpGet("{lenteId:guid}/opcoes-matriz")]
         public async Task<IActionResult> ObterOpcoesMatriz(Guid lenteId)
         {
             var opcoes = await _context.LentesTabelaPrecos
                 .Where(lp => lp.LenteId == lenteId && lp.Ativo)
-                .Select(lp => new { lp.Tipo, lp.IndiceRefracao })
+                .Select(lp => new { lp.Tipo, lp.IndiceRefracao, lp.Tratamento }) // ✅ ALTERADO: incluído Tratamento
                 .Distinct()
                 .ToListAsync();
 
