@@ -2,6 +2,7 @@
   <AuthenticatedLayout>
     <div class="p-4 md:p-8 space-y-6 max-w-6xl mx-auto">
       
+      <!-- Cabeçalho Principal da Gestão de Lentes -->
       <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
         <div>
           <h1 class="text-2xl font-black text-slate-950 font-mono tracking-tight flex items-center gap-2">
@@ -13,6 +14,7 @@
           </p>
         </div>
 
+        <!-- Seleção de Abas Operacionais -->
         <div class="flex items-center gap-1.5 bg-slate-100 p-1.5 rounded-xl border border-slate-200/60 self-start md:self-auto">
           <button 
             @click="abaAtiva = 'precos'" 
@@ -33,8 +35,12 @@
         </div>
       </div>
 
+      <!-- =========================================================================
+           ABA 1: MATRIZ DE PREÇOS
+           ========================================================================= -->
       <div v-if="abaAtiva === 'precos'" class="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
+        <!-- Listagem e Filtro de Preços Configurados (Duas Colunas) -->
         <div class="lg:col-span-2 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
           <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
             <h3 class="text-sm font-black text-slate-950 uppercase tracking-wider font-mono">Tabela de Preços Ativa</h3>
@@ -88,74 +94,113 @@
           </div>
         </div>
 
-        <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4 h-fit">
-          <h3 class="text-sm font-black text-slate-950 uppercase tracking-wider font-mono">Novo Preço Matriz</h3>
+        <!-- Painel Lateral Direto: Cadastros Operacionais Unificados (Uma Coluna) -->
+        <div class="space-y-6 h-fit">
           
-          <div v-if="!isAdmin" class="p-4 bg-slate-50 text-slate-500 rounded-xl text-xs text-center border">
-            🔐 Apenas utilizadores administradores ou gerentes podem parametrizar novos preços de lentes.
+          <!-- FORMULÁRIO A: NOVA LENTE BASE (CATÁLOGO DE BLOCOS) -->
+          <div v-if="isAdmin" class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+            <h3 class="text-sm font-black text-slate-950 uppercase tracking-wider font-mono text-teal-600">＋ Nova Lente Base</h3>
+            
+            <form @submit.prevent="cadastrarLenteBase" class="space-y-4 text-xs">
+              <div>
+                <label class="block font-bold text-slate-400 uppercase mb-1">Laboratório / Fornecedor *</label>
+                <input v-model="formLenteBase.Laboratorio" type="text" placeholder="Ex: Essilor, Hoya, Zeiss" class="w-full rounded-xl border-slate-200 bg-slate-50/50" required />
+              </div>
+
+              <div>
+                <label class="block font-bold text-slate-400 uppercase mb-1">Nome do Bloco / Design *</label>
+                <input v-model="formLenteBase.Tipo" type="text" placeholder="Ex: Airwear, Varilux Comfort, Orma" class="w-full rounded-xl border-slate-200 bg-slate-50/50" required />
+              </div>
+
+              <div class="flex items-center justify-between bg-slate-50 p-3 rounded-xl border border-slate-200">
+                <div>
+                  <span class="block font-bold text-slate-700 text-xs">Lente Surfaçada?</span>
+                  <span class="text-[10px] text-slate-400">Marque se for bloco de receita sob medida</span>
+                </div>
+                <input type="checkbox" v-model="formLenteBase.Surfacada" class="rounded border-slate-300 text-teal-600 focus:ring-teal-500 h-4 w-4" />
+              </div>
+
+              <button type="submit" :disabled="formLenteBase.processing" class="w-full bg-teal-600 hover:bg-teal-700 text-white font-bold py-2.5 rounded-xl transition shadow-sm uppercase tracking-wider text-[10px]">
+                <span v-if="formLenteBase.processing">Gravando Bloco...</span>
+                <span v-else>Salvar Lente Base</span>
+              </button>
+            </form>
           </div>
 
-          <form v-else @submit.prevent="cadastrarPreco" class="space-y-4 text-xs">
-            <div>
-              <label class="block font-bold text-slate-400 uppercase mb-1">Lente Base *</label>
-              <select v-model="formPreco.LenteId" class="w-full rounded-xl border-slate-200" required>
-                <option value="">Selecione o Bloco de Lente</option>
-                <option v-for="l in LentesMapeadas" :key="l.id" :value="l.id">
-                  [{{ l.laboratorio }}] {{ l.tipo }} {{ l.surfacada ? '(SURFAÇADA)' : '' }}
-                </option>
-              </select>
+          <!-- FORMULÁRIO B: ADICIONAR VARIAÇÃO DE PREÇO NA MATRIZ -->
+          <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+            <h3 class="text-sm font-black text-slate-950 uppercase tracking-wider font-mono">Novo Preço Matriz</h3>
+            
+            <div v-if="!isAdmin" class="p-4 bg-slate-50 text-slate-500 rounded-xl text-xs text-center border">
+              🔐 Apenas utilizadores administradores ou gerentes podem parametrizar novos preços de lentes.
             </div>
 
-            <div>
-              <label class="block font-bold text-slate-400 uppercase mb-1">Tipo de Variação *</label>
-              <select v-model="formPreco.Tipo" class="w-full rounded-xl border-slate-200" required>
-                <option value="MONOFOCAL">Monofocal</option>
-                <option value="BIFOCAL">Bifocal</option>
-                <option value="PROGRESSIVA">Progressiva</option>
-                <option value="OCUPACIONAL">Ocupacional</option>
-              </select>
-            </div>
+            <form v-else @submit.prevent="cadastrarPreco" class="space-y-4 text-xs">
+              <div>
+                <label class="block font-bold text-slate-400 uppercase mb-1">Lente Base (Catálogo) *</label>
+                <select v-model="formPreco.LenteId" class="w-full rounded-xl border-slate-200 bg-slate-50/50" required>
+                  <option value="">Selecione o Bloco de Lente</option>
+                  <option v-for="l in LentesMapeadas" :key="l.id" :value="l.id">
+                    [{{ l.laboratorio }}] {{ l.tipo }} {{ l.surfacada ? '(SURFAÇADA)' : '' }}
+                  </option>
+                </select>
+              </div>
 
-            <div class="grid grid-cols-1 gap-3">
               <div>
-                <label class="block font-bold text-slate-400 uppercase mb-1">Índice Refração *</label>
-                <input v-model.number="formPreco.IndiceRefracao" type="number" step="0.01" placeholder="Ex: 1.56" class="w-full rounded-xl border-slate-200 font-mono" required />
+                <label class="block font-bold text-slate-400 uppercase mb-1">Tipo de Variação *</label>
+                <select v-model="formPreco.Tipo" class="w-full rounded-xl border-slate-200 bg-slate-50/50" required>
+                  <option value="MONOFOCAL">Monofocal</option>
+                  <option value="BIFOCAL">Bifocal</option>
+                  <option value="PROGRESSIVA">Progressiva</option>
+                  <option value="OCUPACIONAL">Ocupacional</option>
+                </select>
               </div>
-              
-              <div>
-                <label class="block font-bold text-teal-800 uppercase mb-1">Tratamento Descritivo *</label>
-                <input 
-                  v-model="formPreco.Tratamento" 
-                  type="text" 
-                  list="tratamentos-sugeridos" 
-                  placeholder="Ex: Antirreflexo Premium, Fotossensível" 
-                  class="w-full rounded-xl border-slate-200 font-medium" 
-                  required 
-                />
-                <datalist id="tratamentos-sugeridos">
-                  <option v-for="t in props.TratamentosSugeridos" :key="t" :value="t" />
-                </datalist>
-              </div>
-            </div>
 
-            <div class="grid grid-cols-2 gap-3">
-              <div>
-                <label class="block font-bold text-slate-400 uppercase mb-1">Preço Custo (R$) *</label>
-                <input v-model.number="formPreco.PrecoCusto" type="number" step="0.01" class="w-full rounded-xl border-slate-200 font-mono" required />
+              <div class="grid grid-cols-1 gap-3">
+                <div>
+                  <label class="block font-bold text-slate-400 uppercase mb-1">Índice Refração *</label>
+                  <input v-model.number="formPreco.IndiceRefracao" type="number" step="0.01" placeholder="Ex: 1.56" class="w-full rounded-xl border-slate-200 font-mono bg-slate-50/50" required />
+                </div>
+                
+                <div>
+                  <label class="block font-bold text-teal-800 uppercase mb-1">Tratamento Descritivo *</label>
+                  <input 
+                    v-model="formPreco.Tratamento" 
+                    type="text" 
+                    list="tratamentos-sugeridos" 
+                    placeholder="Ex: Antirreflexo Premium, Fotossensível" 
+                    class="w-full rounded-xl border-slate-200 font-medium bg-slate-50/50" 
+                    required 
+                  />
+                  <datalist id="tratamentos-sugeridos">
+                    <option v-for="t in props.TratamentosSugeridos" :key="t" :value="t" />
+                  </datalist>
+                </div>
               </div>
-              <div>
-                <label class="block font-bold text-slate-400 uppercase mb-1">Preço Venda (R$) *</label>
-                <input v-model.number="formPreco.PrecoVenda" type="number" step="0.01" class="w-full rounded-xl border-slate-200 font-mono" required />
-              </div>
-            </div>
 
-            <button type="submit" class="w-full bg-slate-950 hover:bg-slate-800 text-white font-bold py-3 rounded-xl transition shadow-sm uppercase tracking-wider text-[10px]">
-              Gravar na Matriz
-            </button>
-          </form>
+              <div class="grid grid-cols-2 gap-3">
+                <div>
+                  <label class="block font-bold text-slate-400 uppercase mb-1">Preço Custo (R$) *</label>
+                  <input v-model.number="formPreco.PrecoCusto" type="number" step="0.01" class="w-full rounded-xl border-slate-200 font-mono bg-slate-50/50" required />
+                </div>
+                <div>
+                  <label class="block font-bold text-slate-400 uppercase mb-1">Preço Venda (R$) *</label>
+                  <input v-model.number="formPreco.PrecoVenda" type="number" step="0.01" class="w-full rounded-xl border-slate-200 font-mono bg-slate-50/50" required />
+                </div>
+              </div>
+
+              <button type="submit" :disabled="formPreco.processing" class="w-full bg-slate-950 hover:bg-slate-800 text-white font-bold py-3 rounded-xl transition shadow-sm uppercase tracking-wider text-[10px]">
+                <span v-if="formPreco.processing">Gravando Matriz...</span>
+                <span v-else>Gravar na Matriz</span>
+              </button>
+            </form>
+          </div>
         </div>
       </div>
 
+      <!-- =========================================================================
+           ABA 2: IMPORTADOR INTELIGENTE POR IA (OLLAMA LOCAL)
+           ========================================================================= -->
       <div v-if="abaAtiva === 'importar' && isAdmin" class="bg-white p-6 rounded-2xl border border-slate-200 shadow-xl space-y-4 max-w-3xl mx-auto animate-fadeIn">
         <div>
           <h3 class="text-sm font-black text-slate-950 uppercase tracking-wider font-mono flex items-center gap-1.5">
@@ -216,7 +261,7 @@ const carregandoImportacao = ref(false)
 
 const isAdmin = computed(() => props.IsAdmin ?? (page.props.auth?.usuarioPerfil || '').toLowerCase() === 'admin')
 
-// Normalização de chaves de resposta da API (PascalCase / camelCase)
+// Normalização defensiva do payload JSON vindo do back-end
 const listaPrecosNormalizada = computed(() => {
   const bruta = props.Precos ?? props.precos ?? []
   return bruta.map(p => ({
@@ -225,7 +270,7 @@ const listaPrecosNormalizada = computed(() => {
     blocoTipo: p.Lente?.Tipo ?? p.lente?.tipo ?? 'Lente Base',
     tipo: p.Tipo ?? p.tipo,
     indiceRefracao: p.IndiceRefracao ?? p.indiceRefracao,
-    tratamento: p.Tratamento ?? p.tratamento, // String direta da linha (Seção 6)
+    tratamento: p.Tratamento ?? p.tratamento,
     precoCusto: p.PrecoCusto ?? p.precoCusto ?? 0,
     precoVenda: p.PrecoVenda ?? p.precoVenda ?? 0
   }))
@@ -240,7 +285,7 @@ const LentesMapeadas = computed(() => {
   }))
 })
 
-// Filtro reativo em tempo de digitação
+// Filtro em tempo real digitado pelo operador
 const precosFiltrados = computed(() => {
   const t = filtroBusca.value.toLowerCase().trim()
   if (!t) return listaPrecosNormalizada.value
@@ -253,7 +298,14 @@ const precosFiltrados = computed(() => {
   )
 })
 
-// Formulário reconfigurado (Seção 6 - Tratamento passou a ser string)
+// FORMULÁRIO A: Criação da Lente Base (Estrutura de Catálogo)
+const formLenteBase = useForm({
+  Laboratorio: '',
+  Tipo: '',
+  Surfacada: false
+})
+
+// FORMULÁRIO B: Atribuição de variação técnica e valores na Matriz
 const formPreco = useForm({
   LenteId: '',
   Tipo: 'MONOFOCAL',
@@ -271,6 +323,16 @@ const formImportacao = ref({
 const formatMoeda = (valor) => {
   if (valor === undefined || valor === null) return '0,00'
   return Number(valor).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
+
+const cadastrarLenteBase = () => {
+  formLenteBase.post('/lentes', {
+    preserveScroll: true,
+    onSuccess: () => {
+      formLenteBase.reset()
+      alert('Nova Lente Base adicionada ao catálogo com sucesso!')
+    }
+  })
 }
 
 const cadastrarPreco = () => {

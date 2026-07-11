@@ -19,24 +19,25 @@ namespace RETSYS.Web.Controllers
             _context = context;
         }
 
-        // 1. Busca inteligente do preço de venda com base na matriz de preços e tratamento (texto livre)
+        // =========================================================================
+        // 1. ENDPOINTS DE CONSULTA (MANTIDOS E OTIMIZADOS)
+        // =========================================================================
+
         [HttpGet("calcular-preco")]
         public async Task<IActionResult> CalcularPreco(
             [FromQuery] Guid lenteId,
             [FromQuery] string tipo,
             [FromQuery] decimal indiceRefracao,
-            [FromQuery] string? tratamento) // ✅ ALTERADO: era Guid? tratamentoId, agora string opcional
+            [FromQuery] string? tratamento)
         {
             try
             {
-                // Busca a lente para verificar se é surfaçada (preço editável manualmente)
                 var lente = await _context.Lentes.FindAsync(lenteId);
                 if (lente == null)
                 {
                     return NotFound(new { mensagem = "Lente não cadastrada no sistema." });
                 }
 
-                // Se for lente surfaçada, o preço de venda é livre e será digitado na tela
                 if (lente.Surfacada)
                 {
                     return Ok(new
@@ -47,15 +48,12 @@ namespace RETSYS.Web.Controllers
                     });
                 }
 
-                // ✅ ALTERADO: o preço já vem "fechado" na matriz (Tipo + Índice + Tratamento),
-                // pois cada combinação agora é uma linha própria na tabela de preços.
                 var query = _context.LentesTabelaPrecos
                     .Where(lp => lp.LenteId == lenteId &&
                                  lp.Tipo == tipo &&
                                  lp.IndiceRefracao == indiceRefracao &&
                                  lp.Ativo);
 
-                // Filtra pelo tratamento textual, se informado; caso contrário busca a linha "sem tratamento"
                 query = string.IsNullOrEmpty(tratamento)
                     ? query.Where(lp => string.IsNullOrEmpty(lp.Tratamento))
                     : query.Where(lp => lp.Tratamento == tratamento);
@@ -79,10 +77,6 @@ namespace RETSYS.Web.Controllers
             }
         }
 
-        // ❌ REMOVIDO: método ListarTratamentos() — não existe mais tabela lentes_tratamentos.
-
-        // ✅ NOVO: substitui o antigo ListarTratamentos, retornando os valores de texto já cadastrados,
-        // para alimentar o autocomplete/combo do formulário no front.
         [HttpGet("tratamentos")]
         public async Task<IActionResult> ListarTratamentos()
         {
@@ -96,17 +90,122 @@ namespace RETSYS.Web.Controllers
             return Ok(tratamentos);
         }
 
-        // 3. Retorna os índices, tipos e tratamentos disponíveis para uma lente específica montar a tela de opções
         [HttpGet("{lenteId:guid}/opcoes-matriz")]
         public async Task<IActionResult> ObterOpcoesMatriz(Guid lenteId)
         {
             var opcoes = await _context.LentesTabelaPrecos
                 .Where(lp => lp.LenteId == lenteId && lp.Ativo)
-                .Select(lp => new { lp.Tipo, lp.IndiceRefracao, lp.Tratamento }) // ✅ ALTERADO: incluído Tratamento
+                .Select(lp => new { lp.Tipo, lp.IndiceRefracao, lp.Tratamento })
                 .Distinct()
                 .ToListAsync();
 
             return Ok(opcoes);
+        }
+
+        // =========================================================================
+        // 2. ENDPOINTS DE ESCRITA (SEM DTOS - PARÂMETROS DIRETOS VIA FORM)
+        // =========================================================================
+
+        // ✅ Adiciona uma nova Lente Base (Bloco de Catálogo) recebendo variáveis primitivas
+        [HttpPost("/lentes")]
+        public async Task<IActionResult> CriarLenteBase(
+            [FromForm] string laboratorio,
+            [FromForm] string tipo,
+            [FromForm] bool surfacada)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(laboratorio) || string.IsNullOrWhiteSpace(tipo))
+                {
+                    return BadRequest("Laboratório e Tipo de Bloco são campos obrigatórios.");
+                }
+
+                var novaLente = new Lente
+                {
+                    Id = Guid.NewGuid(),
+                    CodigoSku = $"LNT-{Guid.NewGuid().ToString()[..8].ToUpper()}", // SKU incremental gerado na persistência
+                    Laboratorio = laboratorio.Trim(),
+                    Tipo = tipo.Trim(),
+                    Surfacada = surfacada,
+                    GraduacaoMin = -20.00m, // Atribuição das propriedades obrigatórias da entidade Lente
+                    GraduacaoMax = 20.00m,  // Atribuição das propriedades obrigatórias da entidade Lente
+                    Ativo = true
+                    // CriadoEm é preenchido automaticamente pelo construtor da entidade (DateTime.UtcNow)
+                };
+
+                _context.Lentes.Add(novaLente);
+                await _context.SaveChangesAsync();
+
+                // Retorna o redirecionamento HTTP nativo esperado pelo Inertia.js
+                return Redirect(Request.Headers["Referer"].ToString() ?? "/lentes");
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Erro interno ao salvar lente base: {ex.Message}");
+            }
+        }
+
+        // ✅ Grava uma nova precificação direto na Matriz associando à classe de entidade LentePreco
+        [HttpPost("/lentes/precos")]
+        public async Task<IActionResult> CadastrarPrecoMatriz(
+            [FromForm] Guid lenteId,
+            [FromForm] string tipo,
+            [FromForm] decimal indiceRefracao,
+            [FromForm] string? tratamento,
+            [FromForm] decimal precoCusto,
+            [FromForm] decimal precoVenda)
+        {
+            try
+            {
+                if (lenteId == Guid.Empty || precoVenda <= 0)
+                {
+                    return BadRequest("Dados de parametrização inválidos para a matriz.");
+                }
+
+                var novoPreco = new LentePreco
+                {
+                    Id = Guid.NewGuid(),
+                    LenteId = lenteId,
+                    Tipo = tipo.ToUpper().Trim(),
+                    IndiceRefracao = indiceRefracao,
+                    Tratamento = string.IsNullOrWhiteSpace(tratamento) ? null : tratamento.Trim(),
+                    PrecoCusto = precoCusto,
+                    PrecoVenda = precoVenda,
+                    Ativo = true
+                };
+
+                _context.LentesTabelaPrecos.Add(novoPreco);
+                await _context.SaveChangesAsync();
+
+                return Redirect(Request.Headers["Referer"].ToString() ?? "/lentes");
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Erro interno ao salvar preço na matriz: {ex.Message}");
+            }
+        }
+
+        // ✅ Remove o registro de preço correspondente na matriz ativa
+        [HttpDelete("/lentes/precos/{id:guid}")]
+        public async Task<IActionResult> RemoverPrecoMatriz(Guid id)
+        {
+            try
+            {
+                var preco = await _context.LentesTabelaPrecos.FindAsync(id);
+                if (preco == null)
+                {
+                    return NotFound("Registro de preço não localizado.");
+                }
+
+                _context.LentesTabelaPrecos.Remove(preco);
+                await _context.SaveChangesAsync();
+
+                return Redirect(Request.Headers["Referer"].ToString() ?? "/lentes");
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Erro ao remover item da matriz: {ex.Message}");
+            }
         }
     }
 }

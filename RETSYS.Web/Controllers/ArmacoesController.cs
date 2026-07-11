@@ -18,7 +18,9 @@ namespace RETSYS.Web.Controllers
             _context = context;
         }
 
-        // 1. Listagem do Estoque Real (GET)
+        // =========================================================================
+        // 1. LISTAGEM DO ESTOQUE REAL (GET)
+        // =========================================================================
         [HttpGet("/estoque")]
         public async Task<IActionResult> Index()
         {
@@ -29,12 +31,12 @@ namespace RETSYS.Web.Controllers
                 {
                     a.Id,
                     a.ModeloReferencia,
-                    Codigo = a.CodigoSku, // Ajustado para ler a propriedade correta do banco
+                    Codigo = a.CodigoSku,
                     a.Cor,
                     a.Tamanho,
                     a.Material,
                     a.QuantidadeEstoque,
-                    PrecoFinal = a.PrecoVenda, // Ajustado para ler o preço de venda atualizado
+                    PrecoFinal = a.PrecoVenda,
                     MarcaNome = a.Marca.Nome
                 })
                 .ToListAsync();
@@ -52,7 +54,9 @@ namespace RETSYS.Web.Controllers
             });
         }
 
-        // 2. Entrada de Nova Armação (POST)
+        // =========================================================================
+        // 2. ENTRADA DE NOVA ARMAÇÃO (POST)
+        // =========================================================================
         [HttpPost("/estoque")]
         public async Task<IActionResult> Store([FromBody] Armacao novaArmacao)
         {
@@ -63,16 +67,48 @@ namespace RETSYS.Web.Controllers
 
             if (novaArmacao.Id == Guid.Empty)
             {
+                // Atribui Guid caso não venha preenchido do front
                 novaArmacao.Id = Guid.NewGuid();
             }
 
-            // Garante a data correta de inserção no banco
             novaArmacao.CriadoEm = DateTime.UtcNow;
 
             _context.Armacoes.Add(novaArmacao);
             await _context.SaveChangesAsync();
 
             return RedirectToAction(nameof(Index));
+        }
+
+        // =========================================================================
+        // 3. CADASTRO DE NOVA MARCA DE ARMAÇÃO (POST - SEM DTOS)
+        // =========================================================================
+        [HttpPost("/armacoes/marcas")]
+        public async Task<IActionResult> CadastrarMarca([FromForm] string nome)
+        {
+            try
+            {
+                if (string.IsNullOrWhiteSpace(nome))
+                {
+                    return BadRequest("O nome da marca não pode ser vazio.");
+                }
+
+                var novaMarca = new Marca
+                {
+                    Id = Guid.NewGuid(),
+                    Nome = nome.Trim(),
+                    Ativo = true
+                };
+
+                _context.Marcas.Add(novaMarca);
+                await _context.SaveChangesAsync();
+
+                // Executa o redirecionamento para o GET index recarregando a grid com a nova marca injetada
+                return RedirectToAction(nameof(Index));
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, $"Erro interno ao salvar marca no banco: {ex.Message}");
+            }
         }
     }
 }
