@@ -2,13 +2,25 @@
   <AuthenticatedLayout>
     <div class="p-4 md:p-8 space-y-6">
       
-      <div class="max-w-6xl mx-auto">
-        <h1 class="text-2xl font-black text-slate-950">Controle de Estoque</h1>
-        <p class="text-sm text-slate-500">Gerencie o inventário de armações e óculos de sol da loja.</p>
+      <!-- Cabeçalho Alinhado com Roteamento Exclusivo para Admin -->
+      <div class="max-w-6xl mx-auto flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+        <div>
+          <h1 class="text-2xl font-black text-slate-950">Controle de Estoque</h1>
+          <p class="text-sm text-slate-500 mt-1">Gerencie o inventário de armações e óculos de sol da loja.</p>
+        </div>
+        <div v-if="eAdmin" class="flex items-center">
+          <Link 
+            href="/marcas" 
+            class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2.5 px-5 rounded-xl text-xs transition border border-slate-200 uppercase tracking-wider shadow-sm"
+          >
+            ⚙️ Gerenciar Marcas
+          </Link>
+        </div>
       </div>
 
       <div class="max-w-6xl mx-auto grid grid-cols-1 lg:grid-cols-3 gap-8">
         
+        <!-- Formulário Operacional de Cadastro -->
         <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm h-fit space-y-4">
           <h3 class="text-base font-bold text-slate-950">Adicionar Armação</h3>
           
@@ -70,6 +82,7 @@
           </form>
         </div>
 
+        <!-- Tabela do Inventário Físico -->
         <div class="lg:col-span-2 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
           <h3 class="text-base font-bold text-slate-950 mb-4">Peças em Vitrine</h3>
 
@@ -136,12 +149,11 @@
 
 <script setup>
 import { computed } from 'vue'
-import { useForm, usePage, router } from '@inertiajs/vue3'
+import { useForm, usePage, router, Link } from '@inertiajs/vue3'
 import AuthenticatedLayout from '../../Shared/AuthenticatedLayout.vue'
 
 const page = usePage()
 
-// Sincroniza dinamicamente se o usuário possui credenciais corporativas de Admin
 const eAdmin = computed(() => {
   const perfil = page.props.auth?.usuarioPerfil || page.props.auth?.user?.perfil || ''
   return perfil.toLowerCase() === 'admin'
@@ -152,7 +164,6 @@ defineProps({
   Marcas: Array
 })
 
-// Adaptado para enviar as propriedades corretas exigidas pela entidade do C#
 const form = useForm({
   MarcaId: '',
   ModeloReferencia: '',

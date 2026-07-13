@@ -5,6 +5,7 @@ using RETSYS.Infrastructure.Data;
 using RETSYS.Domain.Entities;
 using System;
 using System.Linq;
+using System.Security.Claims;
 using System.Threading.Tasks;
 
 namespace RETSYS.Web.Controllers
@@ -67,7 +68,6 @@ namespace RETSYS.Web.Controllers
 
             if (novaArmacao.Id == Guid.Empty)
             {
-                // Atribui Guid caso não venha preenchido do front
                 novaArmacao.Id = Guid.NewGuid();
             }
 
@@ -80,13 +80,20 @@ namespace RETSYS.Web.Controllers
         }
 
         // =========================================================================
-        // 3. CADASTRO DE NOVA MARCA DE ARMAÇÃO (POST - SEM DTOS)
+        // 3. CADASTRO DE NOVA MARCA DE ARMAÇÃO (POST - RESTRITO ADMIN)
         // =========================================================================
         [HttpPost("/armacoes/marcas")]
         public async Task<IActionResult> CadastrarMarca([FromForm] string nome)
         {
             try
             {
+                // Validação de alçada de segurança direto por Claims (RBAC)
+                var perfilClaim = User.FindFirst(ClaimTypes.Role)?.Value ?? "VENDEDOR";
+                if (perfilClaim.ToUpper() != "ADMIN")
+                {
+                    return BadRequest(new { mensagem = "Acesso negado. Apenas administradores podem registrar marcas." });
+                }
+
                 if (string.IsNullOrWhiteSpace(nome))
                 {
                     return BadRequest("O nome da marca não pode ser vazio.");
@@ -102,7 +109,6 @@ namespace RETSYS.Web.Controllers
                 _context.Marcas.Add(novaMarca);
                 await _context.SaveChangesAsync();
 
-                // Executa o redirecionamento para o GET index recarregando a grid com a nova marca injetada
                 return RedirectToAction(nameof(Index));
             }
             catch (Exception ex)
