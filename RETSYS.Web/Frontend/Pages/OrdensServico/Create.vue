@@ -11,7 +11,7 @@
         🛑 {{ erroSubmissao }}
       </div>
 
-      <!-- TELA 1: FORMULÁRIO OPERACIONAL DE EMISSÃO -->
+      <!-- FORMULÁRIO OPERACIONAL DE EMISSÃO -->
       <div v-if="!exibirFaturaSucesso" class="bg-white rounded-3xl border border-slate-200 shadow-xl overflow-hidden no-print">
 
         <div class="bg-slate-950 text-white p-6 flex items-center justify-between">
@@ -24,7 +24,7 @@
 
         <form @submit.prevent="salvarOrdemServico" class="p-6 space-y-8">
 
-          <!-- Bloco 1: Identificação do Cliente (CRM) -->
+          <!-- 1. Identificação do Cliente (CRM) -->
           <div class="bg-slate-50 p-6 rounded-2xl border border-slate-200 space-y-4">
             <h3 class="text-sm font-black text-slate-700 uppercase tracking-wider flex items-center gap-2">
               <span class="w-2 h-2 rounded-full bg-slate-950"></span> 1. Identificação do Cliente (CRM)
@@ -110,7 +110,7 @@
             </div>
           </div>
 
-          <!-- Assistente de IA (Ollama/Moondream) -->
+          <!-- Assistente de IA -->
           <div class="bg-white rounded-2xl border-2 border-dashed border-slate-200 p-6 space-y-4">
             <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
               <div>
@@ -126,7 +126,7 @@
               <div class="space-y-3">
                 <div class="flex items-center gap-3">
                   <input type="file" id="fotoReceita" accept="image/*" @change="manipularArquivo" class="hidden" />
-                  <label for="fotoReceita" class="bg-slate-950 hover:bg-slate-800 text-white text-xs font-bold px-4 py-3 rounded-xl transition cursor-pointer shadow-sm active:scale-95 select-none">
+                  <label for="fotoReceita" class="bg-slate-955 hover:bg-slate-800 text-white text-xs font-bold px-4 py-3 rounded-xl transition cursor-pointer shadow-sm active:scale-95 select-none">
                     {{ arquivoSelecionado ? 'Alterar Imagem' : 'Selecionar Foto Receita' }}
                   </label>
                   <span class="text-xs font-mono text-slate-500 truncate block max-w-[200px]">
@@ -149,7 +149,7 @@
             </div>
           </div>
 
-          <!-- Bloco 2: Dados Clínicos da Receita Médica -->
+          <!-- 2. Dados Clínicos da Receita Médica -->
           <div class="bg-slate-50 p-6 rounded-2xl border border-slate-200 space-y-4">
             <h3 class="text-sm font-black text-slate-700 uppercase tracking-wider flex items-center gap-2">
               <span class="w-2 h-2 rounded-full bg-teal-500"></span> 2. Dados Clínicos da Receita Médica
@@ -213,7 +213,7 @@
             </div>
           </div>
 
-          <!-- Bloco 3: Medidas Técnicas -->
+          <!-- 3. Medidas Técnicas & Prazo de Entrega -->
           <div class="bg-white p-6 rounded-2xl border border-slate-200 space-y-4">
             <h3 class="text-sm font-black text-slate-700 uppercase tracking-wider flex items-center gap-2">
               <span class="w-2 h-2 rounded-full bg-indigo-500"></span> 3. Medidas Técnicas & Prazo de Entrega
@@ -242,22 +242,28 @@
             </div>
           </div>
 
-          <!-- Seleção de Produtos + Sub-formulários Rápidos (Seção 6) -->
+          <!-- Seleção de Produtos com Botões Robustos e Coesos (Aberto a todos) -->
           <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div class="space-y-2">
-              <div class="flex items-center justify-between">
-                <label class="block text-xs font-bold uppercase text-slate-400 tracking-wider">Armação Selecionada (Estoque Real) *</label>
-                <button type="button" @click="exibirSubFormMarca = !exibirSubFormMarca" class="text-[10px] text-teal-600 font-bold hover:underline">
-                  ＋ Cadastrar Marca
+            <div class="space-y-3">
+              <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                <label class="block text-xs font-bold uppercase text-slate-400 tracking-wider">Armação Selecionada *</label>
+                <!-- Botão express com visual corporativo e visível para todos -->
+                <button type="button" @click="exibirSubFormMarca = !exibirSubFormMarca" class="bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-bold px-3 py-1.5 rounded-xl border border-slate-200 uppercase tracking-wider transition shadow-sm">
+                  ⚙️ Adicionar Marca Rápida
                 </button>
               </div>
 
               <!-- Atalho: Cadastro Expresso de Marca -->
-              <div v-if="exibirSubFormMarca" class="bg-slate-50 p-4 rounded-xl border space-y-2 animate-fadeIn mb-2">
-                <p class="text-[10px] font-bold uppercase text-slate-500">Nova Marca Express</p>
+              <div v-if="exibirSubFormMarca" class="bg-slate-900 text-white p-4 rounded-2xl border border-slate-800 space-y-2.5 shadow-lg animate-fadeIn">
+                <p class="text-[10px] font-bold uppercase tracking-widest text-teal-400">Nova Marca Corporativa</p>
+                <div v-if="erroSubMarca" class="p-2 bg-red-955/50 border border-red-800 text-red-300 rounded-lg text-xs font-medium">
+                  ⚠️ {{ erroSubMarca }}
+                </div>
                 <div class="flex gap-2">
-                  <input v-model="formSubMarca.nome" type="text" placeholder="Nome da Marca" class="w-full rounded-lg text-xs border-slate-200 bg-white" />
-                  <button type="button" @click="enviarSubMarca" :disabled="formSubMarca.processing" class="bg-slate-950 text-white text-[10px] font-bold px-3 py-1.5 rounded-lg uppercase">Salvar</button>
+                  <input v-model="nomeSubMarca" type="text" placeholder="Nome da Marca" class="w-full rounded-xl text-xs border-slate-700 bg-slate-950 text-white focus:border-teal-500 focus:ring-teal-500" />
+                  <button type="button" @click="enviarSubMarca" :disabled="enviandoMarca" class="bg-teal-600 hover:bg-teal-700 disabled:bg-slate-700 text-white text-xs font-bold px-4 py-2 rounded-xl uppercase transition">
+                    {{ enviandoMarca ? 'Salvando...' : 'Gravar' }}
+                  </button>
                 </div>
               </div>
 
@@ -269,27 +275,31 @@
               </select>
             </div>
 
-            <div class="space-y-2">
-              <div class="flex items-center justify-between">
+            <div class="space-y-3">
+              <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                 <label class="block text-xs font-bold uppercase text-slate-400 tracking-wider">Lente do Catálogo Disponível *</label>
-                <button type="button" @click="exibirSubFormLente = !exibirSubFormLente" class="text-[10px] text-teal-600 font-bold hover:underline">
-                  ＋ Tabela de Lentes (Base)
+                <!-- Botão express com visual corporativo e visível para todos -->
+                <button type="button" @click="exibirSubFormLente = !exibirSubFormLente" class="bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-bold px-3 py-1.5 rounded-xl border border-slate-200 uppercase tracking-wider transition shadow-sm">
+                  🔬 Adicionar Lente Base
                 </button>
               </div>
 
               <!-- Atalho: Cadastro Expresso de Lente Base -->
-              <div v-if="exibirSubFormLente" class="bg-slate-50 p-4 rounded-xl border space-y-3 animate-fadeIn mb-2 text-[11px]">
-                <p class="text-[10px] font-bold uppercase text-slate-500">Nova Lente Base Express</p>
+              <div v-if="exibirSubFormLente" class="bg-slate-900 text-white p-4 rounded-2xl border border-slate-800 space-y-3 shadow-lg animate-fadeIn text-[11px]">
+                <p class="text-[10px] font-bold uppercase tracking-widest text-teal-400">Nova Lente Base no Catálogo</p>
+                <div v-if="erroSubLente" class="p-2 bg-red-955/50 border border-red-800 text-red-300 rounded-lg text-xs font-medium">
+                  ⚠️ {{ erroSubLente }}
+                </div>
                 <div class="grid grid-cols-2 gap-2">
-                  <input v-model="formSubLente.laboratorio" type="text" placeholder="Lab (Ex: Essilor)" class="rounded-lg text-xs border-slate-200 bg-white" />
-                  <input v-model="formSubLente.tipo" type="text" placeholder="Design (Ex: Orma)" class="rounded-lg text-xs border-slate-200 bg-white" />
+                  <input v-model="labSubLente" type="text" placeholder="Lab (Ex: Essilor)" class="rounded-xl text-xs border-slate-700 bg-slate-950 text-white" />
+                  <input v-model="tipoSubLente" type="text" placeholder="Design (Ex: Orma)" class="rounded-xl text-xs border-slate-700 bg-slate-950 text-white" />
                 </div>
-                <div class="flex items-center justify-between bg-white p-2 rounded-lg border">
+                <div class="flex items-center justify-between bg-slate-950 p-2.5 rounded-xl border border-slate-800">
                   <span>Lente Surfaçada?</span>
-                  <input type="checkbox" v-model="formSubLente.surfacada" class="rounded border-slate-300" />
+                  <input type="checkbox" v-model="surfacadaSubLente" class="rounded border-slate-700 text-teal-500 focus:ring-teal-500 bg-slate-900" />
                 </div>
-                <button type="button" @click="enviarSubLente" :disabled="formSubLente.processing" class="w-full bg-slate-950 text-white text-[10px] font-bold py-2 rounded-lg uppercase">
-                  Gravar Lente Base
+                <button type="button" @click="enviarSubLente" :disabled="enviandoLente" class="w-full bg-teal-600 hover:bg-teal-700 disabled:bg-slate-700 text-white text-xs font-bold py-2.5 rounded-xl uppercase transition">
+                  {{ enviandoLente ? 'Processando...' : 'Gravar Bloco Base' }}
                 </button>
               </div>
 
@@ -301,7 +311,7 @@
               </select>
               
               <div v-if="lenteManualAtiva" class="animate-fadeIn p-4 bg-teal-50/50 rounded-2xl border border-teal-200/60">
-                <label class="block text-xs font-bold uppercase text-teal-900 tracking-wider mb-2">Preço de Venda da Lente Surfaçada (Sob Encomenda) *</label>
+                <label class="block text-xs font-bold uppercase text-teal-900 tracking-wider mb-2">Preço de Venda da Lente Surfaçada *</label>
                 <div class="relative mt-1 rounded-xl shadow-sm">
                   <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
                     <span class="text-sm font-semibold text-teal-600">R$</span>
@@ -358,23 +368,11 @@
         </form>
       </div>
 
-      <!-- TELA 2: COMPROVANTE DE CONSOLIDAÇÃO (SUCESSO) -->
+      <!-- TELA DE SUCESSO -->
       <div class="bg-white rounded-3xl border border-slate-200 shadow-xl overflow-hidden p-8 space-y-6 no-print text-center" v-else>
         <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-teal-100 text-teal-600 text-3xl">✓</div>
         <h2 class="text-2xl font-black text-slate-900">OS Emitida com Sucesso!</h2>
         <p class="text-sm text-slate-500">A Ordem de Serviço foi gravada de forma definitiva no sistema.</p>
-        
-        <div class="border border-slate-100 rounded-2xl p-6 bg-slate-50/50 grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-2xl mx-auto text-left">
-          <div>
-            <p class="text-xs text-slate-400 uppercase font-bold tracking-wider">Número da OS</p>
-            <p class="text-lg font-black font-mono text-slate-800">{{ osFaturadaResponse.numeroOS }}</p>
-          </div>
-          <div>
-            <p class="text-xs text-slate-400 uppercase font-bold tracking-wider">Cliente</p>
-            <p class="text-sm font-bold text-slate-800">{{ form.nome }}</p>
-          </div>
-        </div>
-
         <div class="flex flex-col sm:flex-row items-center justify-center gap-4 max-w-xl mx-auto pt-4">
           <button @click="imprimirDocumento('completa')" class="w-full bg-slate-950 hover:bg-slate-800 text-white font-bold py-3.5 px-6 rounded-xl text-xs uppercase tracking-wider transition shadow-md flex items-center justify-center gap-2">
             🖨️ Imprimir OS Completa (A4)
@@ -419,8 +417,16 @@ const arquivoSelecionado = ref(null)
 const exibirSubFormMarca = ref(false)
 const exibirSubFormLente = ref(false)
 
-const formSubMarca = useForm({ nome: '' })
-const formSubLente = useForm({ laboratorio: '', tipo: '', surfacada: false })
+const enviandoMarca = ref(false)
+const enviandoLente = ref(false)
+
+const erroSubMarca = ref(null)
+const erroSubLente = ref(null)
+
+const nomeSubMarca = ref('')
+const labSubLente = ref('')
+const tipoSubLente = ref('')
+const surfacadaSubLente = ref(false)
 
 const form = useForm({
   cpf: '', nome: '', telefone: '', dataNascimento: '', logradouro: '', numero: '', complemento: '',
@@ -437,34 +443,55 @@ watch(() => form.formaPagamento, (novaForma) => {
   if (novaForma !== 'CARTAO_CREDITO') qtdParcelas.value = 1
 })
 
-const enviarSubMarca = () => {
-  if (!formSubMarca.nome.trim()) return
-  formSubMarca.post('/armacoes/marcas', {
-    preserveScroll: true,
-    onSuccess: () => {
-      formSubMarca.reset()
-      exibirSubFormMarca.value = false
-      alert('Nova marca adicionada com sucesso express!')
-    }
-  })
+const enviarSubMarca = async () => {
+  erroSubMarca.value = null
+  if (!nomeSubMarca.value.trim()) return
+  
+  enviandoMarca.value = true
+  try {
+    const formData = new FormData()
+    formData.append('nome', nomeSubMarca.value)
+    await axios.post('/armacoes/marcas', formData)
+    
+    nomeSubMarca.value = ''
+    exibirSubFormMarca.value = false
+    alert('Nova marca adicionada com sucesso!')
+    router.reload({ only: ['Marcas'] })
+  } catch (err) {
+    erroSubMarca.value = err.response?.data?.mensagem || 'Falha ao processar cadastro.'
+  } finally {
+    enviandoMarca.value = false
+  }
 }
 
-const enviarSubLente = () => {
-  if (!formSubLente.laboratorio.trim() || !formSubLente.tipo.trim()) return
-  formSubLente.post('/lentes', {
-    preserveScroll: true,
-    onSuccess: () => {
-      formSubLente.reset()
-      exibirSubFormLente.value = false
-      alert('Nova lente base adicionada ao catálogo express!')
-    }
-  })
+const enviarSubLente = async () => {
+  erroSubLente.value = null
+  if (!labSubLente.value.trim() || !tipoSubLente.value.trim()) return
+
+  enviandoLente.value = true
+  try {
+    const formData = new FormData()
+    formData.append('laboratorio', labSubLente.value)
+    formData.append('tipo', tipoSubLente.value)
+    formData.append('surfacada', surfacadaSubLente.value)
+    await axios.post('/lentes', formData)
+    
+    labSubLente.value = ''
+    tipoSubLente.value = ''
+    surfacadaSubLente.value = false
+    exibirSubFormLente.value = false
+    alert('Nova lente base adicionada ao catálogo!')
+    router.reload({ only: ['Lentes'] })
+  } catch (err) {
+    erroSubLente.value = err.response?.data?.mensagem || 'Falha ao processar catálogo.'
+  } finally {
+    enviandoLente.value = false
+  }
 }
 
 const processarSnapshotProdutos = () => {
   const armacao = props.Armacoes.find(a => a.id === form.armacaoId)
   form.valorArmacao = armacao ? armacao.precoVenda : 0
-
   const lente = props.Lentes.find(l => l.id === form.lenteId)
   if (lente) {
     form.valorLente = lente.precoVenda
@@ -535,20 +562,6 @@ const executarOcrInteligente = async () => {
     alert('Leitura da receita concluída!')
   } catch (err) { alert('Erro ao ler a receita.') }
   finally { carregandoIA.value = false }
-}
-
-const salvarOrdemServico = async () => {
-  erroSubmissao.value = null
-  salvandoOS.value = true
-  try {
-    const query = form.formaPagamento === 'CARTAO_CREDITO' ? `?quantidadeParcelas=${qtdParcelas.value}` : ''
-    const payload = { ...form, cpf: form.cpf.replace(/\D/g, ''), lentePrecoId: form.lenteId }
-    const { data } = await axios.post(`/ordens${query}`, payload)
-    osFaturadaResponse.value = { numeroOS: data.numeroOS }
-    exibirFaturaSucesso.value = true
-  } catch (err) {
-    erroSubmissao.value = err.response?.data?.mensagem || 'Erro ao emitir a Ordem de Serviço.'
-  } finally { salvandoOS.value = false }
 }
 
 const voltarAoPainel = () => router.get('/ordens')

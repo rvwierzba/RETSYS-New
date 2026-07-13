@@ -2,13 +2,13 @@
   <AuthenticatedLayout>
     <div class="p-4 md:p-8 space-y-6">
       
-      <!-- Cabeçalho Alinhado com Roteamento Exclusivo para Admin -->
+      <!-- Cabeçalho com Botão Totalmente Liberado -->
       <div class="max-w-6xl mx-auto flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
         <div>
           <h1 class="text-2xl font-black text-slate-950">Controle de Estoque</h1>
           <p class="text-sm text-slate-500 mt-1">Gerencie o inventário de armações e óculos de sol da loja.</p>
         </div>
-        <div v-if="eAdmin" class="flex items-center">
+        <div class="flex items-center">
           <Link 
             href="/marcas" 
             class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-2.5 px-5 rounded-xl text-xs transition border border-slate-200 uppercase tracking-wider shadow-sm"
@@ -165,28 +165,20 @@ defineProps({
 })
 
 const form = useForm({
-  MarcaId: '',
-  ModeloReferencia: '',
-  CodigoSku: '',
-  Cor: '',
-  Tamanho: '',
-  Material: '',
-  QuantidadeEstoque: 1,
-  PrecoVenda: null
+  MarcaId: '', ModeloReferencia: '', CodigoSku: '', Cor: '', Tamanho: '', Material: '',
+  QuantidadeEstoque: 1, PrecoVenda: null
 })
 
 const salvarArmacao = () => {
   form.post('/estoque', {
     preserveScroll: true,
-    onSuccess: () => {
-      form.reset()
-    }
+    onSuccess: () => form.reset()
   })
 }
 
 const removerPecaEstoque = (id) => {
   if (!id) return
-  if (confirm('Tem certeza de que deseja remover permanentemente esta armação do inventário?')) {
+  if (confirm('Deseja remover esta armação permanentemente?')) {
     router.delete(`/estoque/${id}`, { preserveScroll: true })
   }
 }

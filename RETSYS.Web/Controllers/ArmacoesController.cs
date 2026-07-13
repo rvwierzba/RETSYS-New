@@ -82,21 +82,14 @@ namespace RETSYS.Web.Controllers
         // =========================================================================
         // 3. CADASTRO DE NOVA MARCA DE ARMAÇÃO (POST - RESTRITO ADMIN)
         // =========================================================================
-        [HttpPost("/armacoes/marcas")]
+       [HttpPost("/armacoes/marcas")]
         public async Task<IActionResult> CadastrarMarca([FromForm] string nome)
         {
             try
             {
-                // Validação de alçada de segurança direto por Claims (RBAC)
-                var perfilClaim = User.FindFirst(ClaimTypes.Role)?.Value ?? "VENDEDOR";
-                if (perfilClaim.ToUpper() != "ADMIN")
-                {
-                    return BadRequest(new { mensagem = "Acesso negado. Apenas administradores podem registrar marcas." });
-                }
-
                 if (string.IsNullOrWhiteSpace(nome))
                 {
-                    return BadRequest("O nome da marca não pode ser vazio.");
+                    return BadRequest(new { mensagem = "O nome da marca não pode ser vazio." });
                 }
 
                 var novaMarca = new Marca
@@ -109,11 +102,12 @@ namespace RETSYS.Web.Controllers
                 _context.Marcas.Add(novaMarca);
                 await _context.SaveChangesAsync();
 
-                return RedirectToAction(nameof(Index));
+                // Retorno limpo em JSON para o Axios processar e atualizar a grid reativamente
+                return Ok(new { mensagem = "Marca cadastrada com sucesso!", id = novaMarca.Id });
             }
             catch (Exception ex)
             {
-                return StatusCode(500, $"Erro interno ao salvar marca no banco: {ex.Message}");
+                return StatusCode(500, new { mensagem = $"Erro interno ao salvar marca no banco: {ex.Message}" });
             }
         }
     }
