@@ -42,7 +42,6 @@ namespace RETSYS.Web.Controllers
                 })
                 .ToListAsync();
 
-            // Filtro .Where(m => m.Ativo) removido para garantir que qualquer marca cadastrada apareça no select
             var marcasDisponiveis = await _context.Marcas
                 .OrderBy(m => m.Nome)
                 .Select(m => new { m.Id, m.Nome })
@@ -80,7 +79,7 @@ namespace RETSYS.Web.Controllers
         }
 
         // =========================================================================
-        // 3. CADASTRO DE NOVA MARCA DE ARMAÇÃO (POST - ABERTO A TODOS)
+        // 3. CADASTRO DE NOVA MARCA DE ARMAÇÃO (POST)
         // =========================================================================
         [HttpPost("/armacoes/marcas")]
         public async Task<IActionResult> CadastrarMarca([FromForm] string nome)
@@ -107,6 +106,35 @@ namespace RETSYS.Web.Controllers
             catch (Exception ex)
             {
                 return StatusCode(500, new { mensagem = $"Erro interno ao salvar marca no banco: {ex.Message}" });
+            }
+        }
+
+        // =========================================================================
+        // 4. REMOÇÃO DE MARCA DE ARMAÇÃO (DELETE) - SOLICITADO VIA BOTÃO X
+        // =========================================================================
+        [HttpDelete("/armacoes/marcas/{id:guid}")]
+        public async Task<IActionResult> EliminarMarca(Guid id)
+        {
+            try
+            {
+                var marca = await _context.Marcas.FindAsync(id);
+                if (marca == null) return NotFound(new { mensagem = "Marca não localizada." });
+
+                // Trava de segurança: impede deletar marcas que já possuem produtos vinculados
+                bool possuiProdutos = await _context.Armacoes.AnyAsync(a => a.MarcaId == id);
+                if (possuiProdutos)
+                {
+                    return BadRequest(new { mensagem = "Não é permitido excluir uma marca que possui armações associadas no estoque." });
+                }
+
+                _context.Marcas.Remove(marca);
+                await _context.SaveChangesAsync();
+
+                return Ok(new { mensagem = "Marca removida do sistema com sucesso!" });
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { mensagem = $"Erro crítico ao excluir marca: {ex.Message}" });
             }
         }
     }

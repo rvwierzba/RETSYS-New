@@ -34,7 +34,16 @@
               <div>
                 <label class="block text-[11px] font-bold uppercase text-slate-400 tracking-wider mb-1.5">CPF do Cliente *</label>
                 <div class="flex gap-2">
-                  <input v-model="form.cpf" type="text" placeholder="000.000.000-00" class="w-full rounded-xl border-slate-200 text-sm font-mono focus:border-teal-500 focus:ring-teal-500" required />
+                  <!-- Bloqueio numérico estrito: máximo de 11 números, limpa letras/pontos na hora -->
+                  <input 
+                    v-model="form.cpf" 
+                    type="text" 
+                    placeholder="Apenas os 11 números" 
+                    maxlength="11" 
+                    @input="form.cpf = form.cpf.replace(/\D/g, '').slice(0, 11)" 
+                    class="w-full rounded-xl border-slate-200 text-sm font-mono focus:border-teal-500 focus:ring-teal-500" 
+                    required 
+                  />
                   <button type="button" @click="consultarCpfNoBanco" :disabled="consultandoCpf" class="bg-slate-950 hover:bg-slate-800 disabled:bg-slate-400 text-white px-4 py-2.5 rounded-xl text-xs font-bold transition whitespace-nowrap">
                     {{ consultandoCpf ? 'Buscando...' : 'Buscar CPF' }}
                   </button>
@@ -510,12 +519,12 @@ const recalcularTotaisGenericos = () => {
 
 const consultarCpfNoBanco = async () => {
   const cpfLimpo = form.cpf.replace(/\D/g, '')
-  if (cpfLimpo.length !== 11) return alert('CPF Inválido.')
+  if (cpfLimpo.length !== 11) return alert('O CPF precisa conter exatamente 11 números.')
   consultandoCpf.value = true
   try {
-    const resposta = await fetch(`/api/clientes/buscar-cpf/${cpfLimpo}`)
-    if (resposta.ok) {
-      const dados = await resposta.json()
+    const reply = await fetch(`/api/clientes/buscar-cpf/${cpfLimpo}`)
+    if (reply.ok) {
+      const dados = await reply.json()
       Object.assign(form, dados)
       clienteLocalizado.value = true
     } else {
