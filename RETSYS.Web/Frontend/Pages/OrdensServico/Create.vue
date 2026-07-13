@@ -149,7 +149,7 @@
             </div>
           </div>
 
-          <!-- 2. Dados Clínicos da Receita Médica -->
+          <!-- 2. Dados Clínicos da Receita Médica (Protegidos contra Enter) -->
           <div class="bg-slate-50 p-6 rounded-2xl border border-slate-200 space-y-4">
             <h3 class="text-sm font-black text-slate-700 uppercase tracking-wider flex items-center gap-2">
               <span class="w-2 h-2 rounded-full bg-teal-500"></span> 2. Dados Clínicos da Receita Médica
@@ -168,7 +168,7 @@
                 <label class="block text-[11px] font-bold uppercase text-slate-400 tracking-wider mb-1.5">Tipo de Profissional *</label>
                 <select v-model="form.medicoTipo" class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500" required>
                   <option value="NAO_ESPECIFICADO">Não Especificado</option>
-                  <option value="OFTALMOLOGISTA">Oftalmologista</option>
+                  <option value="OFTALMOLOGISTA">Oftamalologista</option>
                   <option value="OPTOMETRISTA">Optometrista</option>
                 </select>
               </div>
@@ -184,23 +184,23 @@
 
               <div class="grid grid-cols-4 gap-4 items-center">
                 <div class="text-sm font-black text-slate-700 text-center">OD</div>
-                <input v-model.number="form.odEsferico" type="number" step="0.25" placeholder="0,00" class="rounded-xl border-slate-200 text-sm text-center font-mono focus:border-teal-500" />
-                <input v-model.number="form.odCilindrico" type="number" step="0.25" placeholder="0,00" class="rounded-xl border-slate-200 text-sm text-center font-mono focus:border-teal-500" />
-                <input v-model.number="form.odEixo" type="number" min="0" max="180" placeholder="0" class="rounded-xl border-slate-200 text-sm text-center font-mono focus:border-teal-500" />
+                <input v-model.number="form.odEsferico" type="number" step="0.25" placeholder="0,00" @keydown.enter.prevent class="rounded-xl border-slate-200 text-sm text-center font-mono focus:border-teal-500" />
+                <input v-model.number="form.odCilindrico" type="number" step="0.25" placeholder="0,00" @keydown.enter.prevent class="rounded-xl border-slate-200 text-sm text-center font-mono focus:border-teal-500" />
+                <input v-model.number="form.odEixo" type="number" min="0" max="180" placeholder="0" @keydown.enter.prevent class="rounded-xl border-slate-200 text-sm text-center font-mono focus:border-teal-500" />
               </div>
 
               <div class="grid grid-cols-4 gap-4 items-center">
                 <div class="text-sm font-black text-slate-700 text-center">OE</div>
-                <input v-model.number="form.oeEsferico" type="number" step="0.25" placeholder="0,00" class="rounded-xl border-slate-200 text-sm text-center font-mono focus:border-teal-500" />
-                <input v-model.number="form.oeCilindrico" type="number" step="0.25" placeholder="0,00" class="rounded-xl border-slate-200 text-sm text-center font-mono focus:border-teal-500" />
-                <input v-model.number="form.oeEixo" type="number" min="0" max="180" placeholder="0" class="rounded-xl border-slate-200 text-sm text-center font-mono focus:border-teal-500" />
+                <input v-model.number="form.oeEsferico" type="number" step="0.25" placeholder="0,00" @keydown.enter.prevent class="rounded-xl border-slate-200 text-sm text-center font-mono focus:border-teal-500" />
+                <input v-model.number="form.oeCilindrico" type="number" step="0.25" placeholder="0,00" @keydown.enter.prevent class="rounded-xl border-slate-200 text-sm text-center font-mono focus:border-teal-500" />
+                <input v-model.number="form.oeEixo" type="number" min="0" max="180" placeholder="0" @keydown.enter.prevent class="rounded-xl border-slate-200 text-sm text-center font-mono focus:border-teal-500" />
               </div>
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4 items-center pt-2">
               <div class="flex flex-col bg-teal-50/50 p-4 rounded-xl border border-teal-100">
                 <label class="block text-xs font-bold uppercase text-teal-800 tracking-wider mb-1.5">Adição (AD)</label>
-                <input v-model.number="form.adicao" type="number" step="0.25" placeholder="0.00" class="w-full rounded-xl border-teal-200 text-sm focus:border-teal-500 focus:ring-teal-500 bg-white font-mono text-teal-900" />
+                <input v-model.number="form.adicao" type="number" step="0.25" placeholder="0.00" @keydown.enter.prevent class="w-full rounded-xl border-teal-200 text-sm focus:border-teal-500 focus:ring-teal-500 bg-white font-mono text-teal-900" />
                 <p class="text-[10px] text-teal-600 mt-1 leading-tight">Obrigatório para lentes progressivas. Se preenchida, a Altura de Montagem também será exigida.</p>
               </div>
               <div>
@@ -221,15 +221,15 @@
             <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
               <div>
                 <label class="block text-xs font-bold uppercase text-slate-400 tracking-wider mb-2">DNP - Olho Direito (mm) *</label>
-                <input v-model.number="form.dnpOd" type="number" step="0.5" min="0.1" placeholder="0.0" class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500 font-mono" required />
+                <input v-model.number="form.dnpOd" type="number" step="0.5" min="0.1" placeholder="0.0" @keydown.enter.prevent class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500 font-mono" required />
               </div>
               <div>
                 <label class="block text-xs font-bold uppercase text-slate-400 tracking-wider mb-2">DNP - Olho Esquerdo (mm) *</label>
-                <input v-model.number="form.dnpOe" type="number" step="0.5" min="0.1" placeholder="0.0" class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500 font-mono" required />
+                <input v-model.number="form.dnpOe" type="number" step="0.5" min="0.1" placeholder="0.0" @keydown.enter.prevent class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500 font-mono" required />
               </div>
               <div>
                 <label class="block text-xs font-bold uppercase text-slate-400 tracking-wider mb-2">Altura de Montagem (mm)</label>
-                <input v-model.number="form.alturaMontagem" type="number" step="0.5" placeholder="Obrigatório p/ progressivas" class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500 font-mono" />
+                <input v-model.number="form.alturaMontagem" type="number" step="0.5" placeholder="Obrigatório p/ progressivas" @keydown.enter.prevent class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500 font-mono" />
               </div>
               <div>
                 <label class="block text-xs font-bold uppercase text-slate-400 tracking-wider mb-2">Data Prevista de Entrega *</label>
@@ -247,7 +247,6 @@
             <div class="space-y-3">
               <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                 <label class="block text-xs font-bold uppercase text-slate-400 tracking-wider">Armação Selecionada *</label>
-                <!-- Botão express com visual corporativo e visível para todos -->
                 <button type="button" @click="exibirSubFormMarca = !exibirSubFormMarca" class="bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-bold px-3 py-1.5 rounded-xl border border-slate-200 uppercase tracking-wider transition shadow-sm">
                   ⚙️ Adicionar Marca Rápida
                 </button>
@@ -278,7 +277,6 @@
             <div class="space-y-3">
               <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
                 <label class="block text-xs font-bold uppercase text-slate-400 tracking-wider">Lente do Catálogo Disponível *</label>
-                <!-- Botão express com visual corporativo e visível para todos -->
                 <button type="button" @click="exibirSubFormLente = !exibirSubFormLente" class="bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-bold px-3 py-1.5 rounded-xl border border-slate-200 uppercase tracking-wider transition shadow-sm">
                   🔬 Adicionar Lente Base
                 </button>
@@ -562,6 +560,22 @@ const executarOcrInteligente = async () => {
     alert('Leitura da receita concluída!')
   } catch (err) { alert('Erro ao ler a receita.') }
   finally { carregandoIA.value = false }
+}
+
+const salvarOrdemServico = async () => {
+  erroSubmissao.value = null
+  salvandoOS.value = true
+  try {
+    const query = form.formaPagamento === 'CARTAO_CREDITO' ? `?quantidadeParcelas=${qtdParcelas.value}` : ''
+    const payload = { ...form, cpf: form.cpf.replace(/\D/g, ''), lentePrecoId: form.lenteId }
+    const { data } = await axios.post(`/ordens${query}`, payload)
+    osFaturadaResponse.value = { numeroOS: data.numeroOS }
+    exibirFaturaSucesso.value = true
+  } catch (err) {
+    erroSubmissao.value = err.response?.data?.mensagem || 'Erro ao emitir a Ordem de Serviço.'
+  } finally {
+    salvandoOS.value = false
+  }
 }
 
 const voltarAoPainel = () => router.get('/ordens')

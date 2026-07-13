@@ -42,8 +42,8 @@ namespace RETSYS.Web.Controllers
                 })
                 .ToListAsync();
 
+            // Filtro .Where(m => m.Ativo) removido para garantir que qualquer marca cadastrada apareça no select
             var marcasDisponiveis = await _context.Marcas
-                .Where(m => m.Ativo)
                 .OrderBy(m => m.Nome)
                 .Select(m => new { m.Id, m.Nome })
                 .ToListAsync();
@@ -80,9 +80,9 @@ namespace RETSYS.Web.Controllers
         }
 
         // =========================================================================
-        // 3. CADASTRO DE NOVA MARCA DE ARMAÇÃO (POST - RESTRITO ADMIN)
+        // 3. CADASTRO DE NOVA MARCA DE ARMAÇÃO (POST - ABERTO A TODOS)
         // =========================================================================
-       [HttpPost("/armacoes/marcas")]
+        [HttpPost("/armacoes/marcas")]
         public async Task<IActionResult> CadastrarMarca([FromForm] string nome)
         {
             try
@@ -102,7 +102,6 @@ namespace RETSYS.Web.Controllers
                 _context.Marcas.Add(novaMarca);
                 await _context.SaveChangesAsync();
 
-                // Retorno limpo em JSON para o Axios processar e atualizar a grid reativamente
                 return Ok(new { mensagem = "Marca cadastrada com sucesso!", id = novaMarca.Id });
             }
             catch (Exception ex)
