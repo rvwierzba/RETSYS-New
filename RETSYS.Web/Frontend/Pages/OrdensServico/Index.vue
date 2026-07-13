@@ -16,7 +16,6 @@
       </div>
 
       <div class="grid grid-cols-1 lg:grid-cols-4 gap-4 bg-white p-4 rounded-2xl border border-slate-200 shadow-sm items-center">
-        
         <div class="lg:col-span-3 flex flex-wrap gap-1.5">
           <button 
             @click="filtrarPorComposicao('total')"
@@ -25,7 +24,6 @@
           >
             📋 Total de Vendas
           </button>
-          
           <button 
             @click="filtrarPorComposicao('armacao')"
             :class="[filtroAtivoComp === 'armacao' ? 'bg-slate-950 text-white font-black' : 'bg-slate-50 text-slate-600 hover:bg-slate-100 font-semibold']"
@@ -33,15 +31,13 @@
           >
             👓 Receita de Armações
           </button>
-          
           <button 
             @click="irParaFiltro('lente')"
             :class="[filtroAtivoComp === 'lente' ? 'bg-slate-950 text-white font-bold' : 'bg-slate-50 text-slate-600 font-medium']"
             class="px-4 py-2 rounded-xl text-xs border border-transparent hover:bg-slate-100 transition"
           >
-            🔬 Receita de Lenses
+            🔬 Receita de Lentes
           </button>
-          
           <button 
             @click="filtrarPorComposicao('completo')"
             :class="[filtroAtivoComp === 'completo' ? 'bg-slate-950 text-white font-black' : 'bg-slate-50 text-slate-600 hover:bg-slate-100 font-semibold']"
@@ -108,71 +104,6 @@
           </table>
         </div>
       </div>
-
-      <div v-if="osSelecionada" class="fixed inset-0 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
-        <div class="bg-white rounded-3xl border border-slate-200 shadow-2xl w-full max-w-3xl overflow-hidden animate-fadeIn">
-          
-          <div class="bg-slate-950 text-white p-6 flex items-center justify-between">
-            <div>
-              <h2 class="text-base font-black uppercase tracking-wider font-mono">
-                Prancheta Clínica: {{ osSelecionada.numeroOS || osSelecionada.NumeroOS }}
-              </h2>
-              <p class="text-xs text-slate-400">
-                Paciente: {{ osSelecionada.clienteNome || osSelecionada.ClienteNome }}
-              </p>
-            </div>
-            <button @click="osSelecionada = null" class="text-slate-400 hover:text-white text-sm font-bold">&times; Fechar</button>
-          </div>
-
-          <div class="p-6 space-y-6">
-            
-            <div class="space-y-3">
-              <h4 class="text-xs font-bold text-teal-600 uppercase tracking-widest border-b border-slate-100 pb-1 font-mono">Refração de Longe</h4>
-              <div class="grid grid-cols-2 gap-4 text-xs font-mono">
-                <div class="bg-slate-50 p-3 rounded-xl border border-slate-150">
-                  <p class="font-sans font-bold text-slate-400 mb-1">Olho Direito (OD)</p>
-                  <p>Esférico: <span class="font-bold text-slate-800">{{ obterGrau(osSelecionada, 'esfericoLongeDireito') }}</span></p>
-                  <p>Cilíndrico: <span class="font-bold text-slate-800">{{ obterGrau(osSelecionada, 'cilindricoLongeDireito') }}</span></p>
-                  <p>Eixo: <span class="font-bold text-slate-800">{{ obterGrauRaw(osSelecionada, 'eixoLongeDireito') }}°</span></p>
-                </div>
-                
-                <div class="bg-slate-50 p-3 rounded-xl border border-slate-150">
-                  <p class="font-sans font-bold text-slate-400 mb-1">Olho Esquerdo (OE)</p>
-                  <p>Esférico: <span class="font-bold text-slate-800">{{ obterGrau(osSelecionada, 'esfericoLongeEsquerdo') }}</span></p>
-                  <p>Cilíndrico: <span class="font-bold text-slate-800">{{ obterGrau(osSelecionada, 'cilindricoLongeEsquerdo') }}</span></p>
-                  <p>Eixo: <span class="font-bold text-slate-800">{{ obterGrauRaw(osSelecionada, 'eixoLongeEsquerdo') }}°</span></p>
-                </div>
-              </div>
-            </div>
-
-            <div class="space-y-3">
-              <div class="flex items-center justify-between border-b border-slate-100 pb-1">
-                <h4 class="text-xs font-bold text-indigo-600 uppercase tracking-widest font-mono">Refração de Perto</h4>
-                <span class="text-[10px] bg-indigo-50 text-indigo-700 font-bold font-mono px-2 py-0.5 rounded">
-                  Adição: +{{ obterGrau(osSelecionada, 'adicao') }}
-                </span>
-              </div>
-              <div class="grid grid-cols-2 gap-4 text-xs font-mono">
-                <div class="bg-indigo-50/40 p-3 rounded-xl border border-indigo-100">
-                  <p class="font-sans font-bold text-indigo-400 mb-1">Olho Direito (OD)</p>
-                  <p>Esférico: <span class="font-bold text-indigo-900">{{ obterGrau(osSelecionada, 'esfericoPertoDireito') }}</span></p>
-                  <p>Cilíndrico: <span class="font-bold text-indigo-900">{{ obterGrau(osSelecionada, 'cilindricoPertoDireito') }}</span></p>
-                  <p>Eixo: <span class="font-bold text-indigo-900">{{ obterGrauRaw(osSelecionada, 'eixoPertoDireito') }}°</span></p>
-                </div>
-                
-                <div class="bg-indigo-50/40 p-3 rounded-xl border border-indigo-100">
-                  <p class="font-sans font-bold text-indigo-400 mb-1">Olho Esquerdo (OE)</p>
-                  <p>Esférico: <span class="font-bold text-indigo-900">{{ obterGrau(osSelecionada, 'esfericoPertoEsquerdo') }}</span></p>
-                  <p>Cilíndrico: <span class="font-bold text-indigo-900">{{ obterGrau(osSelecionada, 'cilindricoPertoEsquerdo') }}</span></p>
-                  <p>Eixo: <span class="font-bold text-indigo-900">{{ obterGrauRaw(osSelecionada, 'eixoPertoEsquerdo') }}°</span></p>
-                </div>
-              </div>
-            </div>
-
-          </div>
-        </div>
-      </div>
-
     </div>
   </AuthenticatedLayout>
 </template>
@@ -184,33 +115,19 @@ import AuthenticatedLayout from '../../Shared/AuthenticatedLayout.vue'
 
 const props = defineProps({
   Ordens: Array, ordens: Array,
-  FiltroAtivo: String, filtroAtivo: String, // Estado retornado pelo switch case do back-end
-  TotalFiltroAtivo: Number, totalFiltroAtivo: Number // Somatório financeiro líquido do filtro ativo
+  FiltroAtivo: String, filtroAtivo: String,
+  TotalFiltroAtivo: Number, totalFiltroAtivo: Number
 })
 
 const osSelecionada = ref(null)
 
-// Tratamento defensivo para normalizar propriedades enviadas em minúsculo ou PascalCase pelo serializer
 const filtroAtivoComp = computed(() => props.FiltroAtivo ?? props.filtroAtivo ?? 'total')
 const totalExibido = computed(() => props.TotalFiltroAtivo ?? props.totalFiltroAtivo ?? 0)
 
-const irParaNovaOrdem = () => {
-  router.get('/ordens/nova')
-}
-
-// Dispara a requisição de filtragem reativa preservando o estado das linhas
-const filtrarPorComposicao = (tipo) => {
-  router.get('/ordens', { filtroComposicao: tipo }, { preserveState: true })
-}
-
-// Atalho semântico de clique interno
-const irParaFiltro = (tipo) => {
-  filtrarPorComposicao(tipo)
-}
-
-const abrirPranchetaClinica = (ordem) => {
-  osSelecionada.value = { ...ordem }
-}
+const irParaNovaOrdem = () => router.get('/ordens/nova')
+const filtrarPorComposicao = (tipo) => router.get('/ordens', { filtroComposicao: tipo }, { preserveState: true })
+const irParaFiltro = (tipo) => filtrarPorComposicao(tipo)
+const abrirPranchetaClinica = (ordem) => { osSelecionada.value = { ...ordem } }
 
 const formatarMoeda = (valor) => {
   if (valor === undefined || valor === null) return '0,00'
@@ -220,24 +137,5 @@ const formatarMoeda = (valor) => {
 const formatarData = (dataRaw) => {
   if (!dataRaw) return '--/--/----'
   return new Date(dataRaw).toLocaleDateString('pt-BR')
-}
-
-const obterBlocoRefracao = (os) => {
-  return os?.refracao || os?.Refracao || os?.especificacoes || os?.Especificacoes || os?.graus || os?.Graus || os
-}
-
-const obterGrau = (os, chave) => {
-  const bloco = obterBlocoRefracao(os)
-  if (!bloco) return '0.00'
-  const chavePascal = chave.charAt(0).toUpperCase() + chave.slice(1)
-  const valor = bloco[chave] ?? bloco[chavePascal] ?? 0
-  return Number(valor).toFixed(2)
-}
-
-const obterGrauRaw = (os, chave) => {
-  const bloco = obterBlocoRefracao(os)
-  if (!bloco) return '0'
-  const chavePascal = chave.charAt(0).toUpperCase() + chave.slice(1)
-  return bloco[chave] ?? bloco[chavePascal] ?? '0'
 }
 </script>

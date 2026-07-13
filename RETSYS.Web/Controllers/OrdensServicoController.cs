@@ -12,6 +12,7 @@ using System.Threading.Tasks;
 using Microsoft.AspNetCore.Http;
 using System.Security.Claims;
 using System.Linq;
+using System.Collections.Generic;
 
 namespace RETSYS.Web.Controllers
 {
@@ -24,14 +25,13 @@ namespace RETSYS.Web.Controllers
             _context = context;
         }
 
-        // 1. Listagem de todas as OSs com Isolamento por Perfil (RBAC) e Filtros de Composição (Seção 4)
+        // 1. Listagem de todas as OSs com Isolamento por Perfil (RBAC) e Filtros de Composição
         [HttpGet("/ordens")]
         public async Task<IActionResult> Index([FromQuery] string? filtroComposicao)
         {
             var usuarioIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             var perfilClaim = User.FindFirst(ClaimTypes.Role)?.Value ?? "VENDEDOR";
 
-            // Regra de Negócio: Filtros e resumos consideram apenas OS não canceladas (Seção 4)
             IQueryable<OrdemServico> query = _context.OrdensServico
                 .Include(os => os.Cliente)
                 .Include(os => os.Receita)
@@ -43,21 +43,19 @@ namespace RETSYS.Web.Controllers
                 query = query.Where(os => os.VendedorId == vendedorId);
             }
 
-            // APLICAÇÃO DOS FILTROS DE COMPOSIÇÃO DA REGRA DE 05/07 (SEÇÃO 4)
             query = filtroComposicao switch
             {
                 "armacao" => query.Where(os => os.Financeiro.ValorArmacao > 0),
                 "lente" => query.Where(os => os.Financeiro.ValorLente > 0),
                 "completo" => query.Where(os => os.Financeiro.ValorArmacao > 0 && os.Financeiro.ValorLente > 0),
-                _ => query // "total" traz todas as vendas não canceladas
+                _ => query
             };
 
-            // CÁLCULO DINÂMICO DO TOTAL FATURADO CONFORME O FILTRO ATIVO (SEÇÃO 4)
             decimal totalFiltroAtivo = filtroComposicao switch
             {
                 "armacao" => await query.SumAsync(os => os.Financeiro.ValorArmacao),
                 "lente" => await query.SumAsync(os => os.Financeiro.ValorLente),
-                _ => await query.SumAsync(os => os.Financeiro.ValorTotalLiquido) // Completo e Total usam o Líquido
+                _ => await query.SumAsync(os => os.Financeiro.ValorTotalLiquido)
             };
 
             var ordens = await query
@@ -87,7 +85,8 @@ namespace RETSYS.Web.Controllers
                 })
                 .ToListAsync();
 
-            return Inertia.Render("Orders/Index", new { 
+            // Corrigido caminho de renderização para a nova pasta unificada
+            return Inertia.Render("OrdensServico/Index", new { 
                 Ordens = ordens,
                 FiltroAtivo = filtroComposicao ?? "total",
                 TotalFiltroAtivo = totalFiltroAtivo
@@ -109,28 +108,29 @@ namespace RETSYS.Web.Controllers
                 .Select(a => new { a.Id, a.ModeloReferencia, a.Cor, a.QuantidadeEstoque, a.PrecoVenda })
                 .ToListAsync();
 
+            // Proteção inclusa contra Lente pai nula para mitigar quebras de carregamento de página
             var lentes = await _context.LentesTabelaPrecos
                 .Include(lp => lp.Lente)
-                .Where(lp => lp.Ativo && lp.Lente.Ativo)
+                .Where(lp => lp.Ativo && lp.Lente != null && lp.Lente.Ativo)
                 .Select(lp => new
                 {
-                    lp.Id, // LentePrecoId -> é isto que o front deve enviar como "lentePrecoId"
-                    lp.Lente.Laboratorio,
-                    lp.Lente.Tipo,
+                    lp.Id, 
+                    Laboratorio = lp.Lente.Laboratorio,
+                    Tipo = lp.Lente.Tipo,
                     lp.IndiceRefracao,
-                    lp.Tratamento,
+                    lp.Tratamento, 
                     lp.PrecoVenda
                 })
                 .ToListAsync();
 
-            return Inertia.Render("Orders/Create", new { 
+            // Corrigido caminho de renderização para a nova pasta unificada
+            return Inertia.Render("OrdensServico/Create", new { 
                 Vendedores = vendedores,
                 Armacoes = armacoes,
                 Lentes = lentes
             });
         }
 
-        // 3. Endpoint Unificado de Busca do CRM por CPF para o Fluxo Contínuo de Balcão (GET)
         [HttpGet("/api/clientes/buscar-cpf/{cpf}")]
         public async Task<IActionResult> BuscarPorCpf(string cpf)
         {
@@ -161,7 +161,6 @@ namespace RETSYS.Web.Controllers
             });
         }
 
-        // 4. Processa a gravação Unificada da OS + Fluxo Automático/Inclusivo de Cliente (POST)
         [HttpPost("/ordens")]
         public async Task<IActionResult> Store([FromBody] JsonElement raiz, [FromQuery] int? quantidadeParcelas)
         {
@@ -171,9 +170,8 @@ namespace RETSYS.Web.Controllers
 
                 Guid vendedorId = Guid.Parse(raiz.GetProperty("vendedorId").GetString()!);
                 var vendedor = await _context.Usuarios.FindAsync(vendedorId);
-                if (vendedor == null) return BadRequest(new { mensagem = "Vendedor não localizado." });
+                if (vendedor == null) return BadRequest(new { salesman = "Vendedor não localizado." });
 
-                // 👤 FLUXO INTEGRADOR DO CLIENTE (CRM CONTÍNUO AUTOMÁTICO)
                 string cpfInformado = new string(raiz.GetProperty("cpf").GetString()!.Where(char.IsDigit).ToArray());
 
                 var cliente = await _context.Clientes
@@ -185,7 +183,6 @@ namespace RETSYS.Web.Controllers
                     _context.Clientes.Add(cliente);
                 }
 
-                // Autoriza ou cria o cadastro com tratamento defensivo contra propriedades Json vazias
                 cliente.Nome = raiz.GetProperty("nome").GetString()!;
                 cliente.Telefone = raiz.GetProperty("telefone").GetString()!;
                 cliente.Logradouro = raiz.GetProperty("logradouro").GetString()!;
@@ -204,17 +201,15 @@ namespace RETSYS.Web.Controllers
                 }
                 cliente.UpdatedAt = DateTime.UtcNow;
 
-                // 💳 INVERSÃO DA LÓGICA DE CÁLCULO E VALIDAÇÕES FINANCEIRAS
                 decimal valorArmacao = raiz.GetProperty("valorArmacao").GetDecimal();
                 decimal valorLente = raiz.GetProperty("valorLente").GetDecimal();
-                decimal totalBruto = valorArmacao + valorLente; // Correção efetuada aqui adicionando 'decimal'
+                decimal totalBruto = valorArmacao + valorLente; 
 
                 decimal descontoPercentual = raiz.GetProperty("descontoPercentual").GetDecimal();
 
-                // Trava de Alçada de Desconto Corporativo
                 if (perfilClaim != "ADMIN" && descontoPercentual > vendedor.LimiteDesconto)
                 {
-                    return BadRequest(new { mensagem = "Desconto acima do limite autorizado. Solicite aprovação do administrador." });
+                    return BadRequest(new { mensagem = "Desconto acima do limite autorizado." });
                 }
 
                 decimal descontoReais = Math.Round(totalBruto * (descontoPercentual / 100), 2);
@@ -234,7 +229,6 @@ namespace RETSYS.Web.Controllers
                     loopParcelas = parcelasFinais.Value;
                 }
 
-                // 📄 MONTAGEM DO CABEÇALHO DA OS
                 var novaOS = new OrdemServico
                 {
                     Id = Guid.NewGuid(),
@@ -251,7 +245,6 @@ namespace RETSYS.Web.Controllers
                     Ativo = true
                 };
 
-                // 👁️ MONTAGEM DA RECEITA SATÉLITE
                 novaOS.Receita = new OsReceita
                 {
                     OsId = novaOS.Id,
@@ -267,7 +260,6 @@ namespace RETSYS.Web.Controllers
                     AlturaMontagem = raiz.TryGetProperty("alturaMontagem", out var alt) && alt.ValueKind != JsonValueKind.Null ? alt.GetDecimal() : null
                 };
 
-                // 💳 MONTAGEM DO FINANCEIRO SATÉLITE
                 novaOS.Financeiro = new OsFinanceiro
                 {
                     OsId = novaOS.Id,
@@ -284,7 +276,6 @@ namespace RETSYS.Web.Controllers
                     ValorEntrada = raiz.TryGetProperty("valorEntrada", out var ent) && ent.ValueKind != JsonValueKind.Null ? ent.GetDecimal() : null
                 };
 
-                // Gerador de Parcelas Comerciais
                 decimal valorParcela = Math.Round(valorTotalLiquido / loopParcelas, 2);
                 for (int i = 1; i <= loopParcelas; i++)
                 {
@@ -304,25 +295,12 @@ namespace RETSYS.Web.Controllers
 
                 return Ok(new { numeroOS = novaOS.NumeroOS });
             }
-            catch (KeyNotFoundException)
-            {
-                return BadRequest(new { mensagem = "Campo obrigatório ausente no payload enviado." });
-            }
-            catch (InvalidOperationException ex)
-            {
-                return BadRequest(new { mensagem = $"Erro ao ler um dos campos da OS: {ex.Message}" });
-            }
-            catch (FormatException)
-            {
-                return BadRequest(new { mensagem = "Formato inválido em algum dos campos enviados (data, número ou identificador)." });
-            }
             catch (Exception ex)
             {
                 return BadRequest(new { message = "Falha ao processar a Ordem de Serviço.", erro = ex.Message });
             }
         }
 
-        // 5. Modifica o status de produção e executa a baixa/reposição física do estoque (POST)
         [HttpPost("/ordens/alterar-status/{id:guid}")]
         public async Task<IActionResult> AlterarStatus(Guid id, [FromQuery] string novoStatus)
         {
@@ -337,7 +315,6 @@ namespace RETSYS.Web.Controllers
                 return RedirectToAction(nameof(Index));
             }
 
-            // Ignora processamento físico de estoque se for um registro histórico vindo do CRM
             if (ordem.IsRetroativa)
             {
                 ordem.Status = novoStatus;
@@ -348,8 +325,6 @@ namespace RETSYS.Web.Controllers
             bool estadoAtualAbateEstoque = (novoStatus == "EM_LABORATORIO" || novoStatus == "ENTREGUE");
             bool estadoAnteriorJaHaviaAbatido = (statusAnterior == "EM_LABORATORIO" || statusAnterior == "ENTREGUE");
 
-            // Lente não possui controle de estoque (é confeccionada/surfacada sob encomenda).
-            // Baixa física se aplica apenas à armação.
             if (estadoAtualAbateEstoque && !estadoAnteriorJaHaviaAbatido)
             {
                 var armacao = await _context.Armacoes.FindAsync(ordem.Financeiro.ArmacaoId);
@@ -372,66 +347,45 @@ namespace RETSYS.Web.Controllers
             return RedirectToAction(nameof(Index));
         }
 
-        // 6. Motor de Visão Computacional via Ollama + Moondream (POST)
         [HttpPost("/ordens/processar-receita-ia")]
         public async Task<IActionResult> ProcessarReceitaIA(IFormFile imagemReceita)
         {
-            if (imagemReceita == null || imagemReceita.Length == 0)
-            {
-                return BadRequest(new { mensagem = "Nenhum arquivo de imagem foi anexado." });
-            }
+            if (imagemReceita == null || imagemReceita.Length == 0) return BadRequest(new { mensagem = "Nenhuma imagem anexada." });
 
             try
             {
                 using var ms = new MemoryStream();
                 await imagemReceita.CopyToAsync(ms);
-                byte[] arrBytes = ms.ToArray();
-                string base64Imagem = Convert.ToBase64String(arrBytes);
+                string base64Imagem = Convert.ToBase64String(ms.ToArray());
 
                 var payloadOllama = new
                 {
                     model = "moondream",
-                    prompt = "Analyze this optical prescription image. Extract the clinical values into a single JSON object using exactly these keys: " +
-                            "medicoNome (string), odEsferico (number), odCilindrico (number), odEixo (number), " +
-                            "oeEsferico (number), oeCilindrico (number), oeEixo (number), adicao (number). If any value is missing or not mentioned, return 0 or null. " +
-                            "Output ONLY the raw JSON object, do not include any markdown backticks, explanations or conversational text.",
+                    prompt = "Analyze this optical prescription image. Extract values into JSON using keys: medicoNome, odEsferico, odCilindrico, odEixo, oeEsferico, oeCilindrico, oeEixo, adicao.",
                     images = new[] { base64Imagem },
                     stream = false,
                     format = "json"
                 };
 
-                string jsonPayload = JsonSerializer.Serialize(payloadOllama);
-                using var conteudoHttp = new StringContent(jsonPayload, Encoding.UTF8, "application/json");
+                using var conteudoHttp = new StringContent(JsonSerializer.Serialize(payloadOllama), Encoding.UTF8, "application/json");
+                using var httpClient = new HttpClient { Timeout = TimeSpan.FromSeconds(60) };
 
-                using var httpClient = new HttpClient();
-                httpClient.Timeout = TimeSpan.FromSeconds(60);
-
-                string urlOllama = "http://ollama:11434/api/generate";
-                var respostaOllama = await httpClient.PostAsync(urlOllama, conteudoHttp);
-
-                if (!respostaOllama.IsSuccessStatusCode)
-                {
-                    return StatusCode((int)respostaOllama.StatusCode, new { mensagem = "O motor Ollama recusou a requisição ou está sobrecarregado." });
-                }
+                var respostaOllama = await httpClient.PostAsync("http://ollama:11434/api/generate", conteudoHttp);
+                if (!respostaOllama.IsSuccessStatusCode) return StatusCode(500, "Erro no motor local de IA.");
 
                 string jsonString = await respostaOllama.Content.ReadAsStringAsync();
                 using var documentoJson = JsonDocument.Parse(jsonString);
 
                 if (documentoJson.RootElement.TryGetProperty("response", out var elementoResposta))
                 {
-                    string jsonExtraidoDaIa = elementoResposta.GetString();
-                    return Content(jsonExtraidoDaIa, "application/json");
+                    return Content(elementoResposta.GetString()!, "application/json");
                 }
 
-                return BadRequest(new { mensagem = "Não foi possível ler os dados textuais da resposta da IA." });
-            }
-            catch (TaskCanceledException)
-            {
-                return StatusCode(504, new { mensagem = "O motor local de IA estourou o tempo limite de processamento (Timeout)." });
+                return BadRequest("Falha ao decodificar dados da IA.");
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { mensagem = "Falha crítica no pipeline interno de inteligência artificial.", erro = ex.Message });
+                return StatusCode(500, new { mensagem = "Falha no pipeline de IA.", erro = ex.Message });
             }
         }
     }

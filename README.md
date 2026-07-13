@@ -92,7 +92,7 @@ RETSYS-New/
             ├── Auth/Login.vue        # Login imersivo com controle de loading e shake-animation
             ├── Dashboard/Index.vue   # KPI Cards, desempenho de vendedores e faturamento de filiais
             ├── Clientes/             # Index.vue (Busca por debounce) e Historico.vue (Timeline de receitas)
-            ├── Orders/               # Index.vue (Prancheta de OS) e Create.vue (Abertura + Motor IA)
+            ├── OrensServico/               # Index.vue (Prancheta de OS) e Create.vue (Abertura + Motor IA)
             ├── Laboratory/Index.vue  # Interface do laboratório ótico (Cards de oficina)
             ├── Caixa/Index.vue       # Painel financeiro, monitoramento PIX e checkout de balcão
             └── Configuracoes/Index.vue # Ajustes cadastrais e colagem de tokens da OpenPix
