@@ -326,14 +326,11 @@ const formatMoeda = (valor) => {
 }
 
 const cadastrarLenteBase = () => {
-  // Converte explicitamente o boolean para o formato de string compatível com FromForm
-  const payload = {
+  router.post('/lentes', {
     laboratorio: formLenteBase.Laboratorio,
     tipo: formLenteBase.Tipo,
-    surfacada: formLenteBase.Surfacada ? 'true' : 'false'
-  }
-
-  router.post('/lentes', payload, {
+    surfacada: formLenteBase.Surfacada
+  }, {
     preserveScroll: true,
     onSuccess: () => {
       formLenteBase.reset()
@@ -343,17 +340,14 @@ const cadastrarLenteBase = () => {
 }
 
 const cadastrarPreco = () => {
-  // Transmite as propriedades convertidas e sanitizadas para evitar rejeição no parser decimal do C#
-  const payload = {
+  router.post('/lentes/precos', {
     lenteId: formPreco.LenteId,
     tipo: formPreco.Tipo,
-    indiceRefracao: formPreco.IndiceRefracao ? formPreco.IndiceRefracao.toString().replace(',', '.') : '',
-    tratamento: formPreco.Tratamento || '',
-    precoCusto: formPreco.PrecoCusto ? formPreco.PrecoCusto.toString().replace(',', '.') : '0',
-    precoVenda: formPreco.PrecoVenda ? formPreco.PrecoVenda.toString().replace(',', '.') : '0'
-  }
-
-  router.post('/lentes/precos', payload, {
+    indiceRefracao: parseFloat(formPreco.IndiceRefracao) || 0,
+    tratamento: formPreco.Tratamento || "",
+    precoCusto: parseFloat(formPreco.PrecoCusto) || 0,
+    precoVenda: parseFloat(formPreco.PrecoVenda) || 0
+  }, {
     preserveScroll: true,
     onSuccess: () => {
       formPreco.reset()

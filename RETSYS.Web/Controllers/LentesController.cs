@@ -103,10 +103,9 @@ namespace RETSYS.Web.Controllers
         }
 
         // =========================================================================
-        // 2. ENDPOINTS DE ESCRITA (SEM DTOS - PARÂMETROS DIRETOS VIA FORM)
+        // 2. ENDPOINTS DE ESCRITA (APENAS CADASTRO DE LENTE BASE)
         // =========================================================================
 
-        // ✅ Adiciona uma nova Lente Base (Bloco de Catálogo) recebendo variáveis primitivas
         [HttpPost("/lentes")]
         public async Task<IActionResult> CriarLenteBase(
             [FromForm] string laboratorio,
@@ -123,88 +122,23 @@ namespace RETSYS.Web.Controllers
                 var novaLente = new Lente
                 {
                     Id = Guid.NewGuid(),
-                    CodigoSku = $"LNT-{Guid.NewGuid().ToString()[..8].ToUpper()}", // SKU incremental gerado na persistência
+                    CodigoSku = $"LNT-{Guid.NewGuid().ToString()[..8].ToUpper()}",
                     Laboratorio = laboratorio.Trim(),
                     Tipo = tipo.Trim(),
                     Surfacada = surfacada,
-                    GraduacaoMin = -20.00m, // Atribuição das propriedades obrigatórias da entidade Lente
-                    GraduacaoMax = 20.00m,  // Atribuição das propriedades obrigatórias da entidade Lente
+                    GraduacaoMin = -20.00m,
+                    GraduacaoMax = 20.00m,
                     Ativo = true
-                    // CriadoEm é preenchido automaticamente pelo construtor da entidade (DateTime.UtcNow)
                 };
 
                 _context.Lentes.Add(novaLente);
                 await _context.SaveChangesAsync();
 
-                // Retorna o redirecionamento HTTP nativo esperado pelo Inertia.js
                 return Redirect(Request.Headers["Referer"].ToString() ?? "/lentes");
             }
             catch (Exception ex)
             {
                 return StatusCode(500, $"Erro interno ao salvar lente base: {ex.Message}");
-            }
-        }
-
-        // ✅ Grava uma nova precificação direto na Matriz associando à classe de entidade LentePreco
-        [HttpPost("/lentes/precos")]
-        public async Task<IActionResult> CadastrarPrecoMatriz(
-            [FromForm] Guid lenteId,
-            [FromForm] string tipo,
-            [FromForm] decimal indiceRefracao,
-            [FromForm] string? tratamento,
-            [FromForm] decimal precoCusto,
-            [FromForm] decimal precoVenda)
-        {
-            try
-            {
-                if (lenteId == Guid.Empty || precoVenda <= 0)
-                {
-                    return BadRequest("Dados de parametrização inválidos para a matriz.");
-                }
-
-                var novoPreco = new LentePreco
-                {
-                    Id = Guid.NewGuid(),
-                    LenteId = lenteId,
-                    Tipo = tipo.ToUpper().Trim(),
-                    IndiceRefracao = indiceRefracao,
-                    Tratamento = string.IsNullOrWhiteSpace(tratamento) ? null : tratamento.Trim(),
-                    PrecoCusto = precoCusto,
-                    PrecoVenda = precoVenda,
-                    Ativo = true
-                };
-
-                _context.LentesTabelaPrecos.Add(novoPreco);
-                await _context.SaveChangesAsync();
-
-                return Redirect(Request.Headers["Referer"].ToString() ?? "/lentes");
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, $"Erro interno ao salvar preço na matriz: {ex.Message}");
-            }
-        }
-
-        // ✅ Remove o registro de preço correspondente na matriz ativa
-        [HttpDelete("/lentes/precos/{id:guid}")]
-        public async Task<IActionResult> RemoverPrecoMatriz(Guid id)
-        {
-            try
-            {
-                var preco = await _context.LentesTabelaPrecos.FindAsync(id);
-                if (preco == null)
-                {
-                    return NotFound("Registro de preço não localizado.");
-                }
-
-                _context.LentesTabelaPrecos.Remove(preco);
-                await _context.SaveChangesAsync();
-
-                return Redirect(Request.Headers["Referer"].ToString() ?? "/lentes");
-            }
-            catch (Exception ex)
-            {
-                return StatusCode(500, $"Erro ao remover item da matriz: {ex.Message}");
             }
         }
     }
