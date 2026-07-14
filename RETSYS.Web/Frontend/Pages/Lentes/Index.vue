@@ -326,7 +326,14 @@ const formatMoeda = (valor) => {
 }
 
 const cadastrarLenteBase = () => {
-  formLenteBase.post('/lentes', {
+  // Converte explicitamente o boolean para o formato de string compatível com FromForm
+  const payload = {
+    laboratorio: formLenteBase.Laboratorio,
+    tipo: formLenteBase.Tipo,
+    surfacada: formLenteBase.Surfacada ? 'true' : 'false'
+  }
+
+  router.post('/lentes', payload, {
     preserveScroll: true,
     onSuccess: () => {
       formLenteBase.reset()
@@ -336,7 +343,17 @@ const cadastrarLenteBase = () => {
 }
 
 const cadastrarPreco = () => {
-  formPreco.post('/lentes/precos', {
+  // Transmite as propriedades convertidas e sanitizadas para evitar rejeição no parser decimal do C#
+  const payload = {
+    lenteId: formPreco.LenteId,
+    tipo: formPreco.Tipo,
+    indiceRefracao: formPreco.IndiceRefracao ? formPreco.IndiceRefracao.toString().replace(',', '.') : '',
+    tratamento: formPreco.Tratamento || '',
+    precoCusto: formPreco.PrecoCusto ? formPreco.PrecoCusto.toString().replace(',', '.') : '0',
+    precoVenda: formPreco.PrecoVenda ? formPreco.PrecoVenda.toString().replace(',', '.') : '0'
+  }
+
+  router.post('/lentes/precos', payload, {
     preserveScroll: true,
     onSuccess: () => {
       formPreco.reset()

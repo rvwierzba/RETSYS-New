@@ -221,7 +221,6 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { useForm, usePage, router } from '@inertiajs/vue3'
-import axios from 'axios'
 import AuthenticatedLayout from '../../Shared/AuthenticatedLayout.vue'
 
 const page = usePage()
@@ -247,41 +246,44 @@ const form = useForm({
   QuantidadeEstoque: 1, PrecoVenda: null
 })
 
-// Inserção reativa via Axios para impedir quebras de tela do Inertia
-const enviarNovaMarca = async () => {
+// Grava nova marca usando o router do Inertia transmitindo os dados de forma compatível
+const enviarNovaMarca = () => {
   erroMarca.value = null
   if (!nomeNovaMarca.value.trim()) return
   
   enviandoMarca.value = true
-  try {
-    const formData = new FormData()
-    formData.append('nome', nomeNovaMarca.value)
-    await axios.post('/armacoes/marcas', formData)
-    
-    nomeNovaMarca.value = ''
-    // Atualiza apenas o prop das Marcas mantendo o estado da tela intacto
-    router.reload({ only: ['Marcas'] })
-  } catch (err) {
-    erroMarca.value = err.response?.data?.mensagem || 'Falha ao salvar marca.'
-  } finally {
-    enviandoMarca.value = false
-  }
+  
+  router.post('/marcas', { nome: nomeNovaMarca.value }, {
+    preserveScroll: true,
+    onSuccess: () => {
+      nomeNovaMarca.value = ''
+      enviandoMarca.value = false
+    },
+    onError: (errors) => {
+      erroMarca.value = errors.nome || errors.Nome || 'Falha ao salvar marca.'
+      enviandoMarca.value = false
+    },
+    onFinish: () => {
+      enviandoMarca.value = false
+    }
+  })
 }
 
-// Remoção reativa via Axios integrada ao Endpoint DELETE do back-end
-const excluirMarcaDoBanco = async (id) => {
+// Deleta marcas no banco limpando seleções órfãs locais
+const excluirMarcaDoBanco = (id) => {
   erroMarca.value = null
   if (!id) return
   if (!confirm('Deseja realmente remover esta marca do sistema?')) return
 
-  try {
-    await axios.delete(`/armacoes/marcas/${id}`)
-    // Atualiza dinamicamente o catálogo e limpa seleções inválidas órfãs
-    if (form.MarcaId == id) form.MarcaId = ''
-    router.reload({ only: ['Marcas', 'Estoque'] })
-  } catch (err) {
-    erroMarca.value = err.response?.data?.mensagem || 'Não foi possível excluir. Verifique se existem armações vinculadas.'
-  }
+  router.delete(`/marcas/${id}`, {
+    preserveScroll: true,
+    onSuccess: () => {
+      if (form.MarcaId == id) form.MarcaId = ''
+    },
+    onError: (errors) => {
+      erroMarca.value = errors.mensagem || 'Não foi possível excluir. Verifique se existem armações vinculadas.'
+    }
+  })
 }
 
 const salvarArmacao = () => {

@@ -29,23 +29,28 @@ namespace RETSYS.Web.Controllers
                 })
                 .ToListAsync();
 
-            // Renderiza Frontend/Pages/Marcas/Index.vue passando a lista como Prop
             return Inertia.Render("Marcas/Index", new { Marcas = marcas });
         }
 
         // 2. Gravação de Nova Marca (Create)
         [HttpPost("/marcas")]
-        public async Task<IActionResult> Store([FromBody] Marca novaMarca)
+        public async Task<IActionResult> Store([FromForm] string nome, [FromForm] string? descricao)
         {
-            if (string.IsNullOrWhiteSpace(novaMarca.Nome))
+            if (string.IsNullOrWhiteSpace(nome))
             {
-                return RedirectToAction(nameof(Index)); // Simples validação para o MVP
+                return RedirectToAction(nameof(Index));
             }
+
+            var novaMarca = new Marca
+            {
+                Nome = nome.Trim(),
+                Descricao = descricao?.Trim(),
+                Ativo = true
+            };
 
             _context.Marcas.Add(novaMarca);
             await _context.SaveChangesAsync();
 
-            // Redireciona de volta para a listagem atualizando o SPA instantaneamente
             return RedirectToAction(nameof(Index));
         }
     }
