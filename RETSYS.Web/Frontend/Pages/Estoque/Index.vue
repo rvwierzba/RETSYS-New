@@ -221,6 +221,7 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { useForm, usePage, router } from '@inertiajs/vue3'
+import axios from 'axios'
 import AuthenticatedLayout from '../../Shared/AuthenticatedLayout.vue'
 
 const page = usePage()
@@ -247,43 +248,46 @@ const form = useForm({
 })
 
 // Grava nova marca usando o router do Inertia transmitindo os dados de forma compatível
-const enviarNovaMarca = () => {
+const enviarNovaMarca = async () => {
   erroMarca.value = null
   if (!nomeNovaMarca.value.trim()) return
   
   enviandoMarca.value = true
   
-  router.post('/marcas', { nome: nomeNovaMarca.value }, {
-    preserveScroll: true,
-    onSuccess: () => {
-      nomeNovaMarca.value = ''
-      enviandoMarca.value = false
-    },
-    onError: (errors) => {
-      erroMarca.value = errors.nome || errors.Nome || 'Falha ao salvar marca.'
-      enviandoMarca.value = false
-    },
-    onFinish: () => {
-      enviandoMarca.value = false
-    }
-  })
+  try {
+    // 1. Grava no banco em segundo plano (sem disparar redirecionamentos de página do Inertia)
+    await axios.post('/marcas', { nome: nomeNovaMarca.value })
+    
+    nomeNovaMarca.value = ''
+    
+    // 2. Força o Inertia a recarregar DO BANCO apenas a prop 'Marcas' atualizada
+    router.reload({ only: ['Marcas'] })
+    
+  } catch (err) {
+    erroMarca.value = err.response?.data?.mensagem || err.response?.data?.nome || 'Falha ao salvar marca.'
+  } finally {
+    enviandoMarca.value = false
+  }
 }
 
 // Deleta marcas no banco limpando seleções órfãs locais
-const excluirMarcaDoBanco = (id) => {
+const excluirMarcaDoBanco = async (id) => {
   erroMarca.value = null
   if (!id) return
   if (!confirm('Deseja realmente remover esta marca do sistema?')) return
 
-  router.delete(`/marcas/${id}`, {
-    preserveScroll: true,
-    onSuccess: () => {
-      if (form.MarcaId == id) form.MarcaId = ''
-    },
-    onError: (errors) => {
-      erroMarca.value = errors.mensagem || 'Não foi possível excluir. Verifique se existem armações vinculadas.'
-    }
-  })
+  try {
+    // 1. Remove via API em segundo plano
+    await axios.delete(`/marcas/${id}`)
+    
+    if (form.MarcaId == id) form.MarcaId = ''
+    
+    // 2. Atualiza a lista de marcas na tela na hora
+    router.reload({ only: ['Marcas'] })
+    
+  } catch (err) {
+    erroMarca.value = err.response?.data?.mensagem || 'Não foi possível excluir. Verifique se existem armações vinculadas.'
+  }
 }
 
 const salvarArmacao = () => {
