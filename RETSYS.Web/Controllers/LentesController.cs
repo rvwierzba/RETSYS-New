@@ -20,7 +20,7 @@ namespace RETSYS.Web.Controllers
         }
 
         // =========================================================================
-        // 1. ENDPOINTS DE CONSULTA (MANTIDOS E OTIMIZADOS)
+        // 1. ENDPOINTS DE CONSULTA
         // =========================================================================
 
         [HttpGet("calcular-preco")]
@@ -103,18 +103,15 @@ namespace RETSYS.Web.Controllers
         }
 
         // =========================================================================
-        // 2. ENDPOINTS DE ESCRITA (APENAS CADASTRO DE LENTE BASE)
+        // 2. ENDPOINTS DE ESCRITA (CADASTRO DE LENTE BASE COMPATÍVEL COM INERTIA)
         // =========================================================================
 
         [HttpPost("/lentes")]
-        public async Task<IActionResult> CriarLenteBase(
-            [FromForm] string laboratorio,
-            [FromForm] string tipo,
-            [FromForm] bool surfacada)
+        public async Task<IActionResult> CriarLenteBase([FromBody] NovaLenteInput input)
         {
             try
             {
-                if (string.IsNullOrWhiteSpace(laboratorio) || string.IsNullOrWhiteSpace(tipo))
+                if (input == null || string.IsNullOrWhiteSpace(input.Laboratorio) || string.IsNullOrWhiteSpace(input.Tipo))
                 {
                     return BadRequest("Laboratório e Tipo de Bloco são campos obrigatórios.");
                 }
@@ -123,9 +120,9 @@ namespace RETSYS.Web.Controllers
                 {
                     Id = Guid.NewGuid(),
                     CodigoSku = $"LNT-{Guid.NewGuid().ToString()[..8].ToUpper()}",
-                    Laboratorio = laboratorio.Trim(),
-                    Tipo = tipo.Trim(),
-                    Surfacada = surfacada,
+                    Laboratorio = input.Laboratorio.Trim(),
+                    Tipo = input.Tipo.Trim(),
+                    Surfacada = input.Surfacada,
                     GraduacaoMin = -20.00m,
                     GraduacaoMax = 20.00m,
                     Ativo = true
@@ -134,12 +131,29 @@ namespace RETSYS.Web.Controllers
                 _context.Lentes.Add(novaLente);
                 await _context.SaveChangesAsync();
 
-                return Redirect(Request.Headers["Referer"].ToString() ?? "/lentes");
+                return RedirecionarSeguro();
             }
             catch (Exception ex)
             {
                 return StatusCode(500, $"Erro interno ao salvar lente base: {ex.Message}");
             }
         }
+
+        private IActionResult RedirecionarSeguro()
+        {
+            var referer = Request.Headers["Referer"].ToString();
+            if (string.IsNullOrWhiteSpace(referer))
+            {
+                return Redirect("/lentes");
+            }
+            return Redirect(referer);
+        }
+    }
+
+    public class NovaLenteInput
+    {
+        public string Laboratorio { get; set; } = string.Empty;
+        public string Tipo { get; set; } = string.Empty;
+        public bool Surfacada { get; set; }
     }
 }

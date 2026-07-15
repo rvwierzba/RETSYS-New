@@ -11,7 +11,7 @@ using System.Security.Claims;
 
 namespace RETSYS.Web.Controllers
 {
-    [Authorize] // Garante segurança: apenas utilizadores autenticados entram
+    [Authorize]
     public class LentesAdminController : Controller
     {
         private readonly ApplicationDbContext _context;
@@ -29,22 +29,16 @@ namespace RETSYS.Web.Controllers
             bool isAdmin = role.Equals("Admin", StringComparison.OrdinalIgnoreCase) || 
                            role.Equals("Gerente", StringComparison.OrdinalIgnoreCase);
 
-            // Carrega os blocos de lentes homologados ativos no inventário
             var lentes = await _context.Lentes
                 .Where(l => l.Ativo)
                 .OrderBy(l => l.Laboratorio)
                 .ToListAsync();
 
-            // Carrega toda a tabela/matriz de precificação parametrizada
-            // ✅ REMOVIDO: .Include(lp => lp.Tratamento) — agora Tratamento é string, não navegação
             var precos = await _context.LentesTabelaPrecos
                 .Include(lp => lp.Lente)
                 .Where(lp => lp.Ativo)
                 .ToListAsync();
 
-            // ✅ NOVO: Sugestões de tratamento para autocomplete no front,
-            // reaproveitando os valores de texto já cadastrados na própria matriz de preços
-            // (substitui a antiga tabela lentes_tratamentos)
             var tratamentosSugeridos = await _context.LentesTabelaPrecos
                 .Where(lp => lp.Ativo && !string.IsNullOrEmpty(lp.Tratamento))
                 .Select(lp => lp.Tratamento)
@@ -52,38 +46,45 @@ namespace RETSYS.Web.Controllers
                 .OrderBy(t => t)
                 .ToListAsync();
 
-            // Passa os dados estruturados como PROPS diretamente para o Vue 3 no Canvas
             return Inertia.Render("Lentes/Index", new
             {
                 Lentes = lentes,
                 Precos = precos,
-                TratamentosSugeridos = tratamentosSugeridos, // ✅ NOVO: lista de strings p/ autocomplete
+                TratamentosSugeridos = tratamentosSugeridos,
                 IsAdmin = isAdmin
             });
         }
 
         // 2. Grava uma nova precificação na Matriz de Preços (POST /lentes/precos)
         [HttpPost("/lentes/precos")]
-        public async Task<IActionResult> CadastrarPreco([FromBody] LentePreco preco)
+        public async Task<IActionResult> CadastrarPreco([FromBody] NovoPrecoInput input)
         {
-            // Bloqueio de alçada caso um vendedor tente forçar uma requisição HTTP direta
             var role = User.FindFirst(ClaimTypes.Role)?.Value ?? "";
             if (!role.Equals("Admin", StringComparison.OrdinalIgnoreCase) && !role.Equals("Gerente", StringComparison.OrdinalIgnoreCase))
             {
                 return RedirectToAction(nameof(Index));
             }
 
-            if (ModelState.IsValid)
+            if (input != null && input.LenteId != Guid.Empty && input.PrecoVenda > 0)
             {
-                preco.Id = Guid.NewGuid();
-                preco.Ativo = true;
-                _context.LentesTabelaPrecos.Add(preco);
+                var novoPreco = new LentePreco
+                {
+                    Id = Guid.NewGuid(),
+                    LenteId = input.LenteId,
+                    Tipo = input.Tipo.ToUpper().Trim(),
+                    IndiceRefracao = input.IndiceRefracao,
+                    Tratamento = string.IsNullOrWhiteSpace(input.Tratamento) ? null : input.Tratamento.Trim(),
+                    PrecoCusto = input.PrecoCusto,
+                    PrecoVenda = input.PrecoVenda,
+                    Ativo = true
+                };
+
+                _context.LentesTabelaPrecos.Add(novoPreco);
                 await _context.SaveChangesAsync();
             }
 
             return RedirectToAction(nameof(Index));
         }
-      
 
         // 3. Remove um preço cadastrado na matriz (DELETE /lentes/precos/{id})
         [HttpDelete("/lentes/precos/{id:guid}")]
@@ -98,15 +99,21 @@ namespace RETSYS.Web.Controllers
             var preco = await _context.LentesTabelaPrecos.FindAsync(id);
             if (preco != null)
             {
-                // Soft delete seguro para manter a integridade referencial histórica de OS passadas
                 preco.Ativo = false; 
                 await _context.SaveChangesAsync();
             }
 
             return RedirectToAction(nameof(Index));
         }
+    }
 
-        // ❌ REMOVIDO POR COMPLETO: método RemoverTratamento(Guid id)
-        // Motivo: não existe mais entidade LenteTratamento nem tabela lentes_tratamentos.
+    public class NovoPrecoInput
+    {
+        public Guid LenteId { get; set; }
+        public string Tipo { get; set; } = string.Empty;
+        public decimal IndiceRefracao { get; set; }
+        public string? Tratamento { get; set; }
+        public decimal PrecoCusto { get; set; }
+        public decimal PrecoVenda { get; set; }
     }
 }

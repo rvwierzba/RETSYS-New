@@ -5,13 +5,16 @@ using RETSYS.Infrastructure.Data;
 using RETSYS.Domain.Entities;
 using RETSYS.Domain.Interfaces;
 using RETSYS.Domain.Enums;
+using System;
+using System.Linq;
+using System.Threading.Tasks;
 
 namespace RETSYS.Web.Controllers
 {
     public class UsuariosController : Controller
     {
         private readonly ApplicationDbContext _context;
-        private readonly IServicoCriptografia _criptografia; // 🔥 ADICIONADO: Dependência para tratamento seguro de senhas
+        private readonly IServicoCriptografia _criptografia;
 
         public UsuariosController(ApplicationDbContext context, IServicoCriptografia criptografia)
         {
@@ -31,6 +34,7 @@ namespace RETSYS.Web.Controllers
                     u.Nome,
                     u.Email,
                     u.FilialLoja,
+                    Perfil = u.Perfil.ToString(), // Envia o nome do Perfil para o front saber o cargo
                     u.Ativo
                 })
                 .ToListAsync();
@@ -40,7 +44,7 @@ namespace RETSYS.Web.Controllers
 
         // 2. Cadastro de Novo Funcionário (POST)
         [HttpPost("/equipe")]
-        public async Task<IActionResult> Store([FromBody] DtoNovoColaborador requisicao) // 🔥 CORRIGIDO: Uso de DTO para bloquear Mass Assignment
+        public async Task<IActionResult> Store([FromBody] DtoNovoColaborador requisicao)
         {
             if (string.IsNullOrWhiteSpace(requisicao.Nome) || string.IsNullOrWhiteSpace(requisicao.Email))
             {
@@ -54,17 +58,16 @@ namespace RETSYS.Web.Controllers
                 return RedirectToAction(nameof(Index));
             }
 
-            // Instanciação manual controlada pelo servidor
             var novoFuncionario = new Usuario
             {
                 Id = Guid.NewGuid(),
                 Nome = requisicao.Nome,
                 Email = requisicao.Email,
                 FilialLoja = requisicao.FilialLoja,
-                Perfil = PerfilUsuario.Vendedor, // 🛡️ SEGURANÇA: Todo membro cadastrado aqui nasce estritamente como Vendedor
+                Perfil = requisicao.Perfil, // Respeita o nível de acesso enviado pelo front-end
                 Ativo = true,
                 CriadoEm = DateTime.UtcNow,
-                SenhaHash = _criptografia.CriptografarSenha("RETSYS123_PADRAO") // 🔥 CORRIGIDO: Armazenamento em hash seguro para o login
+                SenhaHash = _criptografia.CriptografarSenha("RETSYS123_PADRAO")
             };
 
             _context.Usuarios.Add(novoFuncionario);
@@ -88,6 +91,6 @@ namespace RETSYS.Web.Controllers
         }
     }
 
-    // 🔥 DTO de Segurança: Isola o payload recebido do front-end impedindo fraudes de privilégio (RBAC)
-    public record DtoNovoColaborador(string Nome, string Email, string FilialLoja);
+    // DTO atualizado para capturar a escolha do nível de acesso/perfil enviada pelo formulário
+    public record DtoNovoColaborador(string Nome, string Email, string FilialLoja, PerfilUsuario Perfil);
 }

@@ -36,13 +36,12 @@ namespace RETSYS.Web.Controllers
         }
 
         // 2. Gravação de Nova Marca (Create)
-        // Aceita [FromBody] para receber o payload JSON direto do Inertia.js sem perder dados
         [HttpPost("/marcas")]
         public async Task<IActionResult> Store([FromBody] MarcaInput input)
         {
             if (input == null || string.IsNullOrWhiteSpace(input.Nome))
             {
-                return Redirect(Request.Headers["Referer"].ToString() ?? "/marcas");
+                return RedirecionarSeguro();
             }
 
             var novaMarca = new Marca
@@ -56,12 +55,10 @@ namespace RETSYS.Web.Controllers
             _context.Marcas.Add(novaMarca);
             await _context.SaveChangesAsync();
 
-            // Retorna para a página de origem (Estoque ou Marcas), mantendo o estado reativo do SPA
-            return Redirect(Request.Headers["Referer"].ToString() ?? "/marcas");
+            return RedirecionarSeguro();
         }
 
         // 3. Remoção de Marca (Delete)
-        // Captura a tentativa de exclusão e previne quebra do sistema caso existam armações vinculadas no banco
         [HttpDelete("/marcas/{id:guid}")]
         public async Task<IActionResult> Delete(Guid id)
         {
@@ -78,16 +75,25 @@ namespace RETSYS.Web.Controllers
             }
             catch (DbUpdateException)
             {
-                // Se o banco de dados rejeitar por restrição de chave estrangeira (FK), captura o erro de forma limpa
                 ModelState.AddModelError("mensagem", "Não é possível excluir esta marca pois ela possui armações vinculadas no estoque.");
-                return Redirect(Request.Headers["Referer"].ToString() ?? "/marcas");
+                return RedirecionarSeguro();
             }
 
-            return Redirect(Request.Headers["Referer"].ToString() ?? "/marcas");
+            return RedirecionarSeguro();
+        }
+
+        // Garante que o redirecionamento de volta funcione mesmo se o cabeçalho HTTP referer for vazio
+        private IActionResult RedirecionarSeguro()
+        {
+            var referer = Request.Headers["Referer"].ToString();
+            if (string.IsNullOrWhiteSpace(referer))
+            {
+                return RedirectToAction(nameof(Index));
+            }
+            return Redirect(referer);
         }
     }
 
-    // Classe DTO auxiliar para mapeamento estrito do JSON vindo do Front-end
     public class MarcaInput
     {
         public string Nome { get; set; } = string.Empty;
