@@ -1,96 +1,173 @@
+using InertiaCore;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using InertiaCore;
-using RETSYS.Infrastructure.Data;
 using RETSYS.Domain.Entities;
-using RETSYS.Domain.Interfaces;
 using RETSYS.Domain.Enums;
-using System;
-using System.Linq;
-using System.Threading.Tasks;
+using RETSYS.Domain.Interfaces;
+using RETSYS.Infrastructure.Data;
 
-namespace RETSYS.Web.Controllers
+namespace RETSYS.Web.Controllers;
+
+[Authorize]
+public class UsuariosController : Controller
 {
-    public class UsuariosController : Controller
+    private readonly ApplicationDbContext _context;
+    private readonly IServicoCriptografia _criptografia;
+
+    public UsuariosController(ApplicationDbContext context, IServicoCriptografia criptografia)
     {
-        private readonly ApplicationDbContext _context;
-        private readonly IServicoCriptografia _criptografia;
-
-        public UsuariosController(ApplicationDbContext context, IServicoCriptografia criptografia)
-        {
-            _context = context;
-            _criptografia = criptografia;
-        }
-
-        // 1. Listagem dos Colaboradores (GET)
-        [HttpGet("/equipe")]
-        public async Task<IActionResult> Index()
-        {
-            var equipe = await _context.Usuarios
-                .OrderBy(u => u.Nome)
-                .Select(u => new
-                {
-                    u.Id,
-                    u.Nome,
-                    u.Email,
-                    u.FilialLoja,
-                    Perfil = u.Perfil.ToString(), // Envia o nome do Perfil para o front saber o cargo
-                    u.Ativo
-                })
-                .ToListAsync();
-
-            return Inertia.Render("Users/Index", new { Equipe = equipe });
-        }
-
-        // 2. Cadastro de Novo Funcionário (POST)
-        [HttpPost("/equipe")]
-        public async Task<IActionResult> Store([FromBody] DtoNovoColaborador requisicao)
-        {
-            if (string.IsNullOrWhiteSpace(requisicao.Nome) || string.IsNullOrWhiteSpace(requisicao.Email))
-            {
-                return RedirectToAction(nameof(Index));
-            }
-
-            var emailExiste = await _context.Usuarios.AnyAsync(u => u.Email == requisicao.Email);
-            if (emailExiste)
-            {
-                Inertia.Share("erro", "Este e-mail corporativo já está em uso pela equipe.");
-                return RedirectToAction(nameof(Index));
-            }
-
-            var novoFuncionario = new Usuario
-            {
-                Id = Guid.NewGuid(),
-                Nome = requisicao.Nome,
-                Email = requisicao.Email,
-                FilialLoja = requisicao.FilialLoja,
-                Perfil = requisicao.Perfil, // Respeita o nível de acesso enviado pelo front-end
-                Ativo = true,
-                CriadoEm = DateTime.UtcNow,
-                SenhaHash = _criptografia.CriptografarSenha("RETSYS123_PADRAO")
-            };
-
-            _context.Usuarios.Add(novoFuncionario);
-            await _context.SaveChangesAsync();
-
-            return RedirectToAction(nameof(Index));
-        }
-
-        // 3. Alternar Status Ativo/Inativo (POST)
-        [HttpPost("/equipe/alternar-status/{id:guid}")]
-        public async Task<IActionResult> AlternarStatus(Guid id)
-        {
-            var usuario = await _context.Usuarios.FindAsync(id);
-            if (usuario != null)
-            {
-                usuario.Ativo = !usuario.Ativo;
-                await _context.SaveChangesAsync();
-            }
-
-            return RedirectToAction(nameof(Index));
-        }
+        _context = context;
+        _criptografia = criptografia;
     }
 
-    // DTO atualizado para capturar a escolha do nível de acesso/perfil enviada pelo formulário
-    public record DtoNovoColaborador(string Nome, string Email, string FilialLoja, PerfilUsuario Perfil);
+    // GET: /equipe
+    [HttpGet("/equipe")]
+    [HttpGet("/usuarios")]
+    public async Task<IActionResult> Index()
+    {
+        var equipe = await _context.Usuarios
+            .AsNoTracking()
+            .OrderByDescending(u => u.CriadoEm)
+            .Select(u => new
+            {
+                u.Id,
+                u.Nome,
+                u.Email,
+                u.FilialLoja,
+                Perfil = (int)u.Perfil,
+                PerfilNome = u.Perfil == PerfilUsuario.Admin ? "Administrador" : "Vendedor",
+                u.Ativo,
+                u.FotoUrl,
+                u.CriadoEm
+            })
+            .ToListAsync();
+
+        var lojas = await _context.ConfiguracoesLoja
+            .AsNoTracking()
+            .Select(l => new { l.Id, Nome = l.NomeLoja })
+            .ToListAsync();
+
+        return Inertia.Render("Users/Index", new { Equipe = equipe, Lojas = lojas });
+    }
+
+    // POST: /equipe
+    [HttpPost("/equipe")]
+    public async Task<IActionResult> Store([FromBody] DtoNovoColaborador model)
+    {
+        if (string.IsNullOrWhiteSpace(model.Nome) || string.IsNullOrWhiteSpace(model.Email) || string.IsNullOrWhiteSpace(model.Senha))
+        {
+            Inertia.Share("erro", "Preencha todos os campos obrigatórios (Nome, E-mail e Senha).");
+            return RedirectToAction(nameof(Index));
+        }
+
+        var emailExiste = await _context.Usuarios
+            .AnyAsync(u => u.Email.ToLower() == model.Email.Trim().ToLower());
+
+        if (emailExiste)
+        {
+            Inertia.Share("erro", "Este e-mail corporativo já está em uso pela equipe.");
+            return RedirectToAction(nameof(Index));
+        }
+
+        var hashSenha = _criptografia.CriptografarSenha(model.Senha);
+
+        var novoUsuario = new Usuario
+        {
+            Id = Guid.NewGuid(),
+            Nome = model.Nome.Trim(),
+            Email = model.Email.Trim().ToLower(),
+            SenhaHash = hashSenha,
+            FilialLoja = string.IsNullOrWhiteSpace(model.FilialLoja) ? "Matriz" : model.FilialLoja.Trim(),
+            Perfil = model.Perfil,
+            Ativo = true,
+            CriadoEm = DateTime.UtcNow
+        };
+
+        _context.Usuarios.Add(novoUsuario);
+        await _context.SaveChangesAsync();
+
+        return RedirectToAction(nameof(Index));
+    }
+
+    // POST: /equipe/editar/{id:guid}
+    [HttpPost("/equipe/editar/{id:guid}")]
+    public async Task<IActionResult> Editar(Guid id, [FromBody] DtoEditarColaborador model)
+    {
+        var usuario = await _context.Usuarios.FindAsync(id);
+        if (usuario == null)
+        {
+            return NotFound(new { message = "Usuário não encontrado." });
+        }
+
+        var emailExiste = await _context.Usuarios
+            .AnyAsync(u => u.Email.ToLower() == model.Email.Trim().ToLower() && u.Id != id);
+
+        if (emailExiste)
+        {
+            Inertia.Share("erro", "Este e-mail já está sendo utilizado por outro usuário.");
+            return RedirectToAction(nameof(Index));
+        }
+
+        usuario.Nome = model.Nome.Trim();
+        usuario.Email = model.Email.Trim().ToLower();
+        usuario.FilialLoja = model.FilialLoja;
+        usuario.Perfil = model.Perfil;
+        usuario.Ativo = model.Ativo;
+
+        if (!string.IsNullOrWhiteSpace(model.NovaSenha))
+        {
+            usuario.SenhaHash = _criptografia.CriptografarSenha(model.NovaSenha);
+        }
+
+        _context.Usuarios.Update(usuario);
+        await _context.SaveChangesAsync();
+
+        return RedirectToAction(nameof(Index));
+    }
+
+    // POST: /equipe/alternar-status/{id:guid}
+    [HttpPost("/equipe/alternar-status/{id:guid}")]
+    public async Task<IActionResult> AlternarStatus(Guid id)
+    {
+        var usuario = await _context.Usuarios.FindAsync(id);
+        if (usuario != null)
+        {
+            usuario.Ativo = !usuario.Ativo;
+            await _context.SaveChangesAsync();
+        }
+
+        return RedirectToAction(nameof(Index));
+    }
+
+    // POST: /equipe/excluir/{id:guid}
+    [HttpPost("/equipe/excluir/{id:guid}")]
+    public async Task<IActionResult> Excluir(Guid id)
+    {
+        var usuario = await _context.Usuarios.FindAsync(id);
+        if (usuario != null)
+        {
+            _context.Usuarios.Remove(usuario);
+            await _context.SaveChangesAsync();
+        }
+
+        return RedirectToAction(nameof(Index));
+    }
 }
+
+public record DtoNovoColaborador(
+    string Nome, 
+    string Email, 
+    string FilialLoja, 
+    string Senha,
+    PerfilUsuario Perfil = PerfilUsuario.Vendedor
+);
+
+public record DtoEditarColaborador(
+    string Nome, 
+    string Email, 
+    string FilialLoja, 
+    PerfilUsuario Perfil, 
+    bool Ativo, 
+    string? NovaSenha = null
+);

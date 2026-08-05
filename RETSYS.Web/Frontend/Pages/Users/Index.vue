@@ -4,11 +4,12 @@
       
       <div>
         <h1 class="text-2xl font-black text-slate-950">Controle de Equipe</h1>
-        <p class="text-sm text-slate-500">Gerencie os acessos de vendedores, gerentes e administradores de todas as filiais.</p>
+        <p class="text-sm text-slate-500">Gerencie os acessos de vendedores e administradores das filiais.</p>
       </div>
 
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
         
+        <!-- Formulário de Cadastro -->
         <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm h-fit space-y-4">
           <h3 class="text-base font-bold text-slate-950">Novo Integrante</h3>
           
@@ -24,8 +25,21 @@
             </div>
 
             <div>
+              <label class="block text-[11px] font-bold uppercase text-slate-400 tracking-wider mb-1.5">Senha de Acesso *</label>
+              <input v-model="form.Senha" type="password" placeholder="••••••••" class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500" required />
+            </div>
+
+            <div>
+              <label class="block text-[11px] font-bold uppercase text-slate-400 tracking-wider mb-1.5">Perfil de Acesso *</label>
+              <select v-model="form.Perfil" class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500">
+                <option :value="2">Vendedor</option>
+                <option :value="1">Administrador</option>
+              </select>
+            </div>
+
+            <div>
               <label class="block text-[11px] font-bold uppercase text-slate-400 tracking-wider mb-1.5">Unidade / Filial Loja *</label>
-              <input v-model="form.FilialLoja" type="text" placeholder="Ex: Filial Centro" class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500" required />
+              <input v-model="form.FilialLoja" type="text" placeholder="Ex: Matriz" class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500" required />
             </div>
 
             <button 
@@ -39,6 +53,7 @@
           </form>
         </div>
 
+        <!-- Tabela da Equipe -->
         <div class="lg:col-span-2 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
           <h3 class="text-base font-bold text-slate-950 mb-4">Funcionários Cadastrados</h3>
 
@@ -50,8 +65,9 @@
             <table class="w-full text-left text-sm border-collapse">
               <thead>
                 <tr class="border-b border-slate-100 text-slate-400 text-xs font-bold uppercase tracking-wider">
-                  <th class="pb-3">Colaborador / Acesso</th>
-                  <th class="pb-3 text-center">Filial Alocada</th>
+                  <th class="pb-3">Colaborador</th>
+                  <th class="pb-3 text-center">Perfil</th>
+                  <th class="pb-3 text-center">Filial</th>
                   <th class="pb-3 text-center">Status</th>
                   <th class="pb-3 text-center">Ações</th>
                 </tr>
@@ -62,8 +78,13 @@
                     <p class="font-bold text-slate-800">{{ user.nome || user.Nome }}</p>
                     <p class="text-xs text-slate-400 font-mono">{{ user.email || user.Email }}</p>
                   </td>
+                  <td class="py-4 text-center">
+                    <span class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-slate-100 text-slate-700 border border-slate-200">
+                      {{ user.perfilNome || user.PerfilNome || (user.perfil === 1 ? 'Admin' : 'Vendedor') }}
+                    </span>
+                  </td>
                   <td class="py-4 text-center text-sm font-medium text-slate-700">
-                    {{ user.filialLoja || user.FilialLoja || 'Não Informada' }}
+                    {{ user.filialLoja || user.FilialLoja || 'Matriz' }}
                   </td>
                   <td class="py-4 text-center">
                     <span :class="(user.ativo ?? user.Ativo) ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-red-50 text-red-700 border-red-100'" class="px-2.5 py-0.5 rounded-full text-xs font-bold border">
@@ -94,7 +115,6 @@
 import { useForm, router } from '@inertiajs/vue3'
 import AuthenticatedLayout from '../../Shared/AuthenticatedLayout.vue'
 
-// Suporte formal para variações de nomenclatura de propriedades vindas do servidor
 defineProps({
   Equipe: Array,
   equipe: Array
@@ -103,14 +123,18 @@ defineProps({
 const form = useForm({
   Nome: '',
   Email: '',
-  FilialLoja: ''
+  Senha: '',
+  Perfil: 2, // Padrão: Vendedor (2)
+  FilialLoja: 'Matriz'
 })
 
 const cadastrarColaborador = () => {
   form.post('/equipe', {
     preserveScroll: true,
     onSuccess: () => {
-      form.reset()
+      form.reset('Senha')
+      form.Nome = ''
+      form.Email = ''
     }
   })
 }
