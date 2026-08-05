@@ -12,7 +12,7 @@ public class ServicoOllama : IServicoIa
     public ServicoOllama(HttpClient httpClient)
     {
         _httpClient = httpClient;
-        _httpClient.BaseAddress = new Uri("http://localhost:11434/");
+        _httpClient.BaseAddress = new Uri("http://ollama:11434/");
         _httpClient.Timeout = TimeSpan.FromSeconds(60);
     }
 
