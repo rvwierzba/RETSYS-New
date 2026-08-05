@@ -34,7 +34,6 @@
               <div>
                 <label class="block text-[11px] font-bold uppercase text-slate-400 tracking-wider mb-1.5">CPF do Cliente *</label>
                 <div class="flex gap-2">
-                  <!-- Bloqueio numérico estrito: máximo de 11 números, limpa letras/pontos na hora -->
                   <input 
                     v-model="form.cpf" 
                     type="text" 
@@ -119,7 +118,7 @@
             </div>
           </div>
 
-          <!-- Assistente de IA -->
+          <!-- Assistente de IA (Moondream) -->
           <div class="bg-white rounded-2xl border-2 border-dashed border-slate-200 p-6 space-y-4">
             <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
               <div>
@@ -135,7 +134,7 @@
               <div class="space-y-3">
                 <div class="flex items-center gap-3">
                   <input type="file" id="fotoReceita" accept="image/*" @change="manipularArquivo" class="hidden" />
-                  <label for="fotoReceita" class="bg-slate-955 hover:bg-slate-800 text-white text-xs font-bold px-4 py-3 rounded-xl transition cursor-pointer shadow-sm active:scale-95 select-none">
+                  <label for="fotoReceita" class="bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold px-4 py-3 rounded-xl transition cursor-pointer shadow-sm active:scale-95 select-none">
                     {{ arquivoSelecionado ? 'Alterar Imagem' : 'Selecionar Foto Receita' }}
                   </label>
                   <span class="text-xs font-mono text-slate-500 truncate block max-w-[200px]">
@@ -158,7 +157,7 @@
             </div>
           </div>
 
-          <!-- 2. Dados Clínicos da Receita Médica (Protegidos contra Enter) -->
+          <!-- 2. Dados Clínicos da Receita Médica -->
           <div class="bg-slate-50 p-6 rounded-2xl border border-slate-200 space-y-4">
             <h3 class="text-sm font-black text-slate-700 uppercase tracking-wider flex items-center gap-2">
               <span class="w-2 h-2 rounded-full bg-teal-500"></span> 2. Dados Clínicos da Receita Médica
@@ -177,7 +176,7 @@
                 <label class="block text-[11px] font-bold uppercase text-slate-400 tracking-wider mb-1.5">Tipo de Profissional *</label>
                 <select v-model="form.medicoTipo" class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500" required>
                   <option value="NAO_ESPECIFICADO">Não Especificado</option>
-                  <option value="OFTALMOLOGISTA">Oftamalologista</option>
+                  <option value="OFTALMOLOGISTA">Oftalmologista</option>
                   <option value="OPTOMETRISTA">Optometrista</option>
                 </select>
               </div>
@@ -216,7 +215,7 @@
                 <label class="block text-[11px] font-bold uppercase text-slate-400 tracking-wider mb-1.5">Atendente / Responsável *</label>
                 <select v-model="form.vendedorId" class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500" required>
                   <option value="">Selecione o Vendedor</option>
-                  <option v-for="v in Vendedores" :key="v.id" :value="v.id">{{ v.nome }}</option>
+                  <option v-for="v in (Vendedores ?? vendedores)" :key="v.id || v.Id" :value="v.id || v.Id">{{ v.nome || v.Nome }}</option>
                 </select>
               </div>
             </div>
@@ -251,7 +250,7 @@
             </div>
           </div>
 
-          <!-- Seleção de Produtos com Botões Robustos e Coesos (Aberto a todos) -->
+          <!-- Seleção de Produtos com Atalhos Rápido -->
           <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div class="space-y-3">
               <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
@@ -264,7 +263,7 @@
               <!-- Atalho: Cadastro Expresso de Marca -->
               <div v-if="exibirSubFormMarca" class="bg-slate-900 text-white p-4 rounded-2xl border border-slate-800 space-y-2.5 shadow-lg animate-fadeIn">
                 <p class="text-[10px] font-bold uppercase tracking-widest text-teal-400">Nova Marca Corporativa</p>
-                <div v-if="erroSubMarca" class="p-2 bg-red-955/50 border border-red-800 text-red-300 rounded-lg text-xs font-medium">
+                <div v-if="erroSubMarca" class="p-2 bg-red-900/50 border border-red-800 text-red-300 rounded-lg text-xs font-medium">
                   ⚠️ {{ erroSubMarca }}
                 </div>
                 <div class="flex gap-2">
@@ -277,8 +276,8 @@
 
               <select v-model="form.armacaoId" @change="processarSnapshotProdutos" class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500" required>
                 <option value="">Selecione o modelo do Inventário</option>
-                <option v-for="a in Armacoes" :key="a.id" :value="a.id">
-                  {{ a.modeloReferencia }} ({{ a.cor }}) — R$ {{ a.precoVenda.toLocaleString('pt-BR') }}
+                <option v-for="a in (Armacoes ?? armacoes)" :key="a.id || a.Id" :value="a.id || a.Id">
+                  {{ a.modeloReferencia || a.Modelo }} ({{ a.cor || a.Cor || 'Padrão' }}) — R$ {{ Number(a.precoVenda ?? a.PrecoFinal ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) }}
                 </option>
               </select>
             </div>
@@ -294,7 +293,7 @@
               <!-- Atalho: Cadastro Expresso de Lente Base -->
               <div v-if="exibirSubFormLente" class="bg-slate-900 text-white p-4 rounded-2xl border border-slate-800 space-y-3 shadow-lg animate-fadeIn text-[11px]">
                 <p class="text-[10px] font-bold uppercase tracking-widest text-teal-400">Nova Lente Base no Catálogo</p>
-                <div v-if="erroSubLente" class="p-2 bg-red-955/50 border border-red-800 text-red-300 rounded-lg text-xs font-medium">
+                <div v-if="erroSubLente" class="p-2 bg-red-900/50 border border-red-800 text-red-300 rounded-lg text-xs font-medium">
                   ⚠️ {{ erroSubLente }}
                 </div>
                 <div class="grid grid-cols-2 gap-2">
@@ -312,8 +311,8 @@
 
               <select v-model="form.lenteId" @change="processarSnapshotProdutos" class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500" required>
                 <option value="">Selecione a Lente da Matriz</option>
-                <option v-for="l in Lentes" :key="l.id" :value="l.id">
-                  {{ l.laboratorio }} — {{ l.tipo }} {{ l.tratamento ? `(${l.tratamento})` : '(Sem Tratamento)' }} (Índice {{ l.indiceRefracao }}) — R$ {{ l.precoVenda.toLocaleString('pt-BR') }}
+                <option v-for="l in (Lentes ?? lentes)" :key="l.id || l.Id" :value="l.id || l.Id">
+                  {{ l.laboratorio || l.Laboratorio }} — {{ l.tipo || l.Tipo }} {{ (l.tratamento || l.Tratamento) ? `(${l.tratamento || l.Tratamento})` : '(Sem Tratamento)' }} — R$ {{ Number(l.precoVenda ?? l.PrecoFinal ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) }}
                 </option>
               </select>
               
@@ -379,7 +378,7 @@
       <div class="bg-white rounded-3xl border border-slate-200 shadow-xl overflow-hidden p-8 space-y-6 no-print text-center" v-else>
         <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-teal-100 text-teal-600 text-3xl">✓</div>
         <h2 class="text-2xl font-black text-slate-900">OS Emitida com Sucesso!</h2>
-        <p class="text-sm text-slate-500">A Ordem de Serviço foi gravada de forma definitiva no sistema.</p>
+        <p class="text-sm text-slate-500">A Ordem de Serviço {{ osFaturadaResponse.numeroOS }} foi gravada de forma definitiva no sistema.</p>
         <div class="flex flex-col sm:flex-row items-center justify-center gap-4 max-w-xl mx-auto pt-4">
           <button @click="imprimirDocumento('completa')" class="w-full bg-slate-950 hover:bg-slate-800 text-white font-bold py-3.5 px-6 rounded-xl text-xs uppercase tracking-wider transition shadow-md flex items-center justify-center gap-2">
             🖨️ Imprimir OS Completa (A4)
@@ -404,8 +403,13 @@ import AuthenticatedLayout from '../../Shared/AuthenticatedLayout.vue'
 
 const props = defineProps({
   Vendedores: Array,
+  vendedores: Array,
   Armacoes: Array,
-  Lentes: Array
+  armacoes: Array,
+  Lentes: Array,
+  lentes: Array,
+  Marcas: Array,
+  marcas: Array
 })
 
 const exibirFaturaSucesso = ref(false)
@@ -456,16 +460,13 @@ const enviarSubMarca = async () => {
   
   enviandoMarca.value = true
   try {
-    const formData = new FormData()
-    formData.append('nome', nomeSubMarca.value)
-    await axios.post('/armacoes/marcas', formData)
-    
+    await axios.post('/marcas', { nome: nomeSubMarca.value })
     nomeSubMarca.value = ''
     exibirSubFormMarca.value = false
     alert('Nova marca adicionada com sucesso!')
-    router.reload({ only: ['Marcas'] })
+    router.reload({ only: ['Marcas', 'marcas'] })
   } catch (err) {
-    erroSubMarca.value = err.response?.data?.mensagem || 'Falha ao processar cadastro.'
+    erroSubMarca.value = err.response?.data?.message || err.response?.data?.mensagem || 'Falha ao processar cadastro.'
   } finally {
     enviandoMarca.value = false
   }
@@ -477,32 +478,35 @@ const enviarSubLente = async () => {
 
   enviandoLente.value = true
   try {
-    const formData = new FormData()
-    formData.append('laboratorio', labSubLente.value)
-    formData.append('tipo', tipoSubLente.value)
-    formData.append('surfacada', surfacadaSubLente.value)
-    await axios.post('/lentes', formData)
-    
+    await axios.post('/lentes', {
+      laboratorio: labSubLente.value,
+      tipo: tipoSubLente.value,
+      surfacada: surfacadaSubLente.value
+    })
     labSubLente.value = ''
     tipoSubLente.value = ''
     surfacadaSubLente.value = false
     exibirSubFormLente.value = false
     alert('Nova lente base adicionada ao catálogo!')
-    router.reload({ only: ['Lentes'] })
+    router.reload({ only: ['Lentes', 'lentes'] })
   } catch (err) {
-    erroSubLente.value = err.response?.data?.mensagem || 'Falha ao processar catálogo.'
+    erroSubLente.value = err.response?.data?.message || err.response?.data?.mensagem || 'Falha ao processar catálogo.'
   } finally {
     enviandoLente.value = false
   }
 }
 
 const processarSnapshotProdutos = () => {
-  const armacao = props.Armacoes.find(a => a.id === form.armacaoId)
-  form.valorArmacao = armacao ? armacao.precoVenda : 0
-  const lente = props.Lentes.find(l => l.id === form.lenteId)
+  const listaArmacoes = props.Armacoes ?? props.armacoes ?? []
+  const armacao = listaArmacoes.find(a => (a.id || a.Id) === form.armacaoId)
+  form.valorArmacao = armacao ? Number(armacao.precoVenda ?? armacao.PrecoFinal ?? 0) : 0
+
+  const listaLentes = props.Lentes ?? props.lentes ?? []
+  const lente = listaLentes.find(l => (l.id || l.Id) === form.lenteId)
   if (lente) {
-    form.valorLente = lente.precoVenda
-    lenteManualAtiva.value = lente.precoVenda === 0
+    const preco = Number(lente.precoVenda ?? lente.PrecoFinal ?? 0)
+    form.valorLente = preco
+    lenteManualAtiva.value = preco === 0
   } else {
     form.valorLente = 0
     lenteManualAtiva.value = false
@@ -511,7 +515,7 @@ const processarSnapshotProdutos = () => {
 }
 
 const recalcularTotaisGenericos = () => {
-  form.valorTotalBruto = form.valorArmacao + form.valorLente
+  form.valorTotalBruto = (form.valorArmacao || 0) + (form.valorLente || 0)
   const pct = form.descontoPercentual || 0
   form.descontoReais = Number(((form.valorTotalBruto * pct) / 100).toFixed(2))
   form.valorTotalLiquido = form.valorTotalBruto - form.descontoReais
@@ -522,16 +526,18 @@ const consultarCpfNoBanco = async () => {
   if (cpfLimpo.length !== 11) return alert('O CPF precisa conter exatamente 11 números.')
   consultandoCpf.value = true
   try {
-    const reply = await fetch(`/api/clientes/buscar-cpf/${cpfLimpo}`)
-    if (reply.ok) {
-      const dados = await reply.json()
-      Object.assign(form, dados)
+    const reply = await axios.get(`/api/clientes/buscar-cpf/${cpfLimpo}`)
+    if (reply.data) {
+      Object.assign(form, reply.data)
       clienteLocalizado.value = true
     } else {
       clienteLocalizado.value = false
     }
-  } catch (err) { console.error(err) }
-  finally { consultandoCpf.value = false }
+  } catch (err) {
+    clienteLocalizado.value = false
+  } finally {
+    consultandoCpf.value = false
+  }
 }
 
 const buscarEnderecoViaCep = async () => {
@@ -548,7 +554,9 @@ const buscarEnderecoViaCep = async () => {
         form.estado = dados.uf || ''
       }
     }
-  } catch (err) { console.error(err) }
+  } catch (err) { 
+    console.error(err) 
+  }
 }
 
 const manipularArquivo = (event) => {
@@ -561,14 +569,30 @@ const executarOcrInteligente = async () => {
   carregandoIA.value = true
   try {
     const formData = new FormData()
-    formData.append('imagemReceita', arquivoSelecionado.value)
-    const resposta = await axios.post('/ordens/processar-receita-ia', formData, {
+    formData.append('foto', arquivoSelecionado.value)
+    const resposta = await axios.post('/ordens-servico/processar-receita-ia', formData, {
       headers: { 'Content-Type': 'multipart/form-data' }
     })
-    Object.assign(form, resposta.data)
-    alert('Leitura da receita concluída!')
-  } catch (err) { alert('Erro ao ler a receita.') }
-  finally { carregandoIA.value = false }
+    
+    const dados = resposta.data
+
+    if (dados.esfericoLongeDireito !== null && dados.esfericoLongeDireito !== undefined) form.odEsferico = dados.esfericoLongeDireito
+    if (dados.cilindricoLongeDireito !== null && dados.cilindricoLongeDireito !== undefined) form.odCilindrico = dados.cilindricoLongeDireito
+    if (dados.eixoLongeDireito !== null && dados.eixoLongeDireito !== undefined) form.odEixo = dados.eixoLongeDireito
+
+    if (dados.esfericoLongeEsquerdo !== null && dados.esfericoLongeEsquerdo !== undefined) form.oeEsferico = dados.esfericoLongeEsquerdo
+    if (dados.cilindricoLongeEsquerdo !== null && dados.cilindricoLongeEsquerdo !== undefined) form.oeCilindrico = dados.cilindricoLongeEsquerdo
+    if (dados.eixoLongeEsquerdo !== null && dados.eixoLongeEsquerdo !== undefined) form.oeEixo = dados.eixoLongeEsquerdo
+
+    if (dados.adicao !== null && dados.adicao !== undefined) form.adicao = dados.adicao
+    if (dados.medico) form.medicoNome = dados.medico
+
+    alert('✨ Leitura da receita concluída! Confira os graus antes de emitir a OS.')
+  } catch (err) { 
+    alert(err.response?.data?.erro || 'Não foi possível interpretar a receita com clareza. Preencha os campos manualmente.') 
+  } finally { 
+    carregandoIA.value = false 
+  }
 }
 
 const salvarOrdemServico = async () => {
@@ -578,13 +602,18 @@ const salvarOrdemServico = async () => {
     const query = form.formaPagamento === 'CARTAO_CREDITO' ? `?quantidadeParcelas=${qtdParcelas.value}` : ''
     const payload = { ...form, cpf: form.cpf.replace(/\D/g, ''), lentePrecoId: form.lenteId }
     const { data } = await axios.post(`/ordens${query}`, payload)
-    osFaturadaResponse.value = { numeroOS: data.numeroOS }
+    osFaturadaResponse.value = { numeroOS: data.numeroOS || 'OS-FINALIZADA' }
     exibirFaturaSucesso.value = true
   } catch (err) {
-    erroSubmissao.value = err.response?.data?.mensagem || 'Erro ao emitir a Ordem de Serviço.'
+    erroSubmissao.value = err.response?.data?.mensagem || err.response?.data?.erro || 'Erro ao emitir a Ordem de Serviço.'
   } finally {
     salvandoOS.value = false
   }
+}
+
+const imprimirDocumento = (tipo) => {
+  tipoComprovanteImpressao.value = tipo
+  window.print()
 }
 
 const voltarAoPainel = () => router.get('/ordens')

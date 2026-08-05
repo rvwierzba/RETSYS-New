@@ -13,6 +13,7 @@ using Microsoft.AspNetCore.Http;
 using System.Security.Claims;
 using System.Linq;
 using System.Collections.Generic;
+using RETSYS.Domain.Interfaces;
 
 namespace RETSYS.Web.Controllers
 {
@@ -388,5 +389,25 @@ namespace RETSYS.Web.Controllers
                 return StatusCode(500, new { mensagem = "Falha no pipeline de IA.", erro = ex.Message });
             }
         }
+
+        [HttpPost("/ordens-servico/processar-receita-ia")]
+        public async Task<IActionResult> ProcessarReceitaIa(IFormFile foto, [FromServices] IServicoIa servicoIa)
+        {
+            if (foto == null || foto.Length == 0)
+            {
+                return BadRequest(new { erro = "Envie uma foto válida da receita médica." });
+            }
+
+            using var stream = foto.OpenReadStream();
+            var resultado = await servicoIa.ProcessarFotoReceitaAsync(stream);
+
+            if (resultado == null)
+            {
+                return BadRequest(new { erro = "Não foi possível interpretar a receita com clareza. Preencha os campos manualmente." });
+            }
+
+            return Ok(resultado);
+        }
+
     }
 }
