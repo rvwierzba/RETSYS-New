@@ -18,5 +18,12 @@ jobs:
           script: |
             cd /root/RETSYS-New
             git pull origin main
+            
+            # Subir os containers no Docker
             docker compose up -d --build
             docker image prune -f
+
+            # Copiar a configuração do Nginx do Git para a VPS
+            cp /root/RETSYS-New/nginx/wo-retsys.tech /etc/nginx/sites-available/wo-retsys.tech
+            ln -sf /etc/nginx/sites-available/wo-retsys.tech /etc/nginx/sites-enabled/
+            nginx -t && systemctl reload nginx
