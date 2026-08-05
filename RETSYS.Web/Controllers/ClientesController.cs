@@ -32,14 +32,14 @@ namespace RETSYS.Web.Controllers
                     .ThenInclude(os => os.Financeiro)
                 .AsQueryable();
 
-            // Filtro por termo textual (Nome ou CPF) [cite: 51]
+            // Filtro por termo textual (Nome ou CPF)
             if (!string.IsNullOrWhiteSpace(busca))
             {
                 var termo = busca.Trim().ToLower();
                 query = query.Where(c => c.Nome.ToLower().Contains(termo) || c.CPF.Contains(termo));
             }
 
-            // Filtro dinâmico de CRM por Período: Varre compras no sistema E compras legadas da migração 
+            // Filtro dinâmico de CRM por Período
             if (mes.HasValue && ano.HasValue)
             {
                 query = query.Where(c => 
@@ -56,11 +56,9 @@ namespace RETSYS.Web.Controllers
                     c.Nome,
                     c.CPF,
                     c.Telefone,
-                    // Busca o número da última OS real do sistema ou sinaliza que veio da migração legada [cite: 53, 64]
                     UltimaOs = c.OrdensServico.OrderByDescending(os => os.DataEntrada).Select(os => os.NumeroOS).FirstOrDefault() ?? 
                                (c.DataUltimaCompra.HasValue ? "MIGRAÇÃO (CRM)" : "Nenhuma"),
                     
-                    // FORMULA OFICIAL 05/07: Valor Gasto Legado + Soma das OS Reais faturadas no sistema 
                     TotalGasto = (c.ValorGasto ?? 0) + c.OrdensServico
                         .Where(os => os.Status == "ENTREGUE")
                         .Sum(os => (decimal?)os.Financeiro.ValorTotalLiquido) ?? 0
@@ -75,7 +73,39 @@ namespace RETSYS.Web.Controllers
             });
         }
 
-        // 2. Gravação de Novo Cliente com Suporte a Campos Nativos de Migração (POST com Upload) [cite: 43, 46]
+        // API Endpoint: Consulta de CPF para preenchimento automático na emissão de OS
+        [HttpGet("/api/clientes/buscar-cpf/{cpf}")]
+        public async Task<IActionResult> BuscarPorCpf(string cpf)
+        {
+            var cpfLimpo = new string(cpf.Where(char.IsDigit).ToArray());
+
+            var cliente = await _context.Clientes
+                .AsNoTracking()
+                .FirstOrDefaultAsync(c => c.CPF == cpfLimpo || c.CPF == cpf);
+
+            if (cliente == null)
+            {
+                return NotFound(new { mensagem = "Cliente não encontrado." });
+            }
+
+            return Ok(new
+            {
+                nome = cliente.Nome,
+                cpf = cliente.CPF,
+                telefone = cliente.Telefone,
+                dataNascimento = cliente.DataNascimento?.ToString("yyyy-MM-dd"),
+                cep = cliente.Cep,
+                logradouro = cliente.Logradouro,
+                numero = cliente.Numero,
+                bairro = cliente.Bairro,
+                cidade = cliente.Cidade,
+                estado = cliente.Estado,
+                email = cliente.Email,
+                convenio = cliente.Convenio
+            });
+        }
+
+        // 2. Gravação de Novo Cliente com Suporte a Campos Nativos de Migração (POST com Upload)
         [HttpPost("/clientes")]
         public async Task<IActionResult> Store([FromForm] ClienteCadastroRequest model)
         {
@@ -84,7 +114,6 @@ namespace RETSYS.Web.Controllers
                 return RedirectToAction(nameof(Index));
             }
 
-            // Instancia o cliente mapeando os dados demográficos estruturados 
             var novoCliente = new Cliente
             {
                 Id = Guid.NewGuid(),
@@ -103,15 +132,13 @@ namespace RETSYS.Web.Controllers
                 UpdatedAt = DateTime.UtcNow
             };
 
-            // SEÇÃO 3: SE ESTIVER EM FLUXO DE DIGITALIZAÇÃO, GRAVA DIRETAMENTE NAS COLUNAS NATIVAS (SEM MODELAR OS FALSAS) [cite: 45, 62]
             if (model.RegistrarHistorico && model.HistoricoData.HasValue)
             {
                 novoCliente.ValorGasto = model.HistoricoValor; 
                 novoCliente.ProdutoAdquirido = model.HistoricoLente; 
                 novoCliente.DataUltimaCompra = DateTime.SpecifyKind(model.HistoricoData.Value, DateTimeKind.Utc); 
-                novoCliente.DataReceita = DateTime.SpecifyKind(model.HistoricoData.Value, DateTimeKind.Utc); // Data da refração legada 
+                novoCliente.DataReceita = DateTime.SpecifyKind(model.HistoricoData.Value, DateTimeKind.Utc); 
 
-                // Mapeamento plano e direto da última receita conhecida vinda do papel [cite: 53, 66]
                 novoCliente.UltimaOdEsferico = model.UltimaOdEsferico; 
                 novoCliente.UltimaOdCilindrico = model.UltimaOdCilindrico; 
                 novoCliente.UltimaOdEixo = model.UltimaOdEixo; 
@@ -122,7 +149,6 @@ namespace RETSYS.Web.Controllers
                 novoCliente.UltimaDnpOd = model.UltimaDnpOd; 
                 novoCliente.UltimaDnpOe = model.UltimaDnpOe; 
 
-                // Processa o upload físico da receita médica digitalizada antiga [cite: 46]
                 if (model.HistoricoFotoReceita != null && model.HistoricoFotoReceita.Length > 0)
                 {
                     var pastaUploads = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads", "receitas");
@@ -149,7 +175,7 @@ namespace RETSYS.Web.Controllers
             return RedirectToAction(nameof(Index));
         }
 
-        // 3. Prontuário Clínico e Visualização Isolada: Linha do Tempo + Bloco de Migração (GET) [cite: 61]
+        // 3. Prontuário Clínico e Visualização Isolada: Linha do Tempo + Bloco de Migração (GET)
         [HttpGet("/clientes/{id:guid}/historico")]
         public async Task<IActionResult> Historico(Guid id)
         {
@@ -157,7 +183,7 @@ namespace RETSYS.Web.Controllers
                 .Select(c => new 
                 { 
                     c.Id, c.Nome, c.CPF, c.Telefone, c.Convenio, c.Email, c.Observacoes,
-                    c.ValorGasto, c.ProdutoAdquirido, c.DataUltimaCompra, c.DataReceita, // Dados Manuais [cite: 63]
+                    c.ValorGasto, c.ProdutoAdquirido, c.DataUltimaCompra, c.DataReceita,
                     c.UltimaOdEsferico, c.UltimaOdCilindrico, c.UltimaOdEixo,
                     c.UltimaOeEsferico, c.UltimaOeCilindrico, c.UltimaOeEixo,
                     c.UltimaAdicao, c.UltimaDnpOd, c.UltimaDnpOe
@@ -169,11 +195,10 @@ namespace RETSYS.Web.Controllers
                 return RedirectToAction(nameof(Index));
             }
 
-            // Carrega em tempo real apenas as OSs de balcão geradas nativamente na ferramenta [cite: 64]
             var historicoOS = await _context.OrdensServico
                 .Include(os => os.Receita)
                 .Include(os => os.Financeiro)
-                .Where(os => os.ClienteId == id && !os.IsRetroativa) // Garante isolamento das fontes [cite: 62]
+                .Where(os => os.ClienteId == id && !os.IsRetroativa)
                 .OrderByDescending(os => os.DataEntrada) 
                 .Select(os => new
                 {
@@ -198,7 +223,7 @@ namespace RETSYS.Web.Controllers
                 .Include(os => os.Financeiro)
                 .Where(os => os.ClienteId == id && os.Status == "ENTREGUE" && !os.IsRetroativa)
                 .SumAsync(os => os.Financeiro.ValorTotalLiquido);
-// Fórmula de auditoria unificada para a prop da Ficha Resumo 
+
             decimal totalGastoCalculado = (cliente.ValorGasto ?? 0) + totalOsaSistema;
 
             return Inertia.Render("Clientes/Historico", new
@@ -209,7 +234,7 @@ namespace RETSYS.Web.Controllers
             });
         }
 
-        // 4. Lista de Aniversariantes do Mês (Dropdown de relacionamento do CRM) 
+        // 4. Lista de Aniversariantes do Mês
         [HttpGet("/clientes/aniversariantes")]
         public async Task<IActionResult> Aniversariantes([FromQuery] int? mes)
         {
@@ -235,6 +260,27 @@ namespace RETSYS.Web.Controllers
                 MesFiltro = mesFiltro
             });
         }
+
+        // 5. Exclusão de Cliente
+        [HttpPost("/clientes/excluir/{id:guid}")]
+        public async Task<IActionResult> Excluir(Guid id)
+        {
+            var possuiOs = await _context.OrdensServico.AnyAsync(o => o.ClienteId == id);
+            if (possuiOs)
+            {
+                Inertia.Share("erro", "Não é possível excluir um cliente que já possui Ordens de Serviço registradas.");
+                return RedirectToAction(nameof(Index));
+            }
+
+            var cliente = await _context.Clientes.FindAsync(id);
+            if (cliente != null)
+            {
+                _context.Clientes.Remove(cliente);
+                await _context.SaveChangesAsync();
+            }
+
+            return RedirectToAction(nameof(Index));
+        }
     }
 
     public class ClienteCadastroRequest
@@ -252,14 +298,12 @@ namespace RETSYS.Web.Controllers
         public string? Email { get; set; }
         public string? Observacoes { get; set; }
 
-        // Parâmetros de Entrada da Base de Digitalização Óptica (Seção 3) 
         public bool RegistrarHistorico { get; set; }
         public DateTime? HistoricoData { get; set; }
         public decimal? HistoricoValor { get; set; }
         public string? HistoricoLente { get; set; }
         public IFormFile? HistoricoFotoReceita { get; set; }
 
-        // Graus clínicos injetados no cadastro para salvar na ficha do cliente 
         public decimal? UltimaOdEsferico { get; set; }
         public decimal? UltimaOdCilindrico { get; set; }
         public int? UltimaOdEixo { get; set; }
