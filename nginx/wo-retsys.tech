@@ -1,9 +1,30 @@
+# 1. Redirecionamento de HTTP (Porta 80) para HTTPS (Porta 443)
 server {
     listen 80;
+    listen [::]:80;
     server_name wo-retsys.tech www.wo-retsys.tech;
 
+    return 301 https://$host$request_uri;
+}
+
+# 2. Configuração Principal HTTPS (Porta 443)
+server {
+    listen 443 ssl;
+    listen [::]:443 ssl;
+    server_name wo-retsys.tech www.wo-retsys.tech;
+
+    # Certificados SSL gerenciados pelo Certbot / Let's Encrypt
+    ssl_certificate /etc/letsencrypt/live/wo-retsys.tech/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/wo-retsys.tech/privkey.pem;
+
+    # Parâmetros de segurança SSL otimizados
+    ssl_protocols TLSv1.2 TLSv1.3;
+    ssl_ciphers HIGH:!aNULL:!MD5;
+    ssl_prefer_server_ciphers on;
+
+    # Proxy Reverso apontando para a aplicação .NET na porta 5000
     location / {
-        proxy_pass http://localhost:5000;
+        proxy_pass http://127.0.0.1:5000;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
         proxy_set_header Connection 'upgrade';
