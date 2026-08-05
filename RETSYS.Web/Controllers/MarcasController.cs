@@ -1,102 +1,141 @@
+using InertiaCore;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
-using InertiaCore;
-using RETSYS.Infrastructure.Data;
 using RETSYS.Domain.Entities;
-using System;
-using System.Linq;
-using System.Threading.Tasks;
+using RETSYS.Infrastructure.Data;
 
-namespace RETSYS.Web.Controllers
+namespace RETSYS.Web.Controllers;
+
+[Authorize]
+public class MarcasController : Controller
 {
-    public class MarcasController : Controller
+    private readonly ApplicationDbContext _context;
+
+    public MarcasController(ApplicationDbContext context)
     {
-        private readonly ApplicationDbContext _context;
-
-        public MarcasController(ApplicationDbContext context)
-        {
-            _context = context;
-        }
-
-        // 1. Listagem de Marcas (Read)
-        [HttpGet("/marcas")]
-        public async Task<IActionResult> Index()
-        {
-            var marcas = await _context.Marcas
-                .OrderBy(m => m.Nome)
-                .Select(m => new {
-                    m.Id,
-                    m.Nome,
-                    m.Descricao,
-                    m.Ativo
-                })
-                .ToListAsync();
-
-            return Inertia.Render("Marcas/Index", new { Marcas = marcas });
-        }
-
-        // 2. Gravação de Nova Marca (Create)
-        [HttpPost("/marcas")]
-        public async Task<IActionResult> Store([FromBody] MarcaInput input)
-        {
-            if (input == null || string.IsNullOrWhiteSpace(input.Nome))
-            {
-                return RedirecionarSeguro();
-            }
-
-            var novaMarca = new Marca
-            {
-                Id = Guid.NewGuid(),
-                Nome = input.Nome.Trim(),
-                Descricao = input.Descricao?.Trim(),
-                Ativo = true
-            };
-
-            _context.Marcas.Add(novaMarca);
-            await _context.SaveChangesAsync();
-
-            return RedirecionarSeguro();
-        }
-
-        // 3. Remoção de Marca (Delete)
-        [HttpDelete("/marcas/{id:guid}")]
-        public async Task<IActionResult> Delete(Guid id)
-        {
-            var marca = await _context.Marcas.FindAsync(id);
-            if (marca == null)
-            {
-                return NotFound("Marca não localizada.");
-            }
-
-            try
-            {
-                _context.Marcas.Remove(marca);
-                await _context.SaveChangesAsync();
-            }
-            catch (DbUpdateException)
-            {
-                ModelState.AddModelError("mensagem", "Não é possível excluir esta marca pois ela possui armações vinculadas no estoque.");
-                return RedirecionarSeguro();
-            }
-
-            return RedirecionarSeguro();
-        }
-
-        // Garante que o redirecionamento de volta funcione mesmo se o cabeçalho HTTP referer for vazio
-        private IActionResult RedirecionarSeguro()
-        {
-            var referer = Request.Headers["Referer"].ToString();
-            if (string.IsNullOrWhiteSpace(referer))
-            {
-                return RedirectToAction(nameof(Index));
-            }
-            return Redirect(referer);
-        }
+        _context = context;
     }
 
-    public class MarcaInput
+    // GET: /marcas
+    [HttpGet("/marcas")]
+    public async Task<IActionResult> Index()
     {
-        public string Nome { get; set; } = string.Empty;
-        public string? Descricao { get; set; }
+        var marcas = await _context.Marcas
+            .AsNoTracking()
+            .OrderBy(m => m.Nome)
+            .Select(m => new
+            {
+                m.Id,
+                m.Nome,
+                m.Descricao,
+                m.Ativo,
+                m.CriadoEm,
+                TotalArmacoes = _context.Armacoes.Count(a => a.MarcaId == m.Id)
+            })
+            .ToListAsync();
+
+        return Inertia.Render("Marcas/Index", new { Marcas = marcas });
+    }
+
+    // POST: /marcas
+    [HttpPost("/marcas")]
+    public async Task<IActionResult> Store([FromBody] DtoNovaMarca model)
+    {
+        if (string.IsNullOrWhiteSpace(model.Nome))
+        {
+            Inertia.Share("erro", "O nome da marca é obrigatório.");
+            return RedirectToAction(nameof(Index));
+        }
+
+        var nomeExiste = await _context.Marcas
+            .AnyAsync(m => m.Nome.ToLower() == model.Nome.Trim().ToLower());
+
+        if (nomeExiste)
+        {
+            Inertia.Share("erro", "Já existe uma marca cadastrada com este nome.");
+            return RedirectToAction(nameof(Index));
+        }
+
+        var novaMarca = new Marca
+        {
+            Id = Guid.NewGuid(),
+            Nome = model.Nome.Trim(),
+            Descricao = model.Descricao?.Trim() ?? string.Empty,
+            Ativo = true,
+            CriadoEm = DateTime.UtcNow
+        };
+
+        _context.Marcas.Add(novaMarca);
+        await _context.SaveChangesAsync();
+
+        return RedirectToAction(nameof(Index));
+    }
+
+    // POST: /marcas/editar/{id:guid}
+    [HttpPost("/marcas/editar/{id:guid}")]
+    public async Task<IActionResult> Editar(Guid id, [FromBody] DtoEditarMarca model)
+    {
+        var marca = await _context.Marcas.FindAsync(id);
+        if (marca == null)
+        {
+            return NotFound(new { message = "Marca não encontrada." });
+        }
+
+        var nomeExiste = await _context.Marcas
+            .AnyAsync(m => m.Nome.ToLower() == model.Nome.Trim().ToLower() && m.Id != id);
+
+        if (nomeExiste)
+        {
+            Inertia.Share("erro", "Este nome já está em uso por outra marca.");
+            return RedirectToAction(nameof(Index));
+        }
+
+        marca.Nome = model.Nome.Trim();
+        marca.Descricao = model.Descricao?.Trim() ?? string.Empty;
+        marca.Ativo = model.Ativo;
+
+        _context.Marcas.Update(marca);
+        await _context.SaveChangesAsync();
+
+        return RedirectToAction(nameof(Index));
+    }
+
+    // POST: /marcas/alternar-status/{id:guid}
+    [HttpPost("/marcas/alternar-status/{id:guid}")]
+    public async Task<IActionResult> AlternarStatus(Guid id)
+    {
+        var marca = await _context.Marcas.FindAsync(id);
+        if (marca != null)
+        {
+            marca.Ativo = !marca.Ativo;
+            await _context.SaveChangesAsync();
+        }
+
+        return RedirectToAction(nameof(Index));
+    }
+
+    // POST: /marcas/excluir/{id:guid}
+    [HttpPost("/marcas/excluir/{id:guid}")]
+    public async Task<IActionResult> Excluir(Guid id)
+    {
+        var possuiArmacoes = await _context.Armacoes.AnyAsync(a => a.MarcaId == id);
+        if (possuiArmacoes)
+        {
+            Inertia.Share("erro", "Não é possível excluir uma marca que possui armações vinculadas.");
+            return RedirectToAction(nameof(Index));
+        }
+
+        var marca = await _context.Marcas.FindAsync(id);
+        if (marca != null)
+        {
+            _context.Marcas.Remove(marca);
+            await _context.SaveChangesAsync();
+        }
+
+        return RedirectToAction(nameof(Index));
     }
 }
+
+public record DtoNovaMarca(string Nome, string? Descricao);
+public record DtoEditarMarca(string Nome, string? Descricao, bool Ativo);
