@@ -22,7 +22,7 @@
         <Link href="/ordens" class="hover:text-teal-400 transition">Ordens de Serviço</Link>
         <Link href="/clientes" class="hover:text-teal-400 transition">Clientes</Link>
         <Link href="/estoque" class="hover:text-teal-400 transition">Armações</Link>
-        <!-- Novo link para a gestão de Lentes e Tabelas de Preços, adicionado para a revisão de 01/07 -->
+        <Link href="/marcas" class="hover:text-teal-400 transition">Marcas (Lentes)</Link>
         <Link href="/lentes" class="hover:text-teal-400 transition">Lentes</Link>
 
         <template v-if="perfil === 'Admin'">

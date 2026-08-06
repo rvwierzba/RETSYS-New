@@ -250,65 +250,20 @@
             </div>
           </div>
 
-          <!-- Seleção de Produtos com Atalhos Rápido -->
+          <!-- Seleção Direta de Produtos -->
           <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div class="space-y-3">
-              <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                <label class="block text-xs font-bold uppercase text-slate-400 tracking-wider">Armação Selecionada *</label>
-                <button type="button" @click="exibirSubFormMarca = !exibirSubFormMarca" class="bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-bold px-3 py-1.5 rounded-xl border border-slate-200 uppercase tracking-wider transition shadow-sm">
-                  ⚙️ Adicionar Marca Rápida
-                </button>
-              </div>
-
-              <!-- Atalho: Cadastro Expresso de Marca -->
-              <div v-if="exibirSubFormMarca" class="bg-slate-900 text-white p-4 rounded-2xl border border-slate-800 space-y-2.5 shadow-lg animate-fadeIn">
-                <p class="text-[10px] font-bold uppercase tracking-widest text-teal-400">Nova Marca Corporativa</p>
-                <div v-if="erroSubMarca" class="p-2 bg-red-900/50 border border-red-800 text-red-300 rounded-lg text-xs font-medium">
-                  ⚠️ {{ erroSubMarca }}
-                </div>
-                <div class="flex gap-2">
-                  <input v-model="nomeSubMarca" type="text" placeholder="Nome da Marca" class="w-full rounded-xl text-xs border-slate-700 bg-slate-950 text-white focus:border-teal-500 focus:ring-teal-500" />
-                  <button type="button" @click="enviarSubMarca" :disabled="enviandoMarca" class="bg-teal-600 hover:bg-teal-700 disabled:bg-slate-700 text-white text-xs font-bold px-4 py-2 rounded-xl uppercase transition">
-                    {{ enviandoMarca ? 'Salvando...' : 'Gravar' }}
-                  </button>
-                </div>
-              </div>
-
+            <div class="space-y-2">
+              <label class="block text-xs font-bold uppercase text-slate-400 tracking-wider mb-1.5">Armação Selecionada *</label>
               <select v-model="form.armacaoId" @change="processarSnapshotProdutos" class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500" required>
                 <option value="">Selecione o modelo do Inventário</option>
                 <option v-for="a in (Armacoes ?? armacoes)" :key="a.id || a.Id" :value="a.id || a.Id">
-                  {{ a.modeloReferencia || a.Modelo }} ({{ a.cor || a.Cor || 'Padrão' }}) — R$ {{ Number(a.precoVenda ?? a.PrecoFinal ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) }}
+                  [{{ a.marcaNome || a.MarcaNome || 'Sem Marca' }}] {{ a.modeloReferencia || a.Modelo }} ({{ a.cor || a.Cor || 'Padrão' }}) — R$ {{ Number(a.precoVenda ?? a.PrecoFinal ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) }}
                 </option>
               </select>
             </div>
 
-            <div class="space-y-3">
-              <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
-                <label class="block text-xs font-bold uppercase text-slate-400 tracking-wider">Lente do Catálogo Disponível *</label>
-                <button type="button" @click="exibirSubFormLente = !exibirSubFormLente" class="bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-bold px-3 py-1.5 rounded-xl border border-slate-200 uppercase tracking-wider transition shadow-sm">
-                  🔬 Adicionar Lente Base
-                </button>
-              </div>
-
-              <!-- Atalho: Cadastro Expresso de Lente Base -->
-              <div v-if="exibirSubFormLente" class="bg-slate-900 text-white p-4 rounded-2xl border border-slate-800 space-y-3 shadow-lg animate-fadeIn text-[11px]">
-                <p class="text-[10px] font-bold uppercase tracking-widest text-teal-400">Nova Lente Base no Catálogo</p>
-                <div v-if="erroSubLente" class="p-2 bg-red-900/50 border border-red-800 text-red-300 rounded-lg text-xs font-medium">
-                  ⚠️ {{ erroSubLente }}
-                </div>
-                <div class="grid grid-cols-2 gap-2">
-                  <input v-model="labSubLente" type="text" placeholder="Lab (Ex: Essilor)" class="rounded-xl text-xs border-slate-700 bg-slate-950 text-white" />
-                  <input v-model="tipoSubLente" type="text" placeholder="Design (Ex: Orma)" class="rounded-xl text-xs border-slate-700 bg-slate-950 text-white" />
-                </div>
-                <div class="flex items-center justify-between bg-slate-950 p-2.5 rounded-xl border border-slate-800">
-                  <span>Lente Surfaçada?</span>
-                  <input type="checkbox" v-model="surfacadaSubLente" class="rounded border-slate-700 text-teal-500 focus:ring-teal-500 bg-slate-900" />
-                </div>
-                <button type="button" @click="enviarSubLente" :disabled="enviandoLente" class="w-full bg-teal-600 hover:bg-teal-700 disabled:bg-slate-700 text-white text-xs font-bold py-2.5 rounded-xl uppercase transition">
-                  {{ enviandoLente ? 'Processando...' : 'Gravar Bloco Base' }}
-                </button>
-              </div>
-
+            <div class="space-y-2">
+              <label class="block text-xs font-bold uppercase text-slate-400 tracking-wider mb-1.5">Lente do Catálogo Disponível *</label>
               <select v-model="form.lenteId" @change="processarSnapshotProdutos" class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500" required>
                 <option value="">Selecione a Lente da Matriz</option>
                 <option v-for="l in (Lentes ?? lentes)" :key="l.id || l.Id" :value="l.id || l.Id">
@@ -316,7 +271,7 @@
                 </option>
               </select>
               
-              <div v-if="lenteManualAtiva" class="animate-fadeIn p-4 bg-teal-50/50 rounded-2xl border border-teal-200/60">
+              <div v-if="lenteManualAtiva" class="animate-fadeIn p-4 bg-teal-50/50 rounded-2xl border border-teal-200/60 mt-3">
                 <label class="block text-xs font-bold uppercase text-teal-900 tracking-wider mb-2">Preço de Venda da Lente Surfaçada *</label>
                 <div class="relative mt-1 rounded-xl shadow-sm">
                   <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
@@ -407,9 +362,7 @@ const props = defineProps({
   Armacoes: Array,
   armacoes: Array,
   Lentes: Array,
-  lentes: Array,
-  Marcas: Array,
-  marcas: Array
+  lentes: Array
 })
 
 const exibirFaturaSucesso = ref(false)
@@ -425,20 +378,6 @@ const termoAceito = ref(false)
 const carregandoIA = ref(false)
 const arquivoSelecionado = ref(null)
 
-const exibirSubFormMarca = ref(false)
-const exibirSubFormLente = ref(false)
-
-const enviandoMarca = ref(false)
-const enviandoLente = ref(false)
-
-const erroSubMarca = ref(null)
-const erroSubLente = ref(null)
-
-const nomeSubMarca = ref('')
-const labSubLente = ref('')
-const tipoSubLente = ref('')
-const surfacadaSubLente = ref(false)
-
 const form = useForm({
   cpf: '', nome: '', telefone: '', dataNascimento: '', logradouro: '', numero: '', complemento: '',
   bairro: '', cidade: '', estado: '', cep: '', convenio: '', email: '', vendedorId: '',
@@ -453,48 +392,6 @@ const form = useForm({
 watch(() => form.formaPagamento, (novaForma) => {
   if (novaForma !== 'CARTAO_CREDITO') qtdParcelas.value = 1
 })
-
-const enviarSubMarca = async () => {
-  erroSubMarca.value = null
-  if (!nomeSubMarca.value.trim()) return
-  
-  enviandoMarca.value = true
-  try {
-    await axios.post('/marcas', { nome: nomeSubMarca.value })
-    nomeSubMarca.value = ''
-    exibirSubFormMarca.value = false
-    alert('Nova marca adicionada com sucesso!')
-    router.reload({ only: ['Marcas', 'marcas'] })
-  } catch (err) {
-    erroSubMarca.value = err.response?.data?.message || err.response?.data?.mensagem || 'Falha ao processar cadastro.'
-  } finally {
-    enviandoMarca.value = false
-  }
-}
-
-const enviarSubLente = async () => {
-  erroSubLente.value = null
-  if (!labSubLente.value.trim() || !tipoSubLente.value.trim()) return
-
-  enviandoLente.value = true
-  try {
-    await axios.post('/lentes', {
-      laboratorio: labSubLente.value,
-      tipo: tipoSubLente.value,
-      surfacada: surfacadaSubLente.value
-    })
-    labSubLente.value = ''
-    tipoSubLente.value = ''
-    surfacadaSubLente.value = false
-    exibirSubFormLente.value = false
-    alert('Nova lente base adicionada ao catálogo!')
-    router.reload({ only: ['Lentes', 'lentes'] })
-  } catch (err) {
-    erroSubLente.value = err.response?.data?.message || err.response?.data?.mensagem || 'Falha ao processar catálogo.'
-  } finally {
-    enviandoLente.value = false
-  }
-}
 
 const processarSnapshotProdutos = () => {
   const listaArmacoes = props.Armacoes ?? props.armacoes ?? []

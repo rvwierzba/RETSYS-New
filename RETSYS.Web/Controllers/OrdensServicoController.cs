@@ -80,13 +80,13 @@ namespace RETSYS.Web.Controllers
                         CilindricoLongeEsquerdo = os.Receita.OeCilindrico,
                         EixoLongeEsquerdo = os.Receita.OeEixo,
                         os.Receita.Adicao,
-                        EsfericoPertoDireito = os.Receita.OdEsfericoPerto,
-                        EsfericoPertoEsquerdo = os.Receita.OeEsfericoPerto
+                        // Expressões puras SQL para tradução direta no PostgreSQL
+                        EsfericoPertoDireito = os.Receita.OdEsferico + (os.Receita.Adicao ?? 0),
+                        EsfericoPertoEsquerdo = os.Receita.OeEsferico + (os.Receita.Adicao ?? 0)
                     }
                 })
                 .ToListAsync();
 
-            // Corrigido caminho de renderização para a nova pasta unificada
             return Inertia.Render("OrdensServico/Index", new { 
                 Ordens = ordens,
                 FiltroAtivo = filtroComposicao ?? "total",
@@ -105,11 +105,18 @@ namespace RETSYS.Web.Controllers
                 .ToListAsync();
 
             var armacoes = await _context.Armacoes
-                .Where(a => a.QuantidadeEstoque > 0)
-                .Select(a => new { a.Id, a.ModeloReferencia, a.Cor, a.QuantidadeEstoque, a.PrecoVenda })
+                .Include(a => a.Marca)
+                .Where(a => a.QuantidadeEstoque > 0 && a.Ativo)
+                .Select(a => new { 
+                    a.Id, 
+                    MarcaNome = a.Marca != null ? a.Marca.Nome : "Sem Marca",
+                    a.ModeloReferencia, 
+                    a.Cor, 
+                    a.QuantidadeEstoque, 
+                    a.PrecoVenda 
+                })
                 .ToListAsync();
 
-            // Proteção inclusa contra Lente pai nula para mitigar quebras de carregamento de página
             var lentes = await _context.LentesTabelaPrecos
                 .Include(lp => lp.Lente)
                 .Where(lp => lp.Ativo && lp.Lente != null && lp.Lente.Ativo)
@@ -124,7 +131,6 @@ namespace RETSYS.Web.Controllers
                 })
                 .ToListAsync();
 
-            // Corrigido caminho de renderização para a nova pasta unificada
             return Inertia.Render("OrdensServico/Create", new { 
                 Vendedores = vendedores,
                 Armacoes = armacoes,
@@ -208,7 +214,7 @@ namespace RETSYS.Web.Controllers
 
                 decimal descontoPercentual = raiz.GetProperty("descontoPercentual").GetDecimal();
 
-                if (perfilClaim != "ADMIN" && descontoPercentual > vendedor.LimiteDesconto)
+                if (perfilClaim != "ADMIN" && perfilClaim != "Admin" && descontoPercentual > vendedor.LimiteDesconto)
                 {
                     return BadRequest(new { mensagem = "Desconto acima do limite autorizado." });
                 }

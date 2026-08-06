@@ -38,12 +38,16 @@ public class MarcasController : Controller
         return Inertia.Render("Marcas/Index", new { Marcas = marcas });
     }
 
-    // POST: /marcas
+    // POST: /marcas (Atende formulário do Inertia e chamadas Axios de cadastro rápido)
     [HttpPost("/marcas")]
     public async Task<IActionResult> Store([FromBody] DtoNovaMarca model)
     {
+        bool eRequisicaoAxios = Request.Headers["X-Inertia"].Count == 0 && 
+                                Request.Headers.Accept.ToString().Contains("application/json");
+
         if (string.IsNullOrWhiteSpace(model.Nome))
         {
+            if (eRequisicaoAxios) return BadRequest(new { mensagem = "O nome da marca é obrigatório." });
             Inertia.Share("erro", "O nome da marca é obrigatório.");
             return RedirectToAction(nameof(Index));
         }
@@ -53,6 +57,7 @@ public class MarcasController : Controller
 
         if (nomeExiste)
         {
+            if (eRequisicaoAxios) return BadRequest(new { mensagem = "Já existe uma marca cadastrada com este nome." });
             Inertia.Share("erro", "Já existe uma marca cadastrada com este nome.");
             return RedirectToAction(nameof(Index));
         }
@@ -68,6 +73,11 @@ public class MarcasController : Controller
 
         _context.Marcas.Add(novaMarca);
         await _context.SaveChangesAsync();
+
+        if (eRequisicaoAxios)
+        {
+            return Ok(new { id = novaMarca.Id, nome = novaMarca.Nome });
+        }
 
         return RedirectToAction(nameof(Index));
     }
