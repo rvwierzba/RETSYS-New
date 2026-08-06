@@ -16,7 +16,7 @@ namespace RETSYS.Web.Controllers
         public RegistroController(ApplicationDbContext context, IServicoCriptografia criptografia)
         {
             _context = context;
-            _criptografia =_criptografia = criptografia;
+            _criptografia = criptografia;
         }
 
         [HttpGet("/cadastro")]
@@ -28,30 +28,32 @@ namespace RETSYS.Web.Controllers
         [HttpPost("/cadastro")]
         public async Task<IActionResult> Registrar([FromBody] DtoRegistro requisicao)
         {
-            if (string.IsNullOrWhiteSpace(requisicao.Nome) || string.IsNullOrWhiteSpace(requisicao.Email))
+            if (string.IsNullOrWhiteSpace(requisicao.Nome) || 
+                string.IsNullOrWhiteSpace(requisicao.Email) || 
+                string.IsNullOrWhiteSpace(requisicao.Senha))
             {
                 Inertia.Share("erro", "Preencha todos os campos obrigatórios.");
                 return RedirectToAction(nameof(CriarConta));
             }
 
-            var emailExiste = await _context.Usuarios.AnyAsync(u => u.Email == requisicao.Email);
+            var emailExiste = await _context.Usuarios.AnyAsync(u => u.Email.ToLower() == requisicao.Email.ToLower());
             if (emailExiste)
             {
                 Inertia.Share("erro", "Este e-mail já está registrado no RETSYS.");
                 return RedirectToAction(nameof(CriarConta));
             }
 
-            // Instancia a entidade Usuario mapeando explicitamente como Dono/Admin
+            // Dono do estabelecimento sempre nasce como Admin
             var novoAdmin = new Usuario
             {
                 Id = Guid.NewGuid(),
                 Nome = requisicao.Nome,
                 Email = requisicao.Email,
                 FilialLoja = requisicao.NomeDaOtica,
-                Perfil = PerfilUsuario.Admin, // 🔥 CORRIGIDO: Dono da conta agora nasce como Administrador global
+                Perfil = PerfilUsuario.Admin,
                 Ativo = true,
                 CriadoEm = DateTime.UtcNow,
-                SenhaHash = _criptografia.CriptografarSenha(requisicao.Senha) 
+                SenhaHash = _criptografia.CriptografarSenha(requisicao.Senha)
             };
 
             _context.Usuarios.Add(novoAdmin);

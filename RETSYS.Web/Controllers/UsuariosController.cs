@@ -79,7 +79,7 @@ public class UsuariosController : Controller
             Email = model.Email.Trim().ToLower(),
             SenhaHash = hashSenha,
             FilialLoja = string.IsNullOrWhiteSpace(model.FilialLoja) ? "Matriz" : model.FilialLoja.Trim(),
-            Perfil = model.Perfil,
+            Perfil = model.Perfil, // Assume Vendedor por padrão via DTO se não for especificado
             Ativo = true,
             CriadoEm = DateTime.UtcNow
         };
