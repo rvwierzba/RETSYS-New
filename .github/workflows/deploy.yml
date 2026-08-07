@@ -18,7 +18,14 @@ jobs:
           script: |
             cd /root/RETSYS-New
             git pull origin main
-            
+
+            # Injeta as chaves do GitHub no arquivo .env da VPS
+            cat << 'EOF' > .env
+            SPOTIFY_CLIENT_ID=${{ secrets.SPOTIFY_CLIENT_ID }}
+            SPOTIFY_CLIENT_SECRET=${{ secrets.SPOTIFY_CLIENT_SECRET }}
+            SPOTIFY_REDIRECT_URI=https://wo-retsys.tech/api/spotify/callback
+            EOF
+
             # Subir os containers no Docker
             docker compose up -d --build
             docker image prune -f

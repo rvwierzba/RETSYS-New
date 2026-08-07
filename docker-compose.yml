@@ -35,12 +35,16 @@ services:
     container_name: retsys_app_container
     restart: always
     ports:
-      - "5000:8080" # Acessível no navegador via http://localhost:5000
+      - "5000:8080"
       - "5001:8081"
+    env_file:
+      - .env
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
-      # CORRIGIDO: Alterado de DefaultConnection para ConexaoPadrao para casar com o seu Program.cs
       - ConnectionStrings__ConexaoPadrao=Host=retsys_db;Port=5432;Database=retsys_db_prod;Username=retsys_dev;Password=SenhaSeguraOtica2026;
+      - SPOTIFY_CLIENT_ID=${SPOTIFY_CLIENT_ID}
+      - SPOTIFY_CLIENT_SECRET=${SPOTIFY_CLIENT_SECRET}
+      - SPOTIFY_REDIRECT_URI=${SPOTIFY_REDIRECT_URI}
     depends_on:
       - retsys_db
       - ollama
