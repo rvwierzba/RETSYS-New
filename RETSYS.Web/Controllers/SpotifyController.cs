@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using System.Net.Http.Headers;
 using System.Text.Json;
 
@@ -16,10 +17,6 @@ namespace RETSYS.Web.Controllers
             _clientFactory = clientFactory;
             _configuration = configuration;
         }
-
-        // -------------------------------------------------------------------------
-        // MÉTODOS AUXILIARES: Leitura do appsettings.json e Variáveis de Ambiente
-        // -------------------------------------------------------------------------
 
         private string GetClientId()
         {
@@ -50,14 +47,12 @@ namespace RETSYS.Web.Controllers
                 return uriConfig.Trim();
             }
 
-            // Fallback dinâmico adaptado ao protocolo e domínio da requisição em execução
             var scheme = Request.Headers["X-Forwarded-Proto"].FirstOrDefault() ?? Request.Scheme;
             return $"{scheme}://{Request.Host}/api/spotify/callback";
         }
 
         #region 1. FLUXO OAUTH2 (AUTENTICAÇÃO)
 
-        // GET /api/spotify/login -> Redireciona para o login de autorização do Spotify
         [HttpGet("login")]
         public IActionResult Login()
         {
@@ -66,17 +61,17 @@ namespace RETSYS.Web.Controllers
 
             if (string.IsNullOrWhiteSpace(clientId))
             {
-                Console.WriteLine("[Spotify Error]: ClientId não localizado no appsettings.json ('Spotify:ClientId').");
+                Console.WriteLine("[Spotify Error]: ClientId não localizado no appsettings.json.");
                 return Redirect("/configuracoes?erro=spotify_missing_credentials");
             }
 
-            var escopos = "user-read-playback-state user-modify-playback-state user-read-currently-playing";
+            // INCLUSÃO DO ESCOPO 'streaming' OBRIGATÓRIO PARA O WEB PLAYBACK SDK
+            var escopos = "user-read-playback-state user-modify-playback-state user-read-currently-playing streaming";
             var urlAutenticacao = $"https://accounts.spotify.com/authorize?client_id={clientId}&response_type=code&redirect_uri={Uri.EscapeDataString(redirectUri)}&scope={Uri.EscapeDataString(escopos)}&show_dialog=true";
             
             return Redirect(urlAutenticacao);
         }
 
-        // GET /api/spotify/callback -> Troca o código temporário pelo Token de Acesso
         [HttpGet("callback")]
         public async Task<IActionResult> Callback([FromQuery] string code)
         {
@@ -85,12 +80,6 @@ namespace RETSYS.Web.Controllers
             var clientId = GetClientId();
             var clientSecret = GetClientSecret();
             var redirectUri = GetRedirectUri();
-
-            if (string.IsNullOrWhiteSpace(clientId) || string.IsNullOrWhiteSpace(clientSecret))
-            {
-                Console.WriteLine("[Spotify Error]: Credenciais do Spotify incompletas no appsettings.json.");
-                return Redirect("/configuracoes?erro=spotify_missing_credentials");
-            }
 
             try
             {
@@ -115,15 +104,8 @@ namespace RETSYS.Web.Controllers
                     using var documento = JsonDocument.Parse(jsonString);
                     var accessToken = documento.RootElement.GetProperty("access_token").GetString();
 
-                    // Grava o token com segurança na Sessão Criptografada do servidor
                     HttpContext.Session.SetString("SpotifyToken", accessToken ?? "");
-                    
                     return Redirect("/configuracoes");
-                }
-                else
-                {
-                    var erroDetalhes = await response.Content.ReadAsStringAsync();
-                    Console.WriteLine($"[Spotify Token Exchange Failed]: {response.StatusCode} - {erroDetalhes}");
                 }
             }
             catch (Exception ex)
@@ -138,13 +120,12 @@ namespace RETSYS.Web.Controllers
 
         #region 2. PONTE DE MÍDIA (STATUS E CONTROLES)
 
-        // GET /api/spotify/status-atual -> Retorna o que está tocando no momento
         [HttpGet("status-atual")]
         public async Task<IActionResult> ObterStatusAtual()
         {
             var token = HttpContext.Session.GetString("SpotifyToken");
             
-            var estadoVazio = new { Titulo = "", Artista = "", CapaUrl = "", Tocando = false };
+            var estadoVazio = new { Titulo = "", Artista = "", CapaUrl = "", Tocando = false, Token = token ?? "" };
             if (string.IsNullOrEmpty(token)) return Ok(estadoVazio);
 
             try
@@ -167,13 +148,12 @@ namespace RETSYS.Web.Controllers
                     {
                         var titulo = itemNode.GetProperty("name").GetString();
                         var tocando = root.GetProperty("is_playing").GetBoolean();
-                        
                         var artista = itemNode.GetProperty("artists")[0].GetProperty("name").GetString();
                         
                         var albumNode = itemNode.GetProperty("album");
                         var capaUrl = albumNode.GetProperty("images")[1].GetProperty("url").GetString();
 
-                        return Ok(new { Titulo = titulo, Artista = artista, CapaUrl = capaUrl, Tocando = tocando });
+                        return Ok(new { Titulo = titulo, Artista = artista, CapaUrl = capaUrl, Tocando = tocando, Token = token });
                     }
                 }
                 else if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized)
@@ -189,12 +169,11 @@ namespace RETSYS.Web.Controllers
             return Ok(estadoVazio);
         }
 
-        // POST /api/spotify/controlar?comando=... -> Executa comandos do player no balcão
         [HttpPost("controlar")]
-        public async Task<IActionResult> ExecutarComando([FromQuery] string comando)
+        public async Task<IActionResult> ExecutarComando([FromQuery] string comando, [FromQuery] string? deviceId = null)
         {
             var token = HttpContext.Session.GetString("SpotifyToken");
-            if (string.IsNullOrEmpty(token)) return Unauthorized();
+            if (string.IsNullOrEmpty(token)) return Unauthorized(new { erro = "Sessão do Spotify não autenticada." });
 
             try
             {
@@ -210,19 +189,27 @@ namespace RETSYS.Web.Controllers
 
                 if (string.IsNullOrEmpty(urlEndpoint)) return BadRequest("Comando de mídia inválido.");
 
+                if (!string.IsNullOrWhiteSpace(deviceId))
+                {
+                    urlEndpoint += $"?device_id={deviceId}";
+                }
+
                 var metodo = (comando == "tocar" || comando == "pausar") ? HttpMethod.Put : HttpMethod.Post;
                 var request = new HttpRequestMessage(metodo, urlEndpoint);
                 request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", token);
 
                 var response = await client.SendAsync(request);
                 if (response.IsSuccessStatusCode) return Ok();
+
+                var erroMsg = await response.Content.ReadAsStringAsync();
+                Console.WriteLine($"[Spotify Command Failed] HTTP {(int)response.StatusCode}: {erroMsg}");
+                return StatusCode((int)response.StatusCode, new { erro = "Erro na API do Spotify", detalhes = erroMsg });
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"[Spotify Command Error]: {ex.Message}");
+                return StatusCode(500, new { erro = ex.Message });
             }
-
-            return StatusCode(500);
         }
 
         #endregion

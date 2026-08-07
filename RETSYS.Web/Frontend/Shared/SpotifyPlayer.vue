@@ -83,7 +83,6 @@ import { Link, usePage } from '@inertiajs/vue3'
 
 const page = usePage()
 
-// Avalia de forma reativa os dados globais de autorização
 const eAdmin = computed(() => page.props.auth?.usuarioPerfil === 'Admin')
 const estaConectado = computed(() => !!page.props.auth?.spotifyTokenAtivo)
 
@@ -99,7 +98,6 @@ const musicaAtual = ref({
   tocando: false
 })
 
-// 1. Polling de Atualização da Faixa
 const buscarStatusReproducao = async () => {
   if (!estaConectado.value) return
 
@@ -117,7 +115,6 @@ const buscarStatusReproducao = async () => {
   }
 }
 
-// 2. Inicializa o Spotify Web Playback SDK (Transforma a aba do navegador no Player)
 const carregarEInicializarSDK = () => {
   if (!estaConectado.value) return
 
@@ -138,13 +135,14 @@ const carregarEInicializarSDK = () => {
           const res = await fetch('/api/spotify/status-atual')
           if (res.ok) {
             const data = await res.json()
-            if (data.token || data.Token) {
-              cb(data.token || data.Token)
+            const tokenLimpo = data.token || data.Token
+            if (tokenLimpo) {
+              cb(tokenLimpo)
               return
             }
           }
         } catch (e) {
-          console.error("Erro ao renovar token no SDK local:", e)
+          console.error("Erro ao obter token do Spotify:", e)
         }
         cb('')
       },
@@ -154,7 +152,7 @@ const carregarEInicializarSDK = () => {
     playerInstance.addListener('ready', ({ device_id }) => {
       localDeviceId.value = device_id
       playerLocalPronto.value = true
-      console.log('[RETSYS Spotify Player] Dispositivo local registrado com Sucesso! ID:', device_id)
+      console.log('[RETSYS Spotify Player] Dispositivo local registrado! ID:', device_id)
     })
 
     playerInstance.addListener('player_state_changed', (state) => {
@@ -172,18 +170,16 @@ const carregarEInicializarSDK = () => {
   }
 }
 
-// 3. Dispara Comandos de Mídia
 const controlarMidia = async (acao) => {
-  // Se o player SDK local estiver pronto e ativo nesta aba
   if (playerInstance && playerLocalPronto.value) {
     if (acao === 'anterior') playerInstance.previousTrack()
     else if (acao === 'proxima') playerInstance.nextTrack()
     else if (acao === 'tocar' || acao === 'pausar') playerInstance.togglePlay()
   }
 
-  // Envia a instrução também para a API do backend
   try {
-    await fetch(`/api/spotify/controlar?comando=${acao}`, { method: 'POST' })
+    const devIdParam = localDeviceId.value ? `&deviceId=${localDeviceId.value}` : ''
+    await fetch(`/api/spotify/controlar?comando=${acao}${devIdParam}`, { method: 'POST' })
     setTimeout(buscarStatusReproducao, 300)
   } catch (err) {
     console.error(`Erro ao disparar comando [${acao}]:`, err)
@@ -194,7 +190,6 @@ const alternarPlayPause = () => {
   controlarMidia(musicaAtual.value.tocando ? 'pausar' : 'tocar')
 }
 
-// Ciclo de vida
 onMounted(() => {
   if (estaConectado.value) {
     buscarStatusReproducao()
