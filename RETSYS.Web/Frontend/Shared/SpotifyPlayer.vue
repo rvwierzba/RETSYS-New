@@ -33,14 +33,18 @@
         
         <div class="overflow-hidden flex-1">
           <p class="text-xs font-bold text-slate-800 truncate" :title="musicaAtual.titulo">
-            {{ musicaAtual.titulo || 'Nenhuma faixa tocando' }}
+            {{ musicaAtual.titulo || (playerLocalPronto ? 'Som da Ótica Conectado' : 'Nenhuma faixa tocando') }}
           </p>
           <p class="text-[10px] text-slate-400 truncate">
-            {{ musicaAtual.artista || 'Abra o Spotify para sintonizar' }}
+            {{ musicaAtual.artista || (playerLocalPronto ? 'Pronto para tocar nesta aba' : 'Abra o Spotify para sintonizar') }}
           </p>
         </div>
 
-        <span class="w-2 h-2 rounded-full bg-emerald-500 animate-pulse shrink-0" title="Sincronizado com a loja"></span>
+        <span 
+          class="w-2 h-2 rounded-full shrink-0 transition-colors"
+          :class="playerLocalPronto ? 'bg-emerald-500 animate-pulse' : 'bg-amber-400'"
+          :title="playerLocalPronto ? 'Reprodutor de Áudio Ativo no Navegador' : 'Conectando Reprodutor Local...'"
+        ></span>
       </div>
 
       <div class="flex items-center justify-center gap-4 bg-slate-50 py-1.5 px-3 rounded-xl border border-slate-100">
@@ -79,11 +83,15 @@ import { Link, usePage } from '@inertiajs/vue3'
 
 const page = usePage()
 
-// Avalia de forma reativa os dados globais de autorização do ecossistema
+// Avalia de forma reativa os dados globais de autorização
 const eAdmin = computed(() => page.props.auth?.usuarioPerfil === 'Admin')
 const estaConectado = computed(() => !!page.props.auth?.spotifyTokenAtivo)
 
 const intervaloStatus = ref(null)
+const playerLocalPronto = ref(false)
+const localDeviceId = ref(null)
+let playerInstance = null
+
 const musicaAtual = ref({
   titulo: '',
   artista: '',
@@ -91,7 +99,7 @@ const musicaAtual = ref({
   tocando: false
 })
 
-// 1. Polling de Atualização da Faixa (Sincroniza o que está tocando em segundo plano)
+// 1. Polling de Atualização da Faixa
 const buscarStatusReproducao = async () => {
   if (!estaConectado.value) return
 
@@ -109,11 +117,73 @@ const buscarStatusReproducao = async () => {
   }
 }
 
-// 2. Dispara Comandos de Mídia para o C# repassar para a API do Spotify
+// 2. Inicializa o Spotify Web Playback SDK (Transforma a aba do navegador no Player)
+const carregarEInicializarSDK = () => {
+  if (!estaConectado.value) return
+
+  const scriptExistente = document.getElementById('spotify-player-sdk')
+  if (!scriptExistente) {
+    const script = document.createElement('script')
+    script.id = 'spotify-player-sdk'
+    script.src = 'https://sdk.scdn.co/spotify-player.js'
+    script.async = true
+    document.body.appendChild(script)
+  }
+
+  window.onSpotifyWebPlaybackSDKReady = () => {
+    playerInstance = new window.Spotify.Player({
+      name: 'RETSYS Som da Ótica',
+      getOAuthToken: async (cb) => {
+        try {
+          const res = await fetch('/api/spotify/status-atual')
+          if (res.ok) {
+            const data = await res.json()
+            if (data.token || data.Token) {
+              cb(data.token || data.Token)
+              return
+            }
+          }
+        } catch (e) {
+          console.error("Erro ao renovar token no SDK local:", e)
+        }
+        cb('')
+      },
+      volume: 0.8
+    })
+
+    playerInstance.addListener('ready', ({ device_id }) => {
+      localDeviceId.value = device_id
+      playerLocalPronto.value = true
+      console.log('[RETSYS Spotify Player] Dispositivo local registrado com Sucesso! ID:', device_id)
+    })
+
+    playerInstance.addListener('player_state_changed', (state) => {
+      if (!state) return
+      const currentTrack = state.track_window.current_track
+      if (currentTrack) {
+        musicaAtual.value.titulo = currentTrack.name
+        musicaAtual.value.artista = currentTrack.artists.map(a => a.name).join(', ')
+        musicaAtual.value.capaUrl = currentTrack.album.images[0]?.url || ''
+        musicaAtual.value.tocando = !state.paused
+      }
+    })
+
+    playerInstance.connect()
+  }
+}
+
+// 3. Dispara Comandos de Mídia
 const controlarMidia = async (acao) => {
+  // Se o player SDK local estiver pronto e ativo nesta aba
+  if (playerInstance && playerLocalPronto.value) {
+    if (acao === 'anterior') playerInstance.previousTrack()
+    else if (acao === 'proxima') playerInstance.nextTrack()
+    else if (acao === 'tocar' || acao === 'pausar') playerInstance.togglePlay()
+  }
+
+  // Envia a instrução também para a API do backend
   try {
     await fetch(`/api/spotify/controlar?comando=${acao}`, { method: 'POST' })
-    // Força uma atualização visual imediata logo após o comando
     setTimeout(buscarStatusReproducao, 300)
   } catch (err) {
     console.error(`Erro ao disparar comando [${acao}]:`, err)
@@ -124,15 +194,17 @@ const alternarPlayPause = () => {
   controlarMidia(musicaAtual.value.tocando ? 'pausar' : 'tocar')
 }
 
-// Ciclo de vida isolado: Atualiza o status a cada 5 segundos se houver login ativo
+// Ciclo de vida
 onMounted(() => {
   if (estaConectado.value) {
     buscarStatusReproducao()
+    carregarEInicializarSDK()
     intervaloStatus.value = setInterval(buscarStatusReproducao, 5000)
   }
 })
 
 onUnmounted(() => {
   if (intervaloStatus.value) clearInterval(intervaloStatus.value)
+  if (playerInstance) playerInstance.disconnect()
 })
 </script>
