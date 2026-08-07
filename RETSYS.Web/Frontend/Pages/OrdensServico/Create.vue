@@ -563,8 +563,12 @@ const avisarSairPagina = (e) => {
 const validarCilindrico = (campo) => {
   let val = form[campo]
   if (val > 0) {
-    form[campo] = -Math.abs(val)
+    val = -Math.abs(val)
   }
+  if (val < -15.00) {
+    val = -15.00
+  }
+  form[campo] = val
 }
 
 const validarEixo = (campo) => {

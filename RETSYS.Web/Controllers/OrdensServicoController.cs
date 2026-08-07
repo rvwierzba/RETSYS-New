@@ -98,8 +98,20 @@ namespace RETSYS.Web.Controllers
         [HttpGet("/ordens/nova")]
         public async Task<IActionResult> Criar()
         {
-            var vendedores = await _context.Usuarios
-                .Where(u => u.Ativo)
+            var usuarioIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            IQueryable<Usuario> queryVendedores = _context.Usuarios.Where(u => u.Ativo);
+
+            // Filtro por FilialLoja: exibe apenas os atendentes pertencentes à mesma loja do usuário logado
+            if (Guid.TryParse(usuarioIdClaim, out Guid usuarioLogadoId))
+            {
+                var usuarioLogado = await _context.Usuarios.FindAsync(usuarioLogadoId);
+                if (usuarioLogado != null && !string.IsNullOrWhiteSpace(usuarioLogado.FilialLoja))
+                {
+                    queryVendedores = queryVendedores.Where(u => u.FilialLoja == usuarioLogado.FilialLoja);
+                }
+            }
+
+            var vendedores = await queryVendedores
                 .OrderBy(u => u.Nome)
                 .Select(u => new { u.Id, u.Nome })
                 .ToListAsync();
@@ -257,13 +269,17 @@ namespace RETSYS.Web.Controllers
                     Ativo = true
                 };
 
-                // Normalização e travas clínicas preventivas no backend
+                // Normalização e travas clínicas preventivas de refração no backend
                 decimal rawOdCil = raiz.GetProperty("odCilindrico").GetDecimal();
                 decimal odCilindrico = rawOdCil > 0 ? -Math.Abs(rawOdCil) : rawOdCil;
+                odCilindrico = Math.Clamp(odCilindrico, -15.00m, 0m);
+
                 int odEixo = Math.Clamp(raiz.GetProperty("odEixo").GetInt32(), 0, 180);
 
                 decimal rawOeCil = raiz.GetProperty("oeCilindrico").GetDecimal();
                 decimal oeCilindrico = rawOeCil > 0 ? -Math.Abs(rawOeCil) : rawOeCil;
+                oeCilindrico = Math.Clamp(oeCilindrico, -15.00m, 0m);
+
                 int oeEixo = Math.Clamp(raiz.GetProperty("oeEixo").GetInt32(), 0, 180);
 
                 decimal? adicao = raiz.TryGetProperty("adicao", out var ad) && ad.ValueKind != JsonValueKind.Null ? ad.GetDecimal() : null;
@@ -420,6 +436,7 @@ namespace RETSYS.Web.Controllers
             }
             catch (Exception ex)
             {
+                Console.WriteLine($"[Ollama Error]: {ex.Message}");
                 return StatusCode(500, new { mensagem = "Falha no pipeline de IA.", erro = ex.Message });
             }
         }
