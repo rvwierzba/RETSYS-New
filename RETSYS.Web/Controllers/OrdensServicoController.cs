@@ -39,7 +39,7 @@ namespace RETSYS.Web.Controllers
                 .Include(os => os.Financeiro)
                 .Where(os => os.Status != "CANCELADO" && os.Status != "CANCELADA" && os.Ativo);
 
-            if (perfilClaim == "VENDEDOR" && Guid.TryParse(usuarioIdClaim, out Guid vendedorId))
+            if (string.Equals(perfilClaim, "VENDEDOR", StringComparison.OrdinalIgnoreCase) && Guid.TryParse(usuarioIdClaim, out Guid vendedorId))
             {
                 query = query.Where(os => os.VendedorId == vendedorId);
             }
@@ -138,6 +138,7 @@ namespace RETSYS.Web.Controllers
             });
         }
 
+        // 3. Busca rápida de Cliente por CPF (JSON / AJAX)
         [HttpGet("/api/clientes/buscar-cpf/{cpf}")]
         public async Task<IActionResult> BuscarPorCpf(string cpf)
         {
@@ -168,6 +169,7 @@ namespace RETSYS.Web.Controllers
             });
         }
 
+        // 4. Gravação Definitiva de Nova OS com Travas Clínicas no Backend
         [HttpPost("/ordens")]
         public async Task<IActionResult> Store([FromBody] JsonElement raiz, [FromQuery] int? quantidadeParcelas)
         {
@@ -214,7 +216,10 @@ namespace RETSYS.Web.Controllers
 
                 decimal descontoPercentual = raiz.GetProperty("descontoPercentual").GetDecimal();
 
-                if (perfilClaim != "ADMIN" && perfilClaim != "Admin" && descontoPercentual > vendedor.LimiteDesconto)
+                bool ehAdmin = string.Equals(perfilClaim, "ADMIN", StringComparison.OrdinalIgnoreCase) ||
+                               string.Equals(perfilClaim, "GERENTE", StringComparison.OrdinalIgnoreCase);
+
+                if (!ehAdmin && descontoPercentual > vendedor.LimiteDesconto)
                 {
                     return BadRequest(new { mensagem = "Desconto acima do limite autorizado." });
                 }
@@ -252,19 +257,40 @@ namespace RETSYS.Web.Controllers
                     Ativo = true
                 };
 
+                // Normalização e travas clínicas preventivas no backend
+                decimal rawOdCil = raiz.GetProperty("odCilindrico").GetDecimal();
+                decimal odCilindrico = rawOdCil > 0 ? -Math.Abs(rawOdCil) : rawOdCil;
+                int odEixo = Math.Clamp(raiz.GetProperty("odEixo").GetInt32(), 0, 180);
+
+                decimal rawOeCil = raiz.GetProperty("oeCilindrico").GetDecimal();
+                decimal oeCilindrico = rawOeCil > 0 ? -Math.Abs(rawOeCil) : rawOeCil;
+                int oeEixo = Math.Clamp(raiz.GetProperty("oeEixo").GetInt32(), 0, 180);
+
+                decimal? adicao = raiz.TryGetProperty("adicao", out var ad) && ad.ValueKind != JsonValueKind.Null ? ad.GetDecimal() : null;
+                if (adicao.HasValue) adicao = Math.Clamp(adicao.Value, 0m, 3.50m);
+
+                decimal dnpOdRaw = raiz.GetProperty("dnpOd").GetDecimal();
+                decimal dnpOd = dnpOdRaw > 0 ? Math.Clamp(dnpOdRaw, 20m, 40m) : dnpOdRaw;
+
+                decimal dnpOeRaw = raiz.GetProperty("dnpOe").GetDecimal();
+                decimal dnpOe = dnpOeRaw > 0 ? Math.Clamp(dnpOeRaw, 20m, 40m) : dnpOeRaw;
+
+                decimal? alturaRaw = raiz.TryGetProperty("alturaMontagem", out var alt) && alt.ValueKind != JsonValueKind.Null ? alt.GetDecimal() : null;
+                decimal? alturaMontagem = alturaRaw.HasValue ? Math.Clamp(alturaRaw.Value, 0m, 33m) : null;
+
                 novaOS.Receita = new OsReceita
                 {
                     OsId = novaOS.Id,
                     OdEsferico = raiz.GetProperty("odEsferico").GetDecimal(),
-                    OdCilindrico = raiz.GetProperty("odCilindrico").GetDecimal(),
-                    OdEixo = raiz.GetProperty("odEixo").GetInt32(),
+                    OdCilindrico = odCilindrico,
+                    OdEixo = odEixo,
                     OeEsferico = raiz.GetProperty("oeEsferico").GetDecimal(),
-                    OeCilindrico = raiz.GetProperty("oeCilindrico").GetDecimal(),
-                    OeEixo = raiz.GetProperty("oeEixo").GetInt32(),
-                    Adicao = raiz.TryGetProperty("adicao", out var ad) && ad.ValueKind != JsonValueKind.Null ? ad.GetDecimal() : null,
-                    DnpOd = raiz.GetProperty("dnpOd").GetDecimal(),
-                    DnpOe = raiz.GetProperty("dnpOe").GetDecimal(),
-                    AlturaMontagem = raiz.TryGetProperty("alturaMontagem", out var alt) && alt.ValueKind != JsonValueKind.Null ? alt.GetDecimal() : null
+                    OeCilindrico = oeCilindrico,
+                    OeEixo = oeEixo,
+                    Adicao = adicao,
+                    DnpOd = dnpOd,
+                    DnpOe = dnpOe,
+                    AlturaMontagem = alturaMontagem
                 };
 
                 novaOS.Financeiro = new OsFinanceiro
@@ -308,6 +334,7 @@ namespace RETSYS.Web.Controllers
             }
         }
 
+        // 5. Alteração de Status com Atualização do Estoque
         [HttpPost("/ordens/alterar-status/{id:guid}")]
         public async Task<IActionResult> AlterarStatus(Guid id, [FromQuery] string novoStatus)
         {
@@ -354,6 +381,7 @@ namespace RETSYS.Web.Controllers
             return RedirectToAction(nameof(Index));
         }
 
+        // 6. Processamento de Leitura de Receita por IA (Ollama/Moondream)
         [HttpPost("/ordens/processar-receita-ia")]
         public async Task<IActionResult> ProcessarReceitaIA(IFormFile imagemReceita)
         {
@@ -414,6 +442,5 @@ namespace RETSYS.Web.Controllers
 
             return Ok(resultado);
         }
-
     }
 }

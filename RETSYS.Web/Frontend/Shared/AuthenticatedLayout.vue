@@ -22,7 +22,7 @@
         <Link href="/ordens" class="hover:text-teal-400 transition">Ordens de Serviço</Link>
         <Link href="/clientes" class="hover:text-teal-400 transition">Clientes</Link>
         <Link href="/estoque" class="hover:text-teal-400 transition">Armações</Link>
-        <Link href="/marcas" class="hover:text-teal-400 transition">Marcas (Lentes)</Link>
+        <Link href="/marcas" class="hover:text-teal-400 transition">Marcas</Link>
         <Link href="/lentes" class="hover:text-teal-400 transition">Lentes</Link>
 
         <template v-if="perfil === 'Admin'">

@@ -11,6 +11,14 @@
         🛑 {{ erroSubmissao }}
       </div>
 
+      <!-- Aviso de Rascunho Restaurado -->
+      <div v-if="rascunhoRestaurado" class="p-3 bg-teal-50 border border-teal-200 text-teal-800 rounded-xl text-xs font-semibold flex items-center justify-between no-print animate-fadeIn">
+        <span>💾 Rascunho não finalizado recuperado automaticamente! Seus dados digitados foram preservados.</span>
+        <button @click="limparRascunhoManual" class="text-[10px] uppercase font-bold text-teal-900 underline hover:text-teal-950">
+          Descartar Rascunho
+        </button>
+      </div>
+
       <!-- FORMULÁRIO OPERACIONAL DE EMISSÃO -->
       <div v-if="!exibirFaturaSucesso" class="bg-white rounded-3xl border border-slate-200 shadow-xl overflow-hidden no-print">
 
@@ -80,8 +88,19 @@
 
             <div class="grid grid-cols-1 md:grid-cols-4 gap-4 pt-2 border-t border-slate-200/60">
               <div>
-                <label class="block text-[11px] font-bold uppercase text-slate-400 tracking-wider mb-1.5">CEP Residência *</label>
-                <input v-model="form.cep" type="text" @blur="buscarEnderecoViaCep" placeholder="00000-000" class="w-full rounded-xl border-slate-200 text-sm font-mono focus:border-teal-500 focus:ring-teal-500" required />
+                <label class="block text-[11px] font-bold uppercase text-slate-400 tracking-wider mb-1.5">
+                  CEP Residência * <span v-if="buscandoCep" class="text-teal-600 animate-pulse">(buscando...)</span>
+                </label>
+                <input 
+                  v-model="form.cep" 
+                  type="text" 
+                  @input="tratarDigitacaoCep"
+                  @blur="buscarEnderecoViaCep" 
+                  placeholder="00000-000" 
+                  maxlength="9"
+                  class="w-full rounded-xl border-slate-200 text-sm font-mono focus:border-teal-500 focus:ring-teal-500" 
+                  required 
+                />
               </div>
               <div class="md:col-span-2">
                 <label class="block text-[11px] font-bold uppercase text-slate-400 tracking-wider mb-1.5">Logradouro *</label>
@@ -182,33 +201,98 @@
               </div>
             </div>
 
+            <!-- Tabela do Bloco Óptico com Travas Clínicas de Segurança -->
             <div class="bg-white p-4 rounded-xl border border-slate-200 space-y-3 mt-4">
               <div class="grid grid-cols-4 gap-4 font-bold text-[11px] text-slate-400 uppercase tracking-wider text-center border-b pb-2">
                 <div>Olho</div>
                 <div>Esférico</div>
-                <div>Cilíndrico</div>
-                <div>Eixo (°)</div>
+                <div>Cilíndrico (-)</div>
+                <div>Eixo (0° a 180°)</div>
               </div>
 
+              <!-- Olho Direito (OD) -->
               <div class="grid grid-cols-4 gap-4 items-center">
                 <div class="text-sm font-black text-slate-700 text-center">OD</div>
-                <input v-model.number="form.odEsferico" type="number" step="0.25" placeholder="0,00" @keydown.enter.prevent class="rounded-xl border-slate-200 text-sm text-center font-mono focus:border-teal-500" />
-                <input v-model.number="form.odCilindrico" type="number" step="0.25" placeholder="0,00" @keydown.enter.prevent class="rounded-xl border-slate-200 text-sm text-center font-mono focus:border-teal-500" />
-                <input v-model.number="form.odEixo" type="number" min="0" max="180" placeholder="0" @keydown.enter.prevent class="rounded-xl border-slate-200 text-sm text-center font-mono focus:border-teal-500" />
+                <input 
+                  v-model.number="form.odEsferico" 
+                  type="number" 
+                  step="0.25" 
+                  placeholder="0,00" 
+                  @keydown.enter.prevent 
+                  class="rounded-xl border-slate-200 text-sm text-center font-mono focus:border-teal-500" 
+                />
+                <input 
+                  v-model.number="form.odCilindrico" 
+                  type="number" 
+                  step="0.25" 
+                  max="0" 
+                  placeholder="-0,00" 
+                  @input="validarCilindrico('odCilindrico')" 
+                  @keydown.enter.prevent 
+                  class="rounded-xl border-slate-200 text-sm text-center font-mono text-amber-700 font-bold focus:border-teal-500" 
+                />
+                <input 
+                  v-model.number="form.odEixo" 
+                  type="number" 
+                  min="0" 
+                  max="180" 
+                  placeholder="0" 
+                  @input="validarEixo('odEixo')" 
+                  @keydown.enter.prevent 
+                  class="rounded-xl border-slate-200 text-sm text-center font-mono focus:border-teal-500" 
+                />
               </div>
 
+              <!-- Olho Esquerdo (OE) -->
               <div class="grid grid-cols-4 gap-4 items-center">
                 <div class="text-sm font-black text-slate-700 text-center">OE</div>
-                <input v-model.number="form.oeEsferico" type="number" step="0.25" placeholder="0,00" @keydown.enter.prevent class="rounded-xl border-slate-200 text-sm text-center font-mono focus:border-teal-500" />
-                <input v-model.number="form.oeCilindrico" type="number" step="0.25" placeholder="0,00" @keydown.enter.prevent class="rounded-xl border-slate-200 text-sm text-center font-mono focus:border-teal-500" />
-                <input v-model.number="form.oeEixo" type="number" min="0" max="180" placeholder="0" @keydown.enter.prevent class="rounded-xl border-slate-200 text-sm text-center font-mono focus:border-teal-500" />
+                <input 
+                  v-model.number="form.oeEsferico" 
+                  type="number" 
+                  step="0.25" 
+                  placeholder="0,00" 
+                  @keydown.enter.prevent 
+                  class="rounded-xl border-slate-200 text-sm text-center font-mono focus:border-teal-500" 
+                />
+                <input 
+                  v-model.number="form.oeCilindrico" 
+                  type="number" 
+                  step="0.25" 
+                  max="0" 
+                  placeholder="-0,00" 
+                  @input="validarCilindrico('oeCilindrico')" 
+                  @keydown.enter.prevent 
+                  class="rounded-xl border-slate-200 text-sm text-center font-mono text-amber-700 font-bold focus:border-teal-500" 
+                />
+                <input 
+                  v-model.number="form.oeEixo" 
+                  type="number" 
+                  min="0" 
+                  max="180" 
+                  placeholder="0" 
+                  @input="validarEixo('oeEixo')" 
+                  @keydown.enter.prevent 
+                  class="rounded-xl border-slate-200 text-sm text-center font-mono focus:border-teal-500" 
+                />
               </div>
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4 items-center pt-2">
               <div class="flex flex-col bg-teal-50/50 p-4 rounded-xl border border-teal-100">
-                <label class="block text-xs font-bold uppercase text-teal-800 tracking-wider mb-1.5">Adição (AD)</label>
-                <input v-model.number="form.adicao" type="number" step="0.25" placeholder="0.00" @keydown.enter.prevent class="w-full rounded-xl border-teal-200 text-sm focus:border-teal-500 focus:ring-teal-500 bg-white font-mono text-teal-900" />
+                <label class="block text-xs font-bold uppercase text-teal-800 tracking-wider mb-1.5">
+                  Adição (AD) <span class="text-[10px] text-teal-600">(Máx +3.50)</span>
+                </label>
+                <input 
+                  v-model.number="form.adicao" 
+                  type="number" 
+                  step="0.25" 
+                  min="0" 
+                  max="3.5" 
+                  placeholder="0.00" 
+                  @input="validarAdicao" 
+                  @keydown.enter.prevent 
+                  class="w-full rounded-xl border-teal-200 text-sm focus:border-teal-500 focus:ring-teal-500 bg-white font-mono text-teal-900 font-bold" 
+                />
                 <p class="text-[10px] text-teal-600 mt-1 leading-tight">Obrigatório para lentes progressivas. Se preenchida, a Altura de Montagem também será exigida.</p>
               </div>
               <div>
@@ -221,23 +305,61 @@
             </div>
           </div>
 
-          <!-- 3. Medidas Técnicas & Prazo de Entrega -->
+          <!-- 3. Medidas Técnicas & Prazo de Entrega (Com Limites Válidos) -->
           <div class="bg-white p-6 rounded-2xl border border-slate-200 space-y-4">
             <h3 class="text-sm font-black text-slate-700 uppercase tracking-wider flex items-center gap-2">
               <span class="w-2 h-2 rounded-full bg-indigo-500"></span> 3. Medidas Técnicas & Prazo de Entrega
             </h3>
             <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
               <div>
-                <label class="block text-xs font-bold uppercase text-slate-400 tracking-wider mb-2">DNP - Olho Direito (mm) *</label>
-                <input v-model.number="form.dnpOd" type="number" step="0.5" min="0.1" placeholder="0.0" @keydown.enter.prevent class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500 font-mono" required />
+                <label class="block text-xs font-bold uppercase text-slate-400 tracking-wider mb-2">
+                  DNP OD (20 a 40 mm) *
+                </label>
+                <input 
+                  v-model.number="form.dnpOd" 
+                  type="number" 
+                  step="0.5" 
+                  min="20" 
+                  max="40" 
+                  placeholder="30.0" 
+                  @input="validarDnp('dnpOd')" 
+                  @keydown.enter.prevent 
+                  class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500 font-mono font-bold text-slate-800" 
+                  required 
+                />
               </div>
               <div>
-                <label class="block text-xs font-bold uppercase text-slate-400 tracking-wider mb-2">DNP - Olho Esquerdo (mm) *</label>
-                <input v-model.number="form.dnpOe" type="number" step="0.5" min="0.1" placeholder="0.0" @keydown.enter.prevent class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500 font-mono" required />
+                <label class="block text-xs font-bold uppercase text-slate-400 tracking-wider mb-2">
+                  DNP OE (20 a 40 mm) *
+                </label>
+                <input 
+                  v-model.number="form.dnpOe" 
+                  type="number" 
+                  step="0.5" 
+                  min="20" 
+                  max="40" 
+                  placeholder="30.0" 
+                  @input="validarDnp('dnpOe')" 
+                  @keydown.enter.prevent 
+                  class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500 font-mono font-bold text-slate-800" 
+                  required 
+                />
               </div>
               <div>
-                <label class="block text-xs font-bold uppercase text-slate-400 tracking-wider mb-2">Altura de Montagem (mm)</label>
-                <input v-model.number="form.alturaMontagem" type="number" step="0.5" placeholder="Obrigatório p/ progressivas" @keydown.enter.prevent class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500 font-mono" />
+                <label class="block text-xs font-bold uppercase text-slate-400 tracking-wider mb-2">
+                  Altura Montagem (Máx 33 mm)
+                </label>
+                <input 
+                  v-model.number="form.alturaMontagem" 
+                  type="number" 
+                  step="0.5" 
+                  min="0" 
+                  max="33" 
+                  placeholder="Ex: 18.0" 
+                  @input="validarAltura" 
+                  @keydown.enter.prevent 
+                  class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500 font-mono font-bold text-slate-800" 
+                />
               </div>
               <div>
                 <label class="block text-xs font-bold uppercase text-slate-400 tracking-wider mb-2">Data Prevista de Entrega *</label>
@@ -351,7 +473,7 @@
 </template>
 
 <script setup>
-import { ref, watch } from 'vue'
+import { ref, watch, onMounted, onBeforeUnmount } from 'vue'
 import { useForm, Link, router } from '@inertiajs/vue3'
 import axios from 'axios'
 import AuthenticatedLayout from '../../Shared/AuthenticatedLayout.vue'
@@ -365,6 +487,8 @@ const props = defineProps({
   lentes: Array
 })
 
+const CHAVE_RASCUNHO = 'retsys_os_rascunho'
+
 const exibirFaturaSucesso = ref(false)
 const tipoComprovanteImpressao = ref('completa')
 const osFaturadaResponse = ref({ numeroOS: 'OS-TEMP-00000' })
@@ -374,9 +498,11 @@ const qtdParcelas = ref(1)
 const lenteManualAtiva = ref(false)
 const clienteLocalizado = ref(null)
 const consultandoCpf = ref(false)
+const buscandoCep = ref(false)
 const termoAceito = ref(false)
 const carregandoIA = ref(false)
 const arquivoSelecionado = ref(null)
+const rascunhoRestaurado = ref(false)
 
 const form = useForm({
   cpf: '', nome: '', telefone: '', dataNascimento: '', logradouro: '', numero: '', complemento: '',
@@ -389,6 +515,118 @@ const form = useForm({
   formaPagamento: 'DINHEIRO'
 })
 
+// =========================================================================
+// 1. SALVAMENTO E RECUPERAÇÃO AUTOMÁTICA DE RASCUNHO (LOCALSTORAGE + F5)
+// =========================================================================
+onMounted(() => {
+  const dadosSalvos = localStorage.getItem(CHAVE_RASCUNHO)
+  if (dadosSalvos) {
+    try {
+      const objetoConvertido = JSON.parse(dadosSalvos)
+      Object.assign(form, objetoConvertido)
+      rascunhoRestaurado.value = true
+      processarSnapshotProdutos()
+    } catch (e) {
+      localStorage.removeItem(CHAVE_RASCUNHO)
+    }
+  }
+
+  window.addEventListener('beforeunload', avisarSairPagina)
+})
+
+onBeforeUnmount(() => {
+  window.removeEventListener('beforeunload', avisarSairPagina)
+})
+
+watch(form, (novoForm) => {
+  if (!exibirFaturaSucesso.value) {
+    localStorage.setItem(CHAVE_RASCUNHO, JSON.stringify(novoForm))
+  }
+}, { deep: true })
+
+const limparRascunhoManual = () => {
+  localStorage.removeItem(CHAVE_RASCUNHO)
+  form.reset()
+  rascunhoRestaurado.value = false
+}
+
+const avisarSairPagina = (e) => {
+  if (!exibirFaturaSucesso.value && form.cpf) {
+    e.preventDefault()
+    e.returnValue = ''
+  }
+}
+
+// =========================================================================
+// 2. REGRAS DE VALIDAÇÃO TÉCNICA E CLÍNICA ÓPTICA
+// =========================================================================
+const validarCilindrico = (campo) => {
+  let val = form[campo]
+  if (val > 0) {
+    form[campo] = -Math.abs(val)
+  }
+}
+
+const validarEixo = (campo) => {
+  let val = form[campo]
+  if (val < 0) form[campo] = 0
+  if (val > 180) form[campo] = 180
+}
+
+const validarAdicao = () => {
+  if (form.adicao < 0) form.adicao = 0
+  if (form.adicao > 3.5) form.adicao = 3.50
+}
+
+const validarDnp = (campo) => {
+  let val = form[campo]
+  if (val !== null && val !== undefined && val !== 0) {
+    if (val < 20) form[campo] = 20
+    if (val > 40) form[campo] = 40
+  }
+}
+
+const validarAltura = () => {
+  if (form.alturaMontagem > 33) form.alturaMontagem = 33
+  if (form.alturaMontagem < 0) form.alturaMontagem = 0
+}
+
+// =========================================================================
+// 3. CONSULTA DE CEP (VIACEP) E DADOS DE CLIENTE
+// =========================================================================
+const tratarDigitacaoCep = () => {
+  form.cep = form.cep.replace(/\D/g, '').replace(/^(\d{5})(\d)/, '$1-$2').slice(0, 9)
+  if (form.cep.replace(/\D/g, '').length === 8) {
+    buscarEnderecoViaCep()
+  }
+}
+
+const buscarEnderecoViaCep = async () => {
+  const cepLimpo = form.cep.replace(/\D/g, '')
+  if (cepLimpo.length !== 8) return
+  
+  buscandoCep.value = true
+  try {
+    const resposta = await fetch(`https://viacep.com.br/ws/${cepLimpo}/json/`)
+    if (resposta.ok) {
+      const dados = await resposta.json()
+      if (!dados.erro) {
+        form.logradouro = dados.logradouro || form.logradouro
+        form.bairro = dados.bairro || form.bairro
+        form.cidade = dados.localidade || form.cidade
+        form.estado = dados.uf || form.estado
+      }
+    }
+  } catch (err) { 
+    console.error('Falha ao consultar ViaCEP:', err) 
+  } finally {
+    buscandoCep.value = false
+  }
+}
+
+// =========================================================================
+// 4. LÓGICAS FINANCEIRAS, IA E SUBMISSÃO
+// =========================================================================
 watch(() => form.formaPagamento, (novaForma) => {
   if (novaForma !== 'CARTAO_CREDITO') qtdParcelas.value = 1
 })
@@ -437,25 +675,6 @@ const consultarCpfNoBanco = async () => {
   }
 }
 
-const buscarEnderecoViaCep = async () => {
-  const cepLimpo = form.cep.replace(/\D/g, '')
-  if (cepLimpo.length !== 8) return
-  try {
-    const resposta = await fetch(`https://viacep.com.br/ws/${cepLimpo}/json/`)
-    if (resposta.ok) {
-      const dados = await resposta.json()
-      if (!dados.erro) {
-        form.logradouro = dados.logradouro || ''
-        form.bairro = dados.bairro || ''
-        form.cidade = dados.localidade || ''
-        form.estado = dados.uf || ''
-      }
-    }
-  } catch (err) { 
-    console.error(err) 
-  }
-}
-
 const manipularArquivo = (event) => {
   const arquivos = event.target.files
   if (arquivos.length > 0) arquivoSelecionado.value = arquivos[0]
@@ -474,11 +693,11 @@ const executarOcrInteligente = async () => {
     const dados = resposta.data
 
     if (dados.esfericoLongeDireito !== null && dados.esfericoLongeDireito !== undefined) form.odEsferico = dados.esfericoLongeDireito
-    if (dados.cilindricoLongeDireito !== null && dados.cilindricoLongeDireito !== undefined) form.odCilindrico = dados.cilindricoLongeDireito
+    if (dados.cilindricoLongeDireito !== null && dados.cilindricoLongeDireito !== undefined) form.odCilindrico = -Math.abs(dados.cilindricoLongeDireito)
     if (dados.eixoLongeDireito !== null && dados.eixoLongeDireito !== undefined) form.odEixo = dados.eixoLongeDireito
 
     if (dados.esfericoLongeEsquerdo !== null && dados.esfericoLongeEsquerdo !== undefined) form.oeEsferico = dados.esfericoLongeEsquerdo
-    if (dados.cilindricoLongeEsquerdo !== null && dados.cilindricoLongeEsquerdo !== undefined) form.oeCilindrico = dados.cilindricoLongeEsquerdo
+    if (dados.cilindricoLongeEsquerdo !== null && dados.cilindricoLongeEsquerdo !== undefined) form.oeCilindrico = -Math.abs(dados.cilindricoLongeEsquerdo)
     if (dados.eixoLongeEsquerdo !== null && dados.eixoLongeEsquerdo !== undefined) form.oeEixo = dados.eixoLongeEsquerdo
 
     if (dados.adicao !== null && dados.adicao !== undefined) form.adicao = dados.adicao
@@ -499,6 +718,8 @@ const salvarOrdemServico = async () => {
     const query = form.formaPagamento === 'CARTAO_CREDITO' ? `?quantidadeParcelas=${qtdParcelas.value}` : ''
     const payload = { ...form, cpf: form.cpf.replace(/\D/g, ''), lentePrecoId: form.lenteId }
     const { data } = await axios.post(`/ordens${query}`, payload)
+    
+    localStorage.removeItem(CHAVE_RASCUNHO)
     osFaturadaResponse.value = { numeroOS: data.numeroOS || 'OS-FINALIZADA' }
     exibirFaturaSucesso.value = true
   } catch (err) {
