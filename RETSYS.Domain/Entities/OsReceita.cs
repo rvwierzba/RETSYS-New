@@ -23,6 +23,16 @@ namespace RETSYS.Domain.Entities
         public decimal DnpOd { get; set; }
         public decimal DnpOe { get; set; }
         public decimal? AlturaMontagem { get; set; }
+
+        // =======================================================
+        // 📐 MEDIDAS DE MONTAGEM DA ARMAÇÃO (NOVOS CAMPOS)
+        // =======================================================
+        public decimal? Aro { get; set; }   // Largura do aro (Horizontal)
+        public decimal? Dm { get; set; }    // Diagonal Maior
+        public decimal? Vert { get; set; }  // Vertical / Altura do aro
+        public decimal? Po { get; set; }    // Ponte
+        public decimal? CoOd { get; set; }  // Centro Óptico - Olho Direito
+        public decimal? CoOe { get; set; }  // Centro Óptico - Olho Esquerdo
         
         public string? ObsReceita { get; set; }
 

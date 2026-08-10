@@ -23,7 +23,7 @@ namespace RETSYS.Web.Controllers
             _context = context;
         }
 
-        // 1. Listagem, Busca Textual e Filtragem por Período de Compra (GET /clientes)
+        // 1. Listagem, Busca Textual, Filtro por Período e Status de Entrega (2.2)
         [HttpGet("/clientes")]
         public async Task<IActionResult> Index([FromQuery] string? busca, [FromQuery] int? mes, [FromQuery] int? ano)
         {
@@ -32,14 +32,12 @@ namespace RETSYS.Web.Controllers
                     .ThenInclude(os => os.Financeiro)
                 .AsQueryable();
 
-            // Filtro por termo textual (Nome ou CPF)
             if (!string.IsNullOrWhiteSpace(busca))
             {
                 var termo = busca.Trim().ToLower();
                 query = query.Where(c => c.Nome.ToLower().Contains(termo) || c.CPF.Contains(termo));
             }
 
-            // Filtro dinâmico de CRM por Período
             if (mes.HasValue && ano.HasValue)
             {
                 query = query.Where(c => 
@@ -47,6 +45,8 @@ namespace RETSYS.Web.Controllers
                     (c.DataUltimaCompra.HasValue && c.DataUltimaCompra.Value.Month == mes.Value && c.DataUltimaCompra.Value.Year == ano.Value)
                 );
             }
+
+            var hojeUtc = DateTime.UtcNow.Date;
 
             var listaClientes = await query
                 .OrderBy(c => c.Nome)
@@ -56,12 +56,20 @@ namespace RETSYS.Web.Controllers
                     c.Nome,
                     c.CPF,
                     c.Telefone,
+                    
+                    // Dados da OS mais recente
                     UltimaOs = c.OrdensServico.OrderByDescending(os => os.DataEntrada).Select(os => os.NumeroOS).FirstOrDefault() ?? 
                                (c.DataUltimaCompra.HasValue ? "MIGRAÇÃO (CRM)" : "Nenhuma"),
-                    
-                    TotalGasto = (c.ValorGasto ?? 0) + c.OrdensServico
+
+                    // 2.2 Mapeamento de Status de Entrega da OS mais recente
+                    StatusEntrega = c.OrdensServico.OrderByDescending(os => os.DataEntrada).Select(os => 
+                        os.Status == "ENTREGUE" ? "Entregue" :
+                        os.DataPrevistaEntrega.Date < hojeUtc ? "Atrasado" : "A entregar"
+                    ).FirstOrDefault() ?? "Nenhum",
+
+                    TotalGasto = (c.ValorGasto ?? 0) + (c.OrdensServico
                         .Where(os => os.Status == "ENTREGUE")
-                        .Sum(os => (decimal?)os.Financeiro.ValorTotalLiquido) ?? 0
+                        .Sum(os => (decimal?)os.Financeiro.ValorTotalLiquido) ?? 0)
                 })
                 .ToListAsync();
 
@@ -105,21 +113,26 @@ namespace RETSYS.Web.Controllers
             });
         }
 
-        // 2. Gravação de Novo Cliente com Suporte a Campos Nativos de Migração (POST com Upload)
+        // 2. Gravação de Cliente com suporte a Cadastro Rápido e Ficha de Migração (2.1)
         [HttpPost("/clientes")]
         public async Task<IActionResult> Store([FromForm] ClienteCadastroRequest model)
         {
-            if (string.IsNullOrWhiteSpace(model.Nome) || string.IsNullOrWhiteSpace(model.CPF))
+            if (string.IsNullOrWhiteSpace(model.Nome))
             {
                 return RedirectToAction(nameof(Index));
             }
+
+            // Normaliza CPF se preenchido
+            string cpfFinal = !string.IsNullOrWhiteSpace(model.CPF) 
+                ? new string(model.CPF.Where(char.IsDigit).ToArray()) 
+                : "";
 
             var novoCliente = new Cliente
             {
                 Id = Guid.NewGuid(),
                 Nome = model.Nome,
-                CPF = model.CPF,
-                Telefone = model.Telefone,
+                CPF = cpfFinal,
+                Telefone = model.Telefone ?? string.Empty,
                 Cep = model.Cep ?? string.Empty,
                 Logradouro = model.Logradouro ?? string.Empty,
                 Numero = model.Numero ?? string.Empty,
@@ -132,6 +145,7 @@ namespace RETSYS.Web.Controllers
                 UpdatedAt = DateTime.UtcNow
             };
 
+            // Se for cadastro de Ficha Antiga (Migração de Histórico)
             if (model.RegistrarHistorico && model.HistoricoData.HasValue)
             {
                 novoCliente.ValorGasto = model.HistoricoValor; 
@@ -148,6 +162,7 @@ namespace RETSYS.Web.Controllers
                 novoCliente.UltimaAdicao = model.UltimaAdicao; 
                 novoCliente.UltimaDnpOd = model.UltimaDnpOd; 
                 novoCliente.UltimaDnpOe = model.UltimaDnpOe; 
+                novoCliente.UltimaAlturaMontagem = model.UltimaAlturaMontagem;
 
                 if (model.HistoricoFotoReceita != null && model.HistoricoFotoReceita.Length > 0)
                 {
@@ -175,7 +190,7 @@ namespace RETSYS.Web.Controllers
             return RedirectToAction(nameof(Index));
         }
 
-        // 3. Prontuário Clínico e Visualização Isolada: Linha do Tempo + Bloco de Migração (GET)
+        // 3. Prontuário Clínico (GET)
         [HttpGet("/clientes/{id:guid}/historico")]
         public async Task<IActionResult> Historico(Guid id)
         {
@@ -186,7 +201,7 @@ namespace RETSYS.Web.Controllers
                     c.ValorGasto, c.ProdutoAdquirido, c.DataUltimaCompra, c.DataReceita,
                     c.UltimaOdEsferico, c.UltimaOdCilindrico, c.UltimaOdEixo,
                     c.UltimaOeEsferico, c.UltimaOeCilindrico, c.UltimaOeEixo,
-                    c.UltimaAdicao, c.UltimaDnpOd, c.UltimaDnpOe
+                    c.UltimaAdicao, c.UltimaDnpOd, c.UltimaDnpOe, c.UltimaAlturaMontagem
                 })
                 .FirstOrDefaultAsync(c => c.Id == id);
 
@@ -205,23 +220,23 @@ namespace RETSYS.Web.Controllers
                     os.NumeroOS,
                     DataVenda = os.DataEntrada, 
                     Medico = os.MedicoNome,      
-                    ValorTotal = os.Financeiro.ValorTotalLiquido, 
+                    ValorTotal = os.Financeiro != null ? os.Financeiro.ValorTotalLiquido : 0, 
                     os.Status,
                     os.IsRetroativa,
-                    ObsReceita = os.Receita.ObsReceita,
-                    odEsferico = os.Receita.OdEsferico,
-                    odCilindrico = os.Receita.OdCilindrico,
-                    odEixo = os.Receita.OdEixo,
-                    oeEsferico = os.Receita.OeEsferico,
-                    oeCilindrico = os.Receita.OeCilindrico,
-                    oeEixo = os.Receita.OeEixo,
-                    adicao = os.Receita.Adicao
+                    ObsReceita = os.Receita != null ? os.Receita.ObsReceita : null,
+                    odEsferico = os.Receita != null ? os.Receita.OdEsferico : 0m,
+                    odCilindrico = os.Receita != null ? os.Receita.OdCilindrico : 0m,
+                    odEixo = os.Receita != null ? os.Receita.OdEixo : 0,
+                    oeEsferico = os.Receita != null ? os.Receita.OeEsferico : 0m,
+                    oeCilindrico = os.Receita != null ? os.Receita.OeCilindrico : 0m,
+                    oeEixo = os.Receita != null ? os.Receita.OeEixo : 0,
+                    adicao = os.Receita != null ? os.Receita.Adicao : null
                 })
                 .ToListAsync();
 
             decimal totalOsaSistema = await _context.OrdensServico
                 .Include(os => os.Financeiro)
-                .Where(os => os.ClienteId == id && os.Status == "ENTREGUE" && !os.IsRetroativa)
+                .Where(os => os.ClienteId == id && os.Status == "ENTREGUE" && !os.IsRetroativa && os.Financeiro != null)
                 .SumAsync(os => os.Financeiro.ValorTotalLiquido);
 
             decimal totalGastoCalculado = (cliente.ValorGasto ?? 0) + totalOsaSistema;
@@ -286,8 +301,8 @@ namespace RETSYS.Web.Controllers
     public class ClienteCadastroRequest
     {
         public string Nome { get; set; } = string.Empty;
-        public string CPF { get; set; } = string.Empty;
-        public string Telefone { get; set; } = string.Empty;
+        public string? CPF { get; set; }
+        public string? Telefone { get; set; }
         public string? Cep { get; set; }
         public string? Logradouro { get; set; }
         public string? Numero { get; set; }
@@ -313,5 +328,6 @@ namespace RETSYS.Web.Controllers
         public decimal? UltimaAdicao { get; set; }
         public decimal? UltimaDnpOd { get; set; }
         public decimal? UltimaDnpOe { get; set; }
+        public decimal? UltimaAlturaMontagem { get; set; }
     }
 }

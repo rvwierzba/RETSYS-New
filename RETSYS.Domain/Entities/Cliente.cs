@@ -43,6 +43,7 @@ namespace RETSYS.Domain.Entities
         public decimal? UltimaAdicao { get; set; }
         public decimal? UltimaDnpOd { get; set; }
         public decimal? UltimaDnpOe { get; set; }
+        public decimal? UltimaAlturaMontagem { get; set; }
 
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
@@ -51,7 +52,6 @@ namespace RETSYS.Domain.Entities
         public ICollection<OrdemServico> OrdensServico { get; set; } = new List<OrdemServico>();
 
         // Regra de negócio: verifica se o cliente faz aniversário numa data específica.
-        // Não depende de banco — fica na própria entidade.
         public bool FazAniversarioEm(DateTime data)
         {
             if (DataNascimento is null)

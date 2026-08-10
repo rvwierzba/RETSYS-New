@@ -7,12 +7,13 @@ namespace RETSYS.Domain.Entities
         public Guid OsId { get; set; } // FK e PK compartilhada
         public OrdemServico OrdemServico { get; set; } = null!;
 
-        public Guid ArmacaoId { get; set; }
-        public Armacao Armacao { get; set; } = null!;
+        // Padrão opcional: Cliente pode levar só lente, só armação ou sem itens vinculados
+        public Guid? ArmacaoId { get; set; }
+        public Armacao? Armacao { get; set; }
 
         // Aponta para a variação exata vendida (índice + tratamento + preço)
-        public Guid LentePrecoId { get; set; }
-        public LentePreco LentePreco { get; set; } = null!;
+        public Guid? LentePrecoId { get; set; }
+        public LentePreco? LentePreco { get; set; }
 
         public decimal ValorTotalBruto { get; set; }
         public decimal DescontoReais { get; set; }

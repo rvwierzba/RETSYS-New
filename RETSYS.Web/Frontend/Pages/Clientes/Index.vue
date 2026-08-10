@@ -5,7 +5,7 @@
       <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
           <h1 class="text-2xl font-black text-slate-950 font-mono tracking-tight">Carteira de Clientes & CRM Óptico</h1>
-          <p class="text-xs text-slate-500">Consulte históricos ópticos, prontuários clínicos, filtre por períodos de faturamento ou registre fichas históricas antigas.</p>
+          <p class="text-xs text-slate-500">Consulte históricos ópticos, acompanhe entregas, filtre períodos ou cadastre leads e fichas antigas.</p>
         </div>
       </div>
 
@@ -43,15 +43,34 @@
             @click="exibirFormNovoCliente = !exibirFormNovoCliente" 
             class="w-full sm:w-auto text-xs bg-slate-950 hover:bg-slate-800 text-white px-5 py-3 rounded-xl font-bold transition flex items-center justify-center gap-2 shadow-sm"
           >
-            <span>{{ exibirFormNovoCliente ? '✕ Ocultar Painel' : '＋ Cadastrar Cliente / Histórico' }}</span>
+            <span>{{ exibirFormNovoCliente ? '✕ Ocultar Painel' : '＋ Novo Cadastro' }}</span>
           </button>
         </div>
       </div>
 
+      <!-- Form com Seletor de Modo: Cadastro Rápido vs Ficha Antiga (2.1) -->
       <div v-if="exibirFormNovoCliente" class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm transition duration-300">
-        <h3 class="text-sm font-black text-slate-950 uppercase tracking-wider font-mono border-b pb-2 mb-4">Ficha Cadastral Auxiliar</h3>
+        
+        <!-- Abas de Alternância dos Modos de Cadastro (2.1) -->
+        <div class="flex items-center gap-2 border-b pb-3 mb-6">
+          <button 
+            type="button" 
+            @click="modoCadastro = 'rapido'; form.RegistrarHistorico = false"
+            :class="['px-4 py-2 rounded-xl text-xs font-bold transition', modoCadastro === 'rapido' ? 'bg-slate-950 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200']"
+          >
+            ⚡ Cadastro Rápido (Lead)
+          </button>
+          <button 
+            type="button" 
+            @click="modoCadastro = 'ficha_antiga'; form.RegistrarHistorico = true"
+            :class="['px-4 py-2 rounded-xl text-xs font-bold transition', modoCadastro === 'ficha_antiga' ? 'bg-amber-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200']"
+          >
+            📜 Ficha Antiga / Migração
+          </button>
+        </div>
         
         <form @submit.prevent="cadastrarCliente" class="space-y-6 text-xs" enctype="multipart/form-data">
+          
           <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div class="md:col-span-2">
               <label class="block font-bold uppercase text-slate-400 tracking-wider mb-1.5">Nome Completo *</label>
@@ -65,12 +84,14 @@
 
           <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
-              <label class="block font-bold uppercase text-slate-400 tracking-wider mb-1.5">CPF *</label>
-              <input v-model="form.CPF" type="text" placeholder="000.000.000-00" class="w-full rounded-xl border-slate-200 text-xs focus:border-teal-500" required />
+              <label class="block font-bold uppercase text-slate-400 tracking-wider mb-1.5">
+                CPF <span v-if="modoCadastro === 'rapido'" class="text-[10px] text-slate-400 font-normal">(Opcional no Rápido)</span>
+              </label>
+              <input v-model="form.CPF" type="text" placeholder="000.000.000-00" class="w-full rounded-xl border-slate-200 text-xs focus:border-teal-500" :required="modoCadastro === 'ficha_antiga'" />
             </div>
             <div>
-              <label class="block font-bold uppercase text-slate-400 tracking-wider mb-1.5">WhatsApp / Telefone *</label>
-              <input v-model="form.Telefone" type="text" placeholder="(11) 99999-0000" class="w-full rounded-xl border-slate-200 text-xs focus:border-teal-500" required />
+              <label class="block font-bold uppercase text-slate-400 tracking-wider mb-1.5">WhatsApp / Telefone</label>
+              <input v-model="form.Telefone" type="text" placeholder="(11) 99999-0000" class="w-full rounded-xl border-slate-200 text-xs focus:border-teal-500" />
             </div>
             <div>
               <label class="block font-bold uppercase text-slate-400 tracking-wider mb-1.5">E-mail</label>
@@ -80,59 +101,57 @@
 
           <div class="border-t border-slate-100 pt-4 grid grid-cols-1 sm:grid-cols-4 gap-4">
             <div>
-              <label class="block font-bold text-teal-600 uppercase tracking-wider mb-1.5">CEP Residência *</label>
-              <input v-model="form.Cep" @blur="buscarCepAutomático" type="text" placeholder="00000-000" class="w-full rounded-xl border-slate-200 text-xs focus:border-teal-500 font-mono" required />
+              <label class="block font-bold text-teal-600 uppercase tracking-wider mb-1.5">CEP Residência</label>
+              <input v-model="form.Cep" @blur="buscarCepAutomático" type="text" placeholder="00000-000" class="w-full rounded-xl border-slate-200 text-xs focus:border-teal-500 font-mono" />
             </div>
             <div class="sm:col-span-2">
-              <label class="block font-bold uppercase text-slate-400 tracking-wider mb-1.5">Logradouro *</label>
-              <input v-model="form.Logradouro" type="text" placeholder="Rua, Avenida..." class="w-full rounded-xl border-slate-200 text-xs focus:border-teal-500" required />
+              <label class="block font-bold uppercase text-slate-400 tracking-wider mb-1.5">Logradouro</label>
+              <input v-model="form.Logradouro" type="text" placeholder="Rua, Avenida..." class="w-full rounded-xl border-slate-200 text-xs focus:border-teal-500" />
             </div>
             <div>
-              <label class="block font-bold uppercase text-slate-400 tracking-wider mb-1.5">Número *</label>
-              <input v-model="form.Numero" type="text" placeholder="123" class="w-full rounded-xl border-slate-200 text-xs focus:border-teal-500 font-mono text-center" required />
+              <label class="block font-bold uppercase text-slate-400 tracking-wider mb-1.5">Número</label>
+              <input v-model="form.Numero" type="text" placeholder="123" class="w-full rounded-xl border-slate-200 text-xs focus:border-teal-500 font-mono text-center" />
             </div>
           </div>
 
           <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
-              <label class="block font-bold uppercase text-slate-400 tracking-wider mb-1.5">Bairro *</label>
-              <input v-model="form.Bairro" type="text" class="w-full rounded-xl border-slate-200 text-xs focus:border-teal-500" required />
+              <label class="block font-bold uppercase text-slate-400 tracking-wider mb-1.5">Bairro</label>
+              <input v-model="form.Bairro" type="text" class="w-full rounded-xl border-slate-200 text-xs focus:border-teal-500" />
             </div>
             <div>
-              <label class="block font-bold uppercase text-slate-400 tracking-wider mb-1.5">Cidade *</label>
-              <input v-model="form.Cidade" type="text" class="w-full rounded-xl border-slate-200 text-xs focus:border-teal-500" required />
+              <label class="block font-bold uppercase text-slate-400 tracking-wider mb-1.5">Cidade</label>
+              <input v-model="form.Cidade" type="text" class="w-full rounded-xl border-slate-200 text-xs focus:border-teal-500" />
             </div>
             <div>
-              <label class="block font-bold uppercase text-slate-400 tracking-wider mb-1.5">UF *</label>
-              <input v-model="form.Estado" type="text" placeholder="SP" maxlength="2" class="w-full rounded-xl border-slate-200 text-xs focus:border-teal-500 uppercase font-mono text-center" required />
+              <label class="block font-bold uppercase text-slate-400 tracking-wider mb-1.5">UF</label>
+              <input v-model="form.Estado" type="text" placeholder="SP" maxlength="2" class="w-full rounded-xl border-slate-200 text-xs focus:border-teal-500 uppercase font-mono text-center" />
             </div>
           </div>
 
-          <div class="p-5 bg-amber-50/60 rounded-2xl border border-amber-200 space-y-4">
-            <div class="flex items-center justify-between">
-              <div>
-                <h4 class="font-bold text-amber-950 uppercase tracking-wider text-[10px] flex items-center gap-2">
-                  <span class="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
-                  Vincular Registro Histórico de Compra Antiga para este Cliente (Ficha de Papel)
-                </h4>
-                <p class="text-[10px] text-amber-600 mt-0.5">Ative essa opção para salvar os valores de refração e gastos antigos diretamente na ficha sem abrir ordens falsas.</p>
-              </div>
-              <input type="checkbox" v-model="form.RegistrarHistorico" class="rounded border-amber-300 text-amber-600 focus:ring-amber-500" />
+          <!-- Seção de Ficha Antiga (Migração de Histórico) -->
+          <div v-if="modoCadastro === 'ficha_antiga'" class="p-5 bg-amber-50/60 rounded-2xl border border-amber-200 space-y-4 animate-fadeIn">
+            <div>
+              <h4 class="font-bold text-amber-950 uppercase tracking-wider text-[10px] flex items-center gap-2">
+                <span class="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
+                Registro Histórico de Compra Antiga (Digitalizar Ficha de Papel)
+              </h4>
+              <p class="text-[10px] text-amber-600 mt-0.5">Preencha os valores conhecidos da última compra e receita do cliente antes do sistema.</p>
             </div>
 
-            <div v-if="form.RegistrarHistorico" class="space-y-4 pt-3 border-t border-amber-200/50 animate-fadeIn">
+            <div class="space-y-4 pt-3 border-t border-amber-200/50">
               <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div>
-                  <label class="block font-bold text-amber-900 uppercase mb-1.5">Data da Última Compra *</label>
-                  <input v-model="form.HistoricoData" type="date" class="w-full rounded-xl border-amber-200 bg-white" :required="form.RegistrarHistorico" />
+                  <label class="block font-bold text-amber-900 uppercase mb-1.5">Data da Última Compra</label>
+                  <input v-model="form.HistoricoData" type="date" class="w-full rounded-xl border-amber-200 bg-white" />
                 </div>
                 <div>
-                  <label class="block font-bold text-amber-900 uppercase mb-1.5">Valor Total Gasto (R$) *</label>
-                  <input v-model.number="form.HistoricoValor" type="number" step="0.01" placeholder="R$ 0,00" class="w-full rounded-xl border-amber-200 bg-white font-mono font-bold" :required="form.RegistrarHistorico" />
+                  <label class="block font-bold text-amber-900 uppercase mb-1.5">Valor Total Gasto (R$)</label>
+                  <input v-model.number="form.HistoricoValor" type="number" step="0.01" placeholder="R$ 0,00" class="w-full rounded-xl border-amber-200 bg-white font-mono font-bold" />
                 </div>
                 <div class="md:col-span-2">
-                  <label class="block font-bold text-amber-900 uppercase mb-1.5">Produto Adquirido (Lente/Tratamento) *</label>
-                  <input v-model="form.HistoricoLente" type="text" placeholder="Escreva o modelo da lente antiga (Ex: Bifocal Tomada com AR)" class="w-full rounded-xl border-amber-200 bg-white" :required="form.RegistrarHistorico" />
+                  <label class="block font-bold text-amber-900 uppercase mb-1.5">Produto Adquirido (Armação/Lente)</label>
+                  <input v-model="form.HistoricoLente" type="text" placeholder="Ex: Ray-Ban + Bifocal Tomada AR" class="w-full rounded-xl border-amber-200 bg-white" />
                 </div>
               </div>
 
@@ -160,7 +179,7 @@
                   <input v-model.number="form.UltimaOeEixo" type="number" min="0" max="180" placeholder="0" class="rounded-xl border-slate-200 text-center font-mono py-1" />
                 </div>
 
-                <div class="grid grid-cols-3 gap-2 pt-2 border-t border-slate-100">
+                <div class="grid grid-cols-4 gap-2 pt-2 border-t border-slate-100">
                   <div>
                     <label class="block font-bold text-slate-400 mb-1">Adição (AD)</label>
                     <input v-model.number="form.UltimaAdicao" type="number" step="0.25" placeholder="0,00" class="w-full rounded-xl border-slate-200 text-center font-mono py-1" />
@@ -173,6 +192,10 @@
                     <label class="block font-bold text-slate-400 mb-1">DNP Esquerda</label>
                     <input v-model.number="form.UltimaDnpOe" type="number" step="0.5" placeholder="mm" class="w-full rounded-xl border-slate-200 text-center font-mono py-1" />
                   </div>
+                  <div>
+                    <label class="block font-bold text-slate-400 mb-1">Altura</label>
+                    <input v-model.number="form.UltimaAlturaMontagem" type="number" step="0.5" placeholder="mm" class="w-full rounded-xl border-slate-200 text-center font-mono py-1" />
+                  </div>
                 </div>
               </div>
 
@@ -184,7 +207,7 @@
                     {{ form.HistoricoFotoReceita ? 'Alterar Imagem' : '📸 Selecionar Arquivo Receita' }}
                   </label>
                   <span class="text-[10px] font-mono text-amber-700 truncate max-w-xs block">
-                    {{ form.HistoricoFotoReceita ? form.HistoricoFotoReceita.name : 'Nenhuma foto anexada no momento' }}
+                    {{ form.HistoricoFotoReceita ? form.HistoricoFotoReceita.name : 'Nenhuma foto anexada' }}
                   </span>
                 </div>
               </div>
@@ -193,18 +216,19 @@
 
           <div class="flex justify-end gap-2 border-t border-slate-100 pt-4">
             <button type="submit" :disabled="form.processing" class="bg-teal-600 hover:bg-teal-700 disabled:bg-slate-200 text-white font-bold py-2.5 px-6 rounded-xl text-xs uppercase tracking-wider transition shadow-sm">
-              <span v-if="form.processing">Processando Gravação...</span>
-              <span v-else>Salvar Ficha Cadastral</span>
+              <span v-if="form.processing">Processando...</span>
+              <span v-else>Salvar Cadastro</span>
             </button>
           </div>
         </form>
       </div>
 
+      <!-- Tabela de Clientes com Status de Entrega da OS (2.2) -->
       <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
         <h3 class="text-sm font-black text-slate-950 uppercase tracking-wider font-mono mb-4">Registros Encontrados</h3>
 
         <div v-if="!Clientes || Clientes.length === 0" class="text-center py-12 border-2 border-dashed border-slate-100 rounded-xl text-slate-400 text-sm">
-          Nenhum cliente atende aos critérios de busca ou ao período de compra informado.
+          Nenhum cliente atende aos critérios de busca ou ao período informado.
         </div>
 
         <div v-else class="overflow-x-auto">
@@ -213,6 +237,7 @@
               <tr class="border-b border-slate-100 text-slate-400 text-xs font-bold uppercase tracking-wider">
                 <th class="pb-3">Nome do Cliente</th>
                 <th class="pb-3 text-center">CPF</th>
+                <th class="pb-3 text-center">Status Entrega OS</th>
                 <th class="pb-3 text-center">Contato (WhatsApp)</th>
                 <th class="pb-3 text-center">Última OS</th>
                 <th class="pb-3 text-right">Total Gasto</th>
@@ -222,8 +247,21 @@
             <tbody>
               <tr v-for="c in Clientes" :key="c.Id" class="border-b border-slate-50 hover:bg-slate-50/50 transition">
                 <td class="py-4 font-bold text-slate-800">{{ c.Nome }}</td>
-                <td class="py-4 text-center font-mono text-slate-600 text-xs">{{ c.CPF }}</td>
+                <td class="py-4 text-center font-mono text-slate-600 text-xs">{{ c.CPF || '--' }}</td>
                 
+                <!-- 2.2 Badge de Status de Entrega -->
+                <td class="py-4 text-center">
+                  <span :class="[
+                    'px-2.5 py-1 rounded-full text-[10px] font-black uppercase font-mono border',
+                    c.StatusEntrega === 'Entregue' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                    c.StatusEntrega === 'Atrasado' ? 'bg-rose-50 text-rose-700 border-rose-200 animate-pulse' :
+                    c.StatusEntrega === 'A entregar' ? 'bg-sky-50 text-sky-700 border-sky-200' :
+                    'bg-slate-50 text-slate-400 border-slate-200'
+                  ]">
+                    {{ c.StatusEntrega || 'Nenhum' }}
+                  </span>
+                </td>
+
                 <td class="py-4 text-center font-mono text-xs">
                   <a 
                     v-if="c.Telefone" 
@@ -233,7 +271,7 @@
                   >
                     <span>💬</span> {{ c.Telefone }}
                   </a>
-                  <span class="text-slate-400">--</span>
+                  <span v-else class="text-slate-400">--</span>
                 </td>
 
                 <td class="py-4 text-center font-mono text-xs text-teal-600 font-bold">
@@ -241,7 +279,7 @@
                 </td>
 
                 <td class="py-4 text-right font-black text-slate-950 font-mono text-xs">
-                  R$ {{ c.TotalGasto.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}
+                  R$ {{ (c.TotalGasto || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}
                 </td>
                 
                 <td class="py-4 text-center">
@@ -276,6 +314,7 @@ const props = defineProps({
 
 const termoBusca = ref(props.FiltroBusca || '')
 const exibirFormNovoCliente = ref(false) 
+const modoCadastro = ref('rapido') // 'rapido' | 'ficha_antiga'
 
 const filtroPeriodo = reactive({
   mes: props.MesFiltro || null,
@@ -308,7 +347,6 @@ const form = useForm({
   HistoricoLente: '',
   HistoricoFotoReceita: null,
 
-  // Inicialização reativa das chaves de refração legadas da Seção 3
   UltimaOdEsferico: 0,
   UltimaOdCilindrico: 0,
   UltimaOdEixo: 0,
@@ -317,11 +355,12 @@ const form = useForm({
   UltimaOeEixo: 0,
   UltimaAdicao: null,
   UltimaDnpOd: 0,
-  UltimaDnpOe: 0
+  UltimaDnpOe: 0,
+  UltimaAlturaMontagem: null
 })
 
 const registrarTimeout = ref(null)
-const ejecutarFiltroCombinado = () => {
+const executarFiltroCombinado = () => {
   clearTimeout(registrarTimeout.value)
   registrarTimeout.value = setTimeout(() => {
     router.get('/clientes', { 
@@ -333,6 +372,7 @@ const ejecutarFiltroCombinado = () => {
 }
 
 const buscarCepAutomático = async () => {
+  if (!form.Cep) return
   const cepLimpo = form.Cep.replace(/\D/g, '')
   if (cepLimpo.length !== 8) return
 
@@ -355,7 +395,7 @@ const buscarCepAutomático = async () => {
 const vincularArquivoUpload = (event) => {
   const arquivos = event.target.files
   if (arquivos.length > 0) {
-    form.HistoricoFotoReceita = arquivos[0] // Correção efetuada do typo 'archivos'
+    form.HistoricoFotoReceita = arquivos[0]
   }
 }
 
@@ -371,7 +411,7 @@ const cadastrarCliente = () => {
     onSuccess: () => {
       form.reset()
       exibirFormNovoCliente.value = false
-      alert('Cadastro e dados históricos consolidados!')
+      alert('Cadastro realizado com sucesso!')
     }
   })
 }

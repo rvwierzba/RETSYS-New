@@ -14,7 +14,6 @@ namespace RETSYS.Infrastructure.Data
         public DbSet<Armacao> Armacoes => Set<Armacao>();
         public DbSet<Lente> Lentes => Set<Lente>();
         public DbSet<LentePreco> LentesTabelaPrecos => Set<LentePreco>();
-        // ❌ REMOVIDO: public DbSet<LenteTratamento> LentesTratamentos => Set<LenteTratamento>();
         public DbSet<Cliente> Clientes => Set<Cliente>();
         public DbSet<OrdemServico> OrdensServico => Set<OrdemServico>();
         public DbSet<OsReceita> OsReceitas => Set<OsReceita>();
@@ -86,7 +85,6 @@ namespace RETSYS.Infrastructure.Data
                 b.Property(l => l.GraduacaoMin).HasPrecision(5, 2);
                 b.Property(l => l.GraduacaoMax).HasPrecision(5, 2);
 
-                // Uma Lente base -> Várias variações de preço/tratamento
                 b.HasMany(l => l.Precos)
                  .WithOne(lp => lp.Lente)
                  .HasForeignKey(lp => lp.LenteId)
@@ -101,18 +99,10 @@ namespace RETSYS.Infrastructure.Data
                 b.Property(lp => lp.IndiceRefracao).HasPrecision(4, 2);
                 b.Property(lp => lp.PrecoCusto).HasPrecision(10, 2);
                 b.Property(lp => lp.PrecoVenda).HasPrecision(10, 2);
-
-                // ✅ NOVO: Tratamento agora é apenas um rótulo de texto livre
-                //    (sem FK, sem tabela lentes_tratamentos, sem acrescimo_valor)
                 b.Property(lp => lp.Tratamento).HasMaxLength(100);
-
-                // ❌ REMOVIDO: relacionamento HasOne(lp => lp.Tratamento) com LenteTratamento
             });
 
-            // ❌ REMOVIDO POR COMPLETO: bloco de configuração de LenteTratamento
-            // modelBuilder.Entity<LenteTratamento>(b => { ... });
-
-            // CLIENTES (com campos de migração)
+            // CLIENTES (com campos de migração e histórico de receitas)
             modelBuilder.Entity<Cliente>(b =>
             {
                 b.ToTable("clientes");
@@ -135,6 +125,16 @@ namespace RETSYS.Infrastructure.Data
                 b.Property(c => c.ValorGasto).HasPrecision(10, 2);
                 b.Property(c => c.ProdutoAdquirido).HasMaxLength(150);
 
+                // Precisões da última receita
+                b.Property(c => c.UltimaOdEsferico).HasPrecision(5, 2);
+                b.Property(c => c.UltimaOdCilindrico).HasPrecision(5, 2);
+                b.Property(c => c.UltimaOeEsferico).HasPrecision(5, 2);
+                b.Property(c => c.UltimaOeCilindrico).HasPrecision(5, 2);
+                b.Property(c => c.UltimaAdicao).HasPrecision(4, 2);
+                b.Property(c => c.UltimaDnpOd).HasPrecision(4, 1);
+                b.Property(c => c.UltimaDnpOe).HasPrecision(4, 1);
+                b.Property(c => c.UltimaAlturaMontagem).HasPrecision(4, 1);
+
                 b.HasIndex(c => c.CPF).IsUnique();
             });
 
@@ -150,7 +150,6 @@ namespace RETSYS.Infrastructure.Data
                 b.Property(os => os.Observacoes).HasColumnType("text");
                 b.Property(os => os.MedicoTipo).HasMaxLength(30).IsRequired().HasDefaultValue("NAO_ESPECIFICADO");
 
-                // Limites de tamanho para os campos manuais de OS retroativa
                 b.Property(os => os.ArmacaoModeloManual).HasMaxLength(150);
                 b.Property(os => os.LenteDescricaoManual).HasMaxLength(200);
 
@@ -180,9 +179,18 @@ namespace RETSYS.Infrastructure.Data
                 b.Property(r => r.DnpOd).HasPrecision(4, 1);
                 b.Property(r => r.DnpOe).HasPrecision(4, 1);
                 b.Property(r => r.AlturaMontagem).HasPrecision(4, 1);
+
+                // 📐 Medidas de montagem da armação
+                b.Property(r => r.Aro).HasPrecision(4, 1);
+                b.Property(r => r.Dm).HasPrecision(4, 1);
+                b.Property(r => r.Vert).HasPrecision(4, 1);
+                b.Property(r => r.Po).HasPrecision(4, 1);
+                b.Property(r => r.CoOd).HasPrecision(4, 1);
+                b.Property(r => r.CoOe).HasPrecision(4, 1);
+
                 b.Property(r => r.ObsReceita).HasColumnType("text");
 
-                // Garante que o EF nunca tente mapear as propriedades computadas
+                // Propriedades computadas ignoradas no banco
                 b.Ignore(r => r.OdEsfericoPerto);
                 b.Ignore(r => r.OeEsfericoPerto);
                 b.Ignore(r => r.OdCilindricoPerto);
@@ -196,7 +204,7 @@ namespace RETSYS.Infrastructure.Data
                  .OnDelete(DeleteBehavior.Cascade);
             });
 
-            // OS_FINANCEIRO (1:1) — referenciando LentePreco
+            // OS_FINANCEIRO (1:1) — ArmacaoId e LentePrecoId opcionais
             modelBuilder.Entity<OsFinanceiro>(b =>
             {
                 b.ToTable("os_financeiro");
@@ -220,12 +228,13 @@ namespace RETSYS.Infrastructure.Data
                 b.HasOne(f => f.Armacao)
                  .WithMany()
                  .HasForeignKey(f => f.ArmacaoId)
+                 .IsRequired(false)
                  .OnDelete(DeleteBehavior.Restrict);
 
-                // Aponta para a variação exata (LentePreco), não mais para Lente
                 b.HasOne(f => f.LentePreco)
                  .WithMany()
                  .HasForeignKey(f => f.LentePrecoId)
+                 .IsRequired(false)
                  .OnDelete(DeleteBehavior.Restrict);
             });
 
