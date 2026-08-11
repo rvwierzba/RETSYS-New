@@ -179,7 +179,7 @@ namespace RETSYS.Web.Controllers
             });
         }
 
-        // 4. Gravação Definitiva de Nova OS com Regras de Negócio de 10/08
+        // 4. Gravação Definitiva de Nova OS com Clamping / Travas para Montagem
         [HttpPost("/ordens")]
         public async Task<IActionResult> Store([FromBody] JsonElement raiz, [FromQuery] int? quantidadeParcelas)
         {
@@ -220,7 +220,6 @@ namespace RETSYS.Web.Controllers
                 }
                 cliente.UpdatedAt = DateTime.UtcNow;
 
-                // Armação e Lente Opcionais (Guid?)
                 Guid? armacaoId = null;
                 if (raiz.TryGetProperty("armacaoId", out var armProp) && !string.IsNullOrWhiteSpace(armProp.GetString()) && Guid.TryParse(armProp.GetString(), out Guid armGuid))
                 {
@@ -237,7 +236,6 @@ namespace RETSYS.Web.Controllers
                 decimal valorLente = raiz.TryGetProperty("valorLente", out var vLen) ? vLen.GetDecimal() : 0m;
                 decimal totalBruto = valorArmacao + valorLente; 
 
-                // 1.3 Desconto em Reais e validação do limite percentual do vendedor
                 decimal descontoReais = raiz.TryGetProperty("descontoReais", out var dReais) ? dReais.GetDecimal() : 0m;
                 decimal descontoPercentual = totalBruto > 0 ? Math.Round((descontoReais / totalBruto) * 100, 2) : 0m;
 
@@ -265,7 +263,6 @@ namespace RETSYS.Web.Controllers
                     loopParcelas = parcelasFinais.Value;
                 }
 
-                // 1.4 Data de Emissão Automática (Hoje)
                 var novaOS = new OrdemServico
                 {
                     Id = Guid.NewGuid(),
@@ -284,17 +281,14 @@ namespace RETSYS.Web.Controllers
                     Ativo = true
                 };
 
-                // 1.2 Regra: Se houver receita/lente com grau, processa dados da receita
                 bool temReceitaInformada = raiz.TryGetProperty("odEsferico", out _) || raiz.TryGetProperty("oeEsferico", out _);
 
                 if (temReceitaInformada || lentePrecoId.HasValue)
                 {
-                    // 3.1 Cilíndrico negativo automático
                     decimal rawOdCil = raiz.TryGetProperty("odCilindrico", out var odC) ? odC.GetDecimal() : 0m;
                     decimal odCilindrico = rawOdCil > 0 ? -Math.Abs(rawOdCil) : rawOdCil;
                     odCilindrico = Math.Clamp(odCilindrico, -15.00m, 0m);
 
-                    // 3.2 Eixo de 0 a 180
                     int odEixo = Math.Clamp(raiz.TryGetProperty("odEixo", out var odE) ? odE.GetInt32() : 0, 0, 180);
 
                     decimal rawOeCil = raiz.TryGetProperty("oeCilindrico", out var oeC) ? oeC.GetDecimal() : 0m;
@@ -311,13 +305,13 @@ namespace RETSYS.Web.Controllers
 
                     decimal? alturaMontagem = raiz.TryGetProperty("alturaMontagem", out var alt) && alt.ValueKind != JsonValueKind.Null ? alt.GetDecimal() : null;
 
-                    // 1.1 Medidas de montagem da armação
-                    decimal? aro = raiz.TryGetProperty("aro", out var vAro) && vAro.ValueKind != JsonValueKind.Null ? vAro.GetDecimal() : null;
-                    decimal? dm = raiz.TryGetProperty("dm", out var vDm) && vDm.ValueKind != JsonValueKind.Null ? vDm.GetDecimal() : null;
-                    decimal? vert = raiz.TryGetProperty("vert", out var vVert) && vVert.ValueKind != JsonValueKind.Null ? vVert.GetDecimal() : null;
-                    decimal? po = raiz.TryGetProperty("po", out var vPo) && vPo.ValueKind != JsonValueKind.Null ? vPo.GetDecimal() : null;
-                    decimal? coOd = raiz.TryGetProperty("coOd", out var vCoOd) && vCoOd.ValueKind != JsonValueKind.Null ? vCoOd.GetDecimal() : null;
-                    decimal? coOe = raiz.TryGetProperty("coOe", out var vCoOe) && vCoOe.ValueKind != JsonValueKind.Null ? vCoOe.GetDecimal() : null;
+                    // Clamping para as medidas de montagem (Aro/DM/Vert/Co <= 80mm, PO <= 25mm)
+                    decimal? aro = raiz.TryGetProperty("aro", out var vAro) && vAro.ValueKind != JsonValueKind.Null ? Math.Clamp(vAro.GetDecimal(), 0m, 80m) : null;
+                    decimal? dm = raiz.TryGetProperty("dm", out var vDm) && vDm.ValueKind != JsonValueKind.Null ? Math.Clamp(vDm.GetDecimal(), 0m, 80m) : null;
+                    decimal? vert = raiz.TryGetProperty("vert", out var vVert) && vVert.ValueKind != JsonValueKind.Null ? Math.Clamp(vVert.GetDecimal(), 0m, 80m) : null;
+                    decimal? po = raiz.TryGetProperty("po", out var vPo) && vPo.ValueKind != JsonValueKind.Null ? Math.Clamp(vPo.GetDecimal(), 0m, 25m) : null;
+                    decimal? coOd = raiz.TryGetProperty("coOd", out var vCoOd) && vCoOd.ValueKind != JsonValueKind.Null ? Math.Clamp(vCoOd.GetDecimal(), 0m, 80m) : null;
+                    decimal? coOe = raiz.TryGetProperty("coOe", out var vCoOe) && vCoOe.ValueKind != JsonValueKind.Null ? Math.Clamp(vCoOe.GetDecimal(), 0m, 80m) : null;
 
                     novaOS.Receita = new OsReceita
                     {
@@ -333,7 +327,6 @@ namespace RETSYS.Web.Controllers
                         DnpOe = dnpOe,
                         AlturaMontagem = alturaMontagem,
 
-                        // Novos campos de montagem
                         Aro = aro,
                         Dm = dm,
                         Vert = vert,
@@ -385,7 +378,7 @@ namespace RETSYS.Web.Controllers
             }
         }
 
-        // 5. Alteração de Status com Atualização de Estoque Nula-Safe
+        // 5. Alteração de Status com Atualização de Estoque
         [HttpPost("/ordens/alterar-status/{id:guid}")]
         public async Task<IActionResult> AlterarStatus(Guid id, [FromQuery] string novoStatus)
         {
@@ -435,7 +428,31 @@ namespace RETSYS.Web.Controllers
             return RedirectToAction(nameof(Index));
         }
 
-        // 6. Processamento de Leitura de Receita por IA (Ollama/Moondream)
+        // 6. Exclusão / Cancelamento de OS
+        [HttpPost("/ordens/excluir/{id:guid}")]
+        public async Task<IActionResult> Excluir(Guid id)
+        {
+            var ordem = await _context.OrdensServico
+                .Include(os => os.Financeiro)
+                .FirstOrDefaultAsync(os => os.Id == id);
+
+            if (ordem == null) return NotFound();
+
+            // Estorna o estoque da armação se a OS já tiver alterado o inventário
+            if (ordem.Financeiro?.ArmacaoId != null && (ordem.Status == "EM_LABORATORIO" || ordem.Status == "PRONTO" || ordem.Status == "ENTREGUE"))
+            {
+                var armacao = await _context.Armacoes.FindAsync(ordem.Financeiro.ArmacaoId);
+                if (armacao != null) armacao.QuantidadeEstoque++;
+            }
+
+            ordem.Ativo = false;
+            ordem.Status = "CANCELADO";
+
+            await _context.SaveChangesAsync();
+            return RedirectToAction(nameof(Index));
+        }
+
+        // 7. Processamento de Leitura de Receita por IA (Ollama/Moondream)
         [HttpPost("/ordens/processar-receita-ia")]
         public async Task<IActionResult> ProcessarReceitaIA(IFormFile imagemReceita)
         {

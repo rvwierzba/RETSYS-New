@@ -16,6 +16,7 @@
           <input 
             v-model="termoBusca" 
             @input="executarFiltroCombinado"
+            @keydown.enter.prevent 
             type="text" 
             placeholder="Pesquisa rápida por nome parcial ou CPF do cliente..." 
             class="w-full rounded-xl border-slate-200 text-xs focus:border-teal-500 focus:ring-teal-500 shadow-sm placeholder:text-slate-400"
@@ -48,10 +49,10 @@
         </div>
       </div>
 
-      <!-- Form com Seletor de Modo: Cadastro Rápido vs Ficha Antiga (2.1) -->
+      <!-- Form com Seletor de Modo: Cadastro Rápido vs Ficha Antiga com Trava do Enter -->
       <div v-if="exibirFormNovoCliente" class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm transition duration-300">
         
-        <!-- Abas de Alternância dos Modos de Cadastro (2.1) -->
+        <!-- Abas de Alternância dos Modos de Cadastro -->
         <div class="flex items-center gap-2 border-b pb-3 mb-6">
           <button 
             type="button" 
@@ -69,16 +70,16 @@
           </button>
         </div>
         
-        <form @submit.prevent="cadastrarCliente" class="space-y-6 text-xs" enctype="multipart/form-data">
+        <form @submit.prevent="cadastrarCliente" @keydown.enter.prevent class="space-y-6 text-xs" enctype="multipart/form-data">
           
           <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
             <div class="md:col-span-2">
               <label class="block font-bold uppercase text-slate-400 tracking-wider mb-1.5">Nome Completo *</label>
-              <input v-model="form.Nome" type="text" placeholder="Ex: João Silva" class="w-full rounded-xl border-slate-200 text-xs focus:border-teal-500" required />
+              <input v-model="form.Nome" type="text" placeholder="Ex: João Silva" @keydown.enter.prevent class="w-full rounded-xl border-slate-200 text-xs focus:border-teal-500" required />
             </div>
             <div>
               <label class="block font-bold uppercase text-slate-400 tracking-wider mb-1.5">Convênio</label>
-              <input v-model="form.Convenio" type="text" placeholder="Plano Óptico" class="w-full rounded-xl border-slate-200 text-xs focus:border-teal-500" />
+              <input v-model="form.Convenio" type="text" placeholder="Plano Óptico" @keydown.enter.prevent class="w-full rounded-xl border-slate-200 text-xs focus:border-teal-500" />
             </div>
           </div>
 
@@ -87,49 +88,49 @@
               <label class="block font-bold uppercase text-slate-400 tracking-wider mb-1.5">
                 CPF <span v-if="modoCadastro === 'rapido'" class="text-[10px] text-slate-400 font-normal">(Opcional no Rápido)</span>
               </label>
-              <input v-model="form.CPF" type="text" placeholder="000.000.000-00" class="w-full rounded-xl border-slate-200 text-xs focus:border-teal-500" :required="modoCadastro === 'ficha_antiga'" />
+              <input v-model="form.CPF" type="text" placeholder="000.000.000-00" @keydown.enter.prevent class="w-full rounded-xl border-slate-200 text-xs focus:border-teal-500" :required="modoCadastro === 'ficha_antiga'" />
             </div>
             <div>
               <label class="block font-bold uppercase text-slate-400 tracking-wider mb-1.5">WhatsApp / Telefone</label>
-              <input v-model="form.Telefone" type="text" placeholder="(11) 99999-0000" class="w-full rounded-xl border-slate-200 text-xs focus:border-teal-500" />
+              <input v-model="form.Telefone" type="text" placeholder="(11) 99999-0000" @keydown.enter.prevent class="w-full rounded-xl border-slate-200 text-xs focus:border-teal-500" />
             </div>
             <div>
               <label class="block font-bold uppercase text-slate-400 tracking-wider mb-1.5">E-mail</label>
-              <input v-model="form.Email" type="email" placeholder="cliente@email.com" class="w-full rounded-xl border-slate-200 text-xs focus:border-teal-500" />
+              <input v-model="form.Email" type="email" placeholder="cliente@email.com" @keydown.enter.prevent class="w-full rounded-xl border-slate-200 text-xs focus:border-teal-500" />
             </div>
           </div>
 
           <div class="border-t border-slate-100 pt-4 grid grid-cols-1 sm:grid-cols-4 gap-4">
             <div>
               <label class="block font-bold text-teal-600 uppercase tracking-wider mb-1.5">CEP Residência</label>
-              <input v-model="form.Cep" @blur="buscarCepAutomático" type="text" placeholder="00000-000" class="w-full rounded-xl border-slate-200 text-xs focus:border-teal-500 font-mono" />
+              <input v-model="form.Cep" @blur="buscarCepAutomático" @keydown.enter.prevent type="text" placeholder="00000-000" class="w-full rounded-xl border-slate-200 text-xs focus:border-teal-500 font-mono" />
             </div>
             <div class="sm:col-span-2">
               <label class="block font-bold uppercase text-slate-400 tracking-wider mb-1.5">Logradouro</label>
-              <input v-model="form.Logradouro" type="text" placeholder="Rua, Avenida..." class="w-full rounded-xl border-slate-200 text-xs focus:border-teal-500" />
+              <input v-model="form.Logradouro" type="text" placeholder="Rua, Avenida..." @keydown.enter.prevent class="w-full rounded-xl border-slate-200 text-xs focus:border-teal-500" />
             </div>
             <div>
               <label class="block font-bold uppercase text-slate-400 tracking-wider mb-1.5">Número</label>
-              <input v-model="form.Numero" type="text" placeholder="123" class="w-full rounded-xl border-slate-200 text-xs focus:border-teal-500 font-mono text-center" />
+              <input v-model="form.Numero" type="text" placeholder="123" @keydown.enter.prevent class="w-full rounded-xl border-slate-200 text-xs focus:border-teal-500 font-mono text-center" />
             </div>
           </div>
 
           <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
               <label class="block font-bold uppercase text-slate-400 tracking-wider mb-1.5">Bairro</label>
-              <input v-model="form.Bairro" type="text" class="w-full rounded-xl border-slate-200 text-xs focus:border-teal-500" />
+              <input v-model="form.Bairro" type="text" @keydown.enter.prevent class="w-full rounded-xl border-slate-200 text-xs focus:border-teal-500" />
             </div>
             <div>
               <label class="block font-bold uppercase text-slate-400 tracking-wider mb-1.5">Cidade</label>
-              <input v-model="form.Cidade" type="text" class="w-full rounded-xl border-slate-200 text-xs focus:border-teal-500" />
+              <input v-model="form.Cidade" type="text" @keydown.enter.prevent class="w-full rounded-xl border-slate-200 text-xs focus:border-teal-500" />
             </div>
             <div>
               <label class="block font-bold uppercase text-slate-400 tracking-wider mb-1.5">UF</label>
-              <input v-model="form.Estado" type="text" placeholder="SP" maxlength="2" class="w-full rounded-xl border-slate-200 text-xs focus:border-teal-500 uppercase font-mono text-center" />
+              <input v-model="form.Estado" type="text" placeholder="SP" maxlength="2" @keydown.enter.prevent class="w-full rounded-xl border-slate-200 text-xs focus:border-teal-500 uppercase font-mono text-center" />
             </div>
           </div>
 
-          <!-- Seção de Ficha Antiga (Migração de Histórico) -->
+          <!-- Seção de Ficha Antiga (Migração de Histórico) com Limites de Montagem -->
           <div v-if="modoCadastro === 'ficha_antiga'" class="p-5 bg-amber-50/60 rounded-2xl border border-amber-200 space-y-4 animate-fadeIn">
             <div>
               <h4 class="font-bold text-amber-950 uppercase tracking-wider text-[10px] flex items-center gap-2">
@@ -143,15 +144,15 @@
               <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div>
                   <label class="block font-bold text-amber-900 uppercase mb-1.5">Data da Última Compra</label>
-                  <input v-model="form.HistoricoData" type="date" class="w-full rounded-xl border-amber-200 bg-white" />
+                  <input v-model="form.HistoricoData" type="date" @keydown.enter.prevent class="w-full rounded-xl border-amber-200 bg-white" />
                 </div>
                 <div>
                   <label class="block font-bold text-amber-900 uppercase mb-1.5">Valor Total Gasto (R$)</label>
-                  <input v-model.number="form.HistoricoValor" type="number" step="0.01" placeholder="R$ 0,00" class="w-full rounded-xl border-amber-200 bg-white font-mono font-bold" />
+                  <input v-model.number="form.HistoricoValor" type="number" step="0.01" placeholder="R$ 0,00" @keydown.enter.prevent class="w-full rounded-xl border-amber-200 bg-white font-mono font-bold" />
                 </div>
                 <div class="md:col-span-2">
                   <label class="block font-bold text-amber-900 uppercase mb-1.5">Produto Adquirido (Armação/Lente)</label>
-                  <input v-model="form.HistoricoLente" type="text" placeholder="Ex: Ray-Ban + Bifocal Tomada AR" class="w-full rounded-xl border-amber-200 bg-white" />
+                  <input v-model="form.HistoricoLente" type="text" placeholder="Ex: Ray-Ban + Bifocal Tomada AR" @keydown.enter.prevent class="w-full rounded-xl border-amber-200 bg-white" />
                 </div>
               </div>
 
@@ -167,36 +168,68 @@
 
                 <div class="grid grid-cols-4 gap-2 items-center">
                   <div class="text-xs font-black text-slate-700 text-center">OD</div>
-                  <input v-model.number="form.UltimaOdEsferico" type="number" step="0.25" placeholder="0,00" class="rounded-xl border-slate-200 text-center font-mono py-1" />
-                  <input v-model.number="form.UltimaOdCilindrico" type="number" step="0.25" placeholder="0,00" class="rounded-xl border-slate-200 text-center font-mono py-1" />
-                  <input v-model.number="form.UltimaOdEixo" type="number" min="0" max="180" placeholder="0" class="rounded-xl border-slate-200 text-center font-mono py-1" />
+                  <input v-model.number="form.UltimaOdEsferico" type="number" step="0.25" placeholder="0,00" @keydown.enter.prevent class="rounded-xl border-slate-200 text-center font-mono py-1" />
+                  <input v-model.number="form.UltimaOdCilindrico" type="number" step="0.25" placeholder="0,00" @keydown.enter.prevent class="rounded-xl border-slate-200 text-center font-mono py-1" />
+                  <input v-model.number="form.UltimaOdEixo" type="number" min="0" max="180" placeholder="0" @keydown.enter.prevent class="rounded-xl border-slate-200 text-center font-mono py-1" />
                 </div>
 
                 <div class="grid grid-cols-4 gap-2 items-center">
                   <div class="text-xs font-black text-slate-700 text-center">OE</div>
-                  <input v-model.number="form.UltimaOeEsferico" type="number" step="0.25" placeholder="0,00" class="rounded-xl border-slate-200 text-center font-mono py-1" />
-                  <input v-model.number="form.UltimaOeCilindrico" type="number" step="0.25" placeholder="0,00" class="rounded-xl border-slate-200 text-center font-mono py-1" />
-                  <input v-model.number="form.UltimaOeEixo" type="number" min="0" max="180" placeholder="0" class="rounded-xl border-slate-200 text-center font-mono py-1" />
+                  <input v-model.number="form.UltimaOeEsferico" type="number" step="0.25" placeholder="0,00" @keydown.enter.prevent class="rounded-xl border-slate-200 text-center font-mono py-1" />
+                  <input v-model.number="form.UltimaOeCilindrico" type="number" step="0.25" placeholder="0,00" @keydown.enter.prevent class="rounded-xl border-slate-200 text-center font-mono py-1" />
+                  <input v-model.number="form.UltimaOeEixo" type="number" min="0" max="180" placeholder="0" @keydown.enter.prevent class="rounded-xl border-slate-200 text-center font-mono py-1" />
                 </div>
 
                 <div class="grid grid-cols-4 gap-2 pt-2 border-t border-slate-100">
                   <div>
                     <label class="block font-bold text-slate-400 mb-1">Adição (AD)</label>
-                    <input v-model.number="form.UltimaAdicao" type="number" step="0.25" placeholder="0,00" class="w-full rounded-xl border-slate-200 text-center font-mono py-1" />
+                    <input v-model.number="form.UltimaAdicao" type="number" step="0.25" placeholder="0,00" @keydown.enter.prevent class="w-full rounded-xl border-slate-200 text-center font-mono py-1" />
                   </div>
                   <div>
                     <label class="block font-bold text-slate-400 mb-1">DNP Direita</label>
-                    <input v-model.number="form.UltimaDnpOd" type="number" step="0.5" placeholder="mm" class="w-full rounded-xl border-slate-200 text-center font-mono py-1" />
+                    <input v-model.number="form.UltimaDnpOd" type="number" step="0.5" min="20" max="40" placeholder="mm" @keydown.enter.prevent class="w-full rounded-xl border-slate-200 text-center font-mono py-1" />
                   </div>
                   <div>
                     <label class="block font-bold text-slate-400 mb-1">DNP Esquerda</label>
-                    <input v-model.number="form.UltimaDnpOe" type="number" step="0.5" placeholder="mm" class="w-full rounded-xl border-slate-200 text-center font-mono py-1" />
+                    <input v-model.number="form.UltimaDnpOe" type="number" step="0.5" min="20" max="40" placeholder="mm" @keydown.enter.prevent class="w-full rounded-xl border-slate-200 text-center font-mono py-1" />
                   </div>
                   <div>
                     <label class="block font-bold text-slate-400 mb-1">Altura</label>
-                    <input v-model.number="form.UltimaAlturaMontagem" type="number" step="0.5" placeholder="mm" class="w-full rounded-xl border-slate-200 text-center font-mono py-1" />
+                    <input v-model.number="form.UltimaAlturaMontagem" type="number" step="0.5" min="0" max="33" placeholder="mm" @keydown.enter.prevent class="w-full rounded-xl border-slate-200 text-center font-mono py-1" />
                   </div>
                 </div>
+
+                <!-- MEDIDAS DE MONTAGEM NA FICHA ANTIGA -->
+                <div class="pt-2 border-t border-slate-100">
+                  <span class="text-[10px] font-bold uppercase text-amber-900 block mb-2">Medidas da Armação (Ficha Legada)</span>
+                  <div class="grid grid-cols-2 md:grid-cols-6 gap-2">
+                    <div>
+                      <label class="block text-[9px] font-bold text-slate-400 uppercase">ARO (Máx 80)</label>
+                      <input v-model.number="form.aro" type="number" step="0.1" min="0" max="80" placeholder="52.0" @input="validarMontagem('aro', 80)" @keydown.enter.prevent class="w-full rounded-xl border-slate-200 text-center font-mono text-xs py-1" />
+                    </div>
+                    <div>
+                      <label class="block text-[9px] font-bold text-slate-400 uppercase">DM (Máx 80)</label>
+                      <input v-model.number="form.dm" type="number" step="0.1" min="0" max="80" placeholder="55.0" @input="validarMontagem('dm', 80)" @keydown.enter.prevent class="w-full rounded-xl border-slate-200 text-center font-mono text-xs py-1" />
+                    </div>
+                    <div>
+                      <label class="block text-[9px] font-bold text-slate-400 uppercase">VERT (Máx 80)</label>
+                      <input v-model.number="form.vert" type="number" step="0.1" min="0" max="80" placeholder="40.0" @input="validarMontagem('vert', 80)" @keydown.enter.prevent class="w-full rounded-xl border-slate-200 text-center font-mono text-xs py-1" />
+                    </div>
+                    <div>
+                      <label class="block text-[9px] font-bold text-slate-400 uppercase">PO (Máx 25)</label>
+                      <input v-model.number="form.po" type="number" step="0.1" min="0" max="25" placeholder="18.0" @input="validarMontagem('po', 25)" @keydown.enter.prevent class="w-full rounded-xl border-slate-200 text-center font-mono text-xs py-1" />
+                    </div>
+                    <div>
+                      <label class="block text-[9px] font-bold text-slate-400 uppercase">C.O OD (80)</label>
+                      <input v-model.number="form.coOd" type="number" step="0.1" min="0" max="80" placeholder="31.0" @input="validarMontagem('coOd', 80)" @keydown.enter.prevent class="w-full rounded-xl border-slate-200 text-center font-mono text-xs py-1" />
+                    </div>
+                    <div>
+                      <label class="block text-[9px] font-bold text-slate-400 uppercase">C.O OE (80)</label>
+                      <input v-model.number="form.coOe" type="number" step="0.1" min="0" max="80" placeholder="31.0" @input="validarMontagem('coOe', 80)" @keydown.enter.prevent class="w-full rounded-xl border-slate-200 text-center font-mono text-xs py-1" />
+                    </div>
+                  </div>
+                </div>
+
               </div>
 
               <div class="pt-1">
@@ -223,7 +256,7 @@
         </form>
       </div>
 
-      <!-- Tabela de Clientes com Status de Entrega da OS (2.2) -->
+      <!-- Tabela de Clientes com Status de Entrega da OS -->
       <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
         <h3 class="text-sm font-black text-slate-950 uppercase tracking-wider font-mono mb-4">Registros Encontrados</h3>
 
@@ -249,7 +282,6 @@
                 <td class="py-4 font-bold text-slate-800">{{ c.Nome }}</td>
                 <td class="py-4 text-center font-mono text-slate-600 text-xs">{{ c.CPF || '--' }}</td>
                 
-                <!-- 2.2 Badge de Status de Entrega -->
                 <td class="py-4 text-center">
                   <span :class="[
                     'px-2.5 py-1 rounded-full text-[10px] font-black uppercase font-mono border',
@@ -314,7 +346,7 @@ const props = defineProps({
 
 const termoBusca = ref(props.FiltroBusca || '')
 const exibirFormNovoCliente = ref(false) 
-const modoCadastro = ref('rapido') // 'rapido' | 'ficha_antiga'
+const modoCadastro = ref('rapido')
 
 const filtroPeriodo = reactive({
   mes: props.MesFiltro || null,
@@ -356,8 +388,23 @@ const form = useForm({
   UltimaAdicao: null,
   UltimaDnpOd: 0,
   UltimaDnpOe: 0,
-  UltimaAlturaMontagem: null
+  UltimaAlturaMontagem: null,
+
+  aro: null,
+  dm: null,
+  vert: null,
+  po: null,
+  coOd: null,
+  coOe: null
 })
+
+const validarMontagem = (campo, maximo) => {
+  let val = form[campo]
+  if (val !== null && val !== undefined && val !== '') {
+    if (val < 0) form[campo] = 0
+    if (val > maximo) form[campo] = maximo
+  }
+}
 
 const registrarTimeout = ref(null)
 const executarFiltroCombinado = () => {

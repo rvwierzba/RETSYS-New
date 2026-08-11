@@ -30,7 +30,8 @@
           <span class="text-xs font-mono bg-teal-500/20 text-teal-400 px-3 py-1 rounded-full border border-teal-500/30">RETSYS CRM v5</span>
         </div>
 
-        <form @submit.prevent="salvarOrdemServico" class="p-6 space-y-8">
+        <!-- Trava de segurança: @keydown.enter.prevent evita envio acidental do formulário ao apertar Enter -->
+        <form @submit.prevent="salvarOrdemServico" @keydown.enter.prevent class="p-6 space-y-8">
 
           <!-- 1. Identificação do Cliente (CRM) -->
           <div class="bg-slate-50 p-6 rounded-2xl border border-slate-200 space-y-4">
@@ -48,6 +49,7 @@
                     placeholder="Apenas os 11 números" 
                     maxlength="11" 
                     @input="form.cpf = form.cpf.replace(/\D/g, '').slice(0, 11)" 
+                    @keydown.enter.prevent 
                     class="w-full rounded-xl border-slate-200 text-sm font-mono focus:border-teal-500 focus:ring-teal-500" 
                     required 
                   />
@@ -58,7 +60,7 @@
               </div>
               <div class="md:col-span-2">
                 <label class="block text-[11px] font-bold uppercase text-slate-400 tracking-wider mb-1.5">Nome Completo *</label>
-                <input v-model="form.nome" type="text" placeholder="Nome do Paciente" class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500" required />
+                <input v-model="form.nome" type="text" placeholder="Nome do Paciente" @keydown.enter.prevent class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500" required />
               </div>
             </div>
 
@@ -74,15 +76,15 @@
             <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div>
                 <label class="block text-[11px] font-bold uppercase text-slate-400 tracking-wider mb-1.5">WhatsApp / Telefone *</label>
-                <input v-model="form.telefone" type="text" placeholder="(00) 00000-0000" class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500" required />
+                <input v-model="form.telefone" type="text" placeholder="(00) 00000-0000" @keydown.enter.prevent class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500" required />
               </div>
               <div>
                 <label class="block text-[11px] font-bold uppercase text-slate-400 tracking-wider mb-1.5">Data de Nascimento</label>
-                <input v-model="form.dataNascimento" type="date" class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500" />
+                <input v-model="form.dataNascimento" type="date" @keydown.enter.prevent class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500" />
               </div>
               <div class="md:col-span-2">
                 <label class="block text-[11px] font-bold uppercase text-slate-400 tracking-wider mb-1.5">Convênio / Plano Óptico</label>
-                <input v-model="form.convenio" type="text" placeholder="Particular, Porto Seguro, etc." class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500" />
+                <input v-model="form.convenio" type="text" placeholder="Particular, Porto Seguro, etc." @keydown.enter.prevent class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500" />
               </div>
             </div>
 
@@ -96,6 +98,7 @@
                   type="text" 
                   @input="tratarDigitacaoCep"
                   @blur="buscarEnderecoViaCep" 
+                  @keydown.enter.prevent 
                   placeholder="00000-000" 
                   maxlength="9"
                   class="w-full rounded-xl border-slate-200 text-sm font-mono focus:border-teal-500 focus:ring-teal-500" 
@@ -103,36 +106,36 @@
               </div>
               <div class="md:col-span-2">
                 <label class="block text-[11px] font-bold uppercase text-slate-400 tracking-wider mb-1.5">Logradouro</label>
-                <input v-model="form.logradouro" type="text" placeholder="Rua / Avenida" class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500" />
+                <input v-model="form.logradouro" type="text" placeholder="Rua / Avenida" @keydown.enter.prevent class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500" />
               </div>
               <div>
                 <label class="block text-[11px] font-bold uppercase text-slate-400 tracking-wider mb-1.5">Número</label>
-                <input v-model="form.numero" type="text" placeholder="Nº" class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500" />
+                <input v-model="form.numero" type="text" placeholder="Nº" @keydown.enter.prevent class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500" />
               </div>
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div>
                 <label class="block text-[11px] font-bold uppercase text-slate-400 tracking-wider mb-1.5">Complemento</label>
-                <input v-model="form.complemento" type="text" placeholder="Apto, Bloco, etc." class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500" />
+                <input v-model="form.complemento" type="text" placeholder="Apto, Bloco, etc." @keydown.enter.prevent class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500" />
               </div>
               <div>
                 <label class="block text-[11px] font-bold uppercase text-slate-400 tracking-wider mb-1.5">Bairro</label>
-                <input v-model="form.bairro" type="text" class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500" />
+                <input v-model="form.bairro" type="text" @keydown.enter.prevent class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500" />
               </div>
               <div>
                 <label class="block text-[11px] font-bold uppercase text-slate-400 tracking-wider mb-1.5">Cidade</label>
-                <input v-model="form.cidade" type="text" class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500" />
+                <input v-model="form.cidade" type="text" @keydown.enter.prevent class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500" />
               </div>
               <div>
                 <label class="block text-[11px] font-bold uppercase text-slate-400 tracking-wider mb-1.5">Estado (UF)</label>
-                <input v-model="form.estado" type="text" maxlength="2" placeholder="EX: SP" class="w-full rounded-xl border-slate-200 text-sm uppercase text-center focus:border-teal-500 focus:ring-teal-500" />
+                <input v-model="form.estado" type="text" maxlength="2" placeholder="EX: SP" @keydown.enter.prevent class="w-full rounded-xl border-slate-200 text-sm uppercase text-center focus:border-teal-500 focus:ring-teal-500" />
               </div>
             </div>
 
             <div>
               <label class="block text-[11px] font-bold uppercase text-slate-400 tracking-wider mb-1.5">E-mail do Cliente</label>
-              <input v-model="form.email" type="email" placeholder="cliente@provedor.com" class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500" />
+              <input v-model="form.email" type="email" placeholder="cliente@provedor.com" @keydown.enter.prevent class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500" />
             </div>
           </div>
 
@@ -184,15 +187,15 @@
             <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div class="md:col-span-2">
                 <label class="block text-[11px] font-bold uppercase text-slate-400 tracking-wider mb-1.5">Médico Responsável</label>
-                <input v-model="form.medicoNome" type="text" placeholder="Dr. Nome do Profissional" class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500" />
+                <input v-model="form.medicoNome" type="text" placeholder="Dr. Nome do Profissional" @keydown.enter.prevent class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500" />
               </div>
               <div>
                 <label class="block text-[11px] font-bold uppercase text-slate-400 tracking-wider mb-1.5">CRM / Registro</label>
-                <input v-model="form.medicoCrm" type="text" placeholder="000000-UF" class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500" />
+                <input v-model="form.medicoCrm" type="text" placeholder="000000-UF" @keydown.enter.prevent class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500" />
               </div>
               <div>
                 <label class="block text-[11px] font-bold uppercase text-slate-400 tracking-wider mb-1.5">Tipo de Profissional</label>
-                <select v-model="form.medicoTipo" class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500">
+                <select v-model="form.medicoTipo" @keydown.enter.prevent class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500">
                   <option value="NAO_ESPECIFICADO">Não Especificado</option>
                   <option value="OFTALMOLOGISTA">Oftalmologista</option>
                   <option value="OPTOMETRISTA">Optometrista</option>
@@ -200,7 +203,7 @@
               </div>
             </div>
 
-            <!-- Tabela do Bloco Óptico com Conversão Automática de Cilíndrico em Negativo (3.1) e Eixo 0-180 (3.2) -->
+            <!-- Tabela do Bloco Óptico -->
             <div class="bg-white p-4 rounded-xl border border-slate-200 space-y-3 mt-4">
               <div class="grid grid-cols-4 gap-4 font-bold text-[11px] text-slate-400 uppercase tracking-wider text-center border-b pb-2">
                 <div>Olho</div>
@@ -296,7 +299,7 @@
               </div>
               <div>
                 <label class="block text-[11px] font-bold uppercase text-slate-400 tracking-wider mb-1.5">Atendente / Responsável *</label>
-                <select v-model="form.vendedorId" class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500" required>
+                <select v-model="form.vendedorId" @keydown.enter.prevent class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500" required>
                   <option value="">Selecione o Vendedor</option>
                   <option v-for="v in (Vendedores ?? vendedores)" :key="v.id || v.Id" :value="v.id || v.Id">{{ v.nome || v.Nome }}</option>
                 </select>
@@ -304,7 +307,7 @@
             </div>
           </div>
 
-          <!-- 3. Medidas Técnicas & Medidas de Montagem da Armação (1.1) -->
+          <!-- 3. Medidas Técnicas & Medidas de Montagem da Armação (Com Limites Máximos: Aro/DM/Vert <= 80mm e Ponte <= 25mm) -->
           <div class="bg-white p-6 rounded-2xl border border-slate-200 space-y-4">
             <h3 class="text-sm font-black text-slate-700 uppercase tracking-wider flex items-center gap-2">
               <span class="w-2 h-2 rounded-full bg-indigo-500"></span> 3. Medidas Técnicas & Montagem da Armação
@@ -355,53 +358,53 @@
               </div>
               <div>
                 <label class="block text-xs font-bold uppercase text-slate-400 tracking-wider mb-2">Data Prevista de Entrega *</label>
-                <input v-model="form.dataPrevistaEntrega" type="date" class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500 font-mono" required />
+                <input v-model="form.dataPrevistaEntrega" type="date" @keydown.enter.prevent class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500 font-mono" required />
               </div>
             </div>
 
-            <!-- 1.1 NOVOS CAMPOS DE MEDIDAS DE MONTAGEM DA ARMAÇÃO -->
+            <!-- NOVOS CAMPOS DE MEDIDAS DE MONTAGEM COM TRAVA DE MÁXIMO -->
             <div class="p-4 bg-indigo-50/40 rounded-xl border border-indigo-100 space-y-3">
               <span class="text-xs font-black uppercase text-indigo-900 tracking-wider block">📐 Medidas Físicas da Armação (Laboratório / Surfaçagem)</span>
               
               <div class="grid grid-cols-2 md:grid-cols-6 gap-3">
                 <div>
-                  <label class="block text-[10px] font-bold uppercase text-indigo-700 tracking-wider mb-1" title="Largura Horizontal do Aro">ARO (Horizontal)</label>
-                  <input v-model.number="form.aro" type="number" step="0.1" placeholder="Ex: 52.0" class="w-full rounded-xl border-indigo-200 text-xs text-center font-mono font-bold bg-white" />
+                  <label class="block text-[10px] font-bold uppercase text-indigo-700 tracking-wider mb-1" title="Largura Horizontal do Aro (Máx 80mm)">ARO (Máx 80)</label>
+                  <input v-model.number="form.aro" type="number" step="0.1" min="0" max="80" placeholder="Ex: 52.0" @input="validarMontagem('aro', 80)" @keydown.enter.prevent class="w-full rounded-xl border-indigo-200 text-xs text-center font-mono font-bold bg-white" />
                 </div>
                 <div>
-                  <label class="block text-[10px] font-bold uppercase text-indigo-700 tracking-wider mb-1" title="Diagonal Maior">DM (Diagonal Maior)</label>
-                  <input v-model.number="form.dm" type="number" step="0.1" placeholder="Ex: 55.0" class="w-full rounded-xl border-indigo-200 text-xs text-center font-mono font-bold bg-white" />
+                  <label class="block text-[10px] font-bold uppercase text-indigo-700 tracking-wider mb-1" title="Diagonal Maior (Máx 80mm)">DM (Máx 80)</label>
+                  <input v-model.number="form.dm" type="number" step="0.1" min="0" max="80" placeholder="Ex: 55.0" @input="validarMontagem('dm', 80)" @keydown.enter.prevent class="w-full rounded-xl border-indigo-200 text-xs text-center font-mono font-bold bg-white" />
                 </div>
                 <div>
-                  <label class="block text-[10px] font-bold uppercase text-indigo-700 tracking-wider mb-1" title="Altura Vertical do Aro">VERT (Vertical)</label>
-                  <input v-model.number="form.vert" type="number" step="0.1" placeholder="Ex: 40.0" class="w-full rounded-xl border-indigo-200 text-xs text-center font-mono font-bold bg-white" />
+                  <label class="block text-[10px] font-bold uppercase text-indigo-700 tracking-wider mb-1" title="Altura Vertical do Aro (Máx 80mm)">VERT (Máx 80)</label>
+                  <input v-model.number="form.vert" type="number" step="0.1" min="0" max="80" placeholder="Ex: 40.0" @input="validarMontagem('vert', 80)" @keydown.enter.prevent class="w-full rounded-xl border-indigo-200 text-xs text-center font-mono font-bold bg-white" />
                 </div>
                 <div>
-                  <label class="block text-[10px] font-bold uppercase text-indigo-700 tracking-wider mb-1" title="Ponte">PO (Ponte)</label>
-                  <input v-model.number="form.po" type="number" step="0.1" placeholder="Ex: 18.0" class="w-full rounded-xl border-indigo-200 text-xs text-center font-mono font-bold bg-white" />
+                  <label class="block text-[10px] font-bold uppercase text-indigo-700 tracking-wider mb-1" title="Ponte (Máx 25mm)">PO (Máx 25)</label>
+                  <input v-model.number="form.po" type="number" step="0.1" min="0" max="25" placeholder="Ex: 18.0" @input="validarMontagem('po', 25)" @keydown.enter.prevent class="w-full rounded-xl border-indigo-200 text-xs text-center font-mono font-bold bg-white" />
                 </div>
                 <div>
-                  <label class="block text-[10px] font-bold uppercase text-indigo-700 tracking-wider mb-1" title="Centro Óptico Olho Direito">C.O OD</label>
-                  <input v-model.number="form.coOd" type="number" step="0.1" placeholder="Ex: 31.0" class="w-full rounded-xl border-indigo-200 text-xs text-center font-mono font-bold bg-white" />
+                  <label class="block text-[10px] font-bold uppercase text-indigo-700 tracking-wider mb-1" title="Centro Óptico Olho Direito (Máx 80mm)">C.O OD (80)</label>
+                  <input v-model.number="form.coOd" type="number" step="0.1" min="0" max="80" placeholder="Ex: 31.0" @input="validarMontagem('coOd', 80)" @keydown.enter.prevent class="w-full rounded-xl border-indigo-200 text-xs text-center font-mono font-bold bg-white" />
                 </div>
                 <div>
-                  <label class="block text-[10px] font-bold uppercase text-indigo-700 tracking-wider mb-1" title="Centro Óptico Olho Esquerdo">C.O OE</label>
-                  <input v-model.number="form.coOe" type="number" step="0.1" placeholder="Ex: 31.0" class="w-full rounded-xl border-indigo-200 text-xs text-center font-mono font-bold bg-white" />
+                  <label class="block text-[10px] font-bold uppercase text-indigo-700 tracking-wider mb-1" title="Centro Óptico Olho Esquerdo (Máx 80mm)">C.O OE (80)</label>
+                  <input v-model.number="form.coOe" type="number" step="0.1" min="0" max="80" placeholder="Ex: 31.0" @input="validarMontagem('coOe', 80)" @keydown.enter.prevent class="w-full rounded-xl border-indigo-200 text-xs text-center font-mono font-bold bg-white" />
                 </div>
               </div>
             </div>
 
             <div>
               <label class="block text-[11px] font-bold uppercase text-slate-400 tracking-wider mb-1.5">Observações da Receita / Laboratório</label>
-              <input v-model="form.obsReceita" type="text" placeholder="Ex: Quebrar cantos das lentes, canalar alta miopia" class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500" />
+              <input v-model="form.obsReceita" type="text" placeholder="Ex: Quebrar cantos das lentes, canalar alta miopia" @keydown.enter.prevent class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500" />
             </div>
           </div>
 
-          <!-- Seleção Direta de Produtos (Opcionais - 1.2) -->
+          <!-- Seleção Direta de Produtos -->
           <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div class="space-y-2">
               <label class="block text-xs font-bold uppercase text-slate-400 tracking-wider mb-1.5">Armação Selecionada (Opcional)</label>
-              <select v-model="form.armacaoId" @change="processarSnapshotProdutos" class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500">
+              <select v-model="form.armacaoId" @change="processarSnapshotProdutos" @keydown.enter.prevent class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500">
                 <option value="">(Nenhuma / Cliente trouxe armação própria)</option>
                 <option v-for="a in (Armacoes ?? armacoes)" :key="a.id || a.Id" :value="a.id || a.Id">
                   [{{ a.marcaNome || a.MarcaNome || 'Sem Marca' }}] {{ a.modeloReferencia || a.Modelo }} ({{ a.cor || a.Cor || 'Padrão' }}) — R$ {{ Number(a.precoVenda ?? a.PrecoFinal ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) }}
@@ -411,7 +414,7 @@
 
             <div class="space-y-2">
               <label class="block text-xs font-bold uppercase text-slate-400 tracking-wider mb-1.5">Lente do Catálogo (Opcional)</label>
-              <select v-model="form.lenteId" @change="processarSnapshotProdutos" class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500">
+              <select v-model="form.lenteId" @change="processarSnapshotProdutos" @keydown.enter.prevent class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500">
                 <option value="">(Nenhuma / Troca de armação sem troca de lente)</option>
                 <option v-for="l in (Lentes ?? lentes)" :key="l.id || l.Id" :value="l.id || l.Id">
                   {{ l.laboratorio || l.Laboratorio }} — {{ l.tipo || l.Tipo }} {{ (l.tratamento || l.Tratamento) ? `(${l.tratamento || l.Tratamento})` : '(Sem Tratamento)' }} — R$ {{ Number(l.precoVenda ?? l.PrecoFinal ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) }}
@@ -424,19 +427,19 @@
                   <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
                     <span class="text-sm font-semibold text-teal-600">R$</span>
                   </div>
-                  <input v-model.number="form.valorLente" type="number" step="0.01" min="0" placeholder="0,00" @input="recalcularTotaisGenericos" class="w-full rounded-xl border-teal-200 pl-9 text-sm font-mono font-bold focus:border-teal-500 focus:ring-teal-500" />
+                  <input v-model.number="form.valorLente" type="number" step="0.01" min="0" placeholder="0,00" @input="recalcularTotaisGenericos" @keydown.enter.prevent class="w-full rounded-xl border-teal-200 pl-9 text-sm font-mono font-bold focus:border-teal-500 focus:ring-teal-500" />
                 </div>
               </div>
             </div>
           </div>
 
-          <!-- Resumo Financeiro com Desconto em Reais (1.3) -->
+          <!-- Resumo Financeiro -->
           <div class="p-5 bg-amber-50/40 rounded-2xl border border-amber-200/60 space-y-4">
             <h4 class="font-bold text-amber-950 uppercase tracking-wider text-[10px]">Resumo do Pedido & Condições de Pagamento</h4>
             <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div>
                 <label class="block font-bold text-amber-900 uppercase mb-1.5">Forma Pagamento *</label>
-                <select v-model="form.formaPagamento" class="w-full rounded-xl border-amber-200 text-xs bg-white">
+                <select v-model="form.formaPagamento" @keydown.enter.prevent class="w-full rounded-xl border-amber-200 text-xs bg-white">
                   <option value="DINHEIRO">Dinheiro</option>
                   <option value="PIX">Pix</option>
                   <option value="CARTAO_CREDITO">Cartão de Crédito</option>
@@ -445,13 +448,12 @@
               </div>
               <div v-if="form.formaPagamento === 'CARTAO_CREDITO'">
                 <label class="block font-bold text-amber-900 uppercase mb-1.5">Parcelas *</label>
-                <select v-model.number="qtdParcelas" class="w-full rounded-xl border-amber-200 text-xs bg-white">
+                <select v-model.number="qtdParcelas" @keydown.enter.prevent class="w-full rounded-xl border-amber-200 text-xs bg-white">
                   <option value="1">1x à Vista</option>
                   <option v-for="n in [2,3,4,5,6,7,8,9,10,11,12]" :key="n" :value="n">{{ n }}x</option>
                 </select>
               </div>
 
-              <!-- 1.3 Campo editável: Desconto em Reais -->
               <div>
                 <label class="block font-bold text-amber-900 uppercase mb-1.5">Desconto (R$)</label>
                 <div class="relative">
@@ -461,6 +463,7 @@
                     min="0" 
                     step="0.01" 
                     @input="recalcularTotaisGenericos" 
+                    @keydown.enter.prevent 
                     class="w-full rounded-xl border-amber-200 text-xs bg-white font-mono font-bold pr-16" 
                   />
                   <span class="absolute right-2 top-1.5 text-[10px] text-amber-700 font-mono font-bold bg-amber-100 px-1.5 py-0.5 rounded">
@@ -482,6 +485,7 @@
             <Link href="/ordens" class="px-5 py-3 text-sm font-semibold text-slate-500 hover:text-slate-800 transition">
               Cancelar
             </Link>
+            <!-- Botão único e explícito de submissão -->
             <button type="submit" :disabled="salvandoOS" class="bg-teal-600 hover:bg-teal-700 disabled:bg-slate-200 disabled:text-slate-400 text-white font-bold py-3.5 px-8 rounded-xl shadow-md transition text-sm min-w-[200px]">
               <span v-if="salvandoOS">Processando Emissão...</span>
               <span v-else>Faturar Ordem de Serviço</span>
@@ -552,7 +556,7 @@ const form = useForm({
   odEixo: 0, oeEsferico: 0, oeCilindrico: 0, oeEixo: 0, adicao: null, dnpOd: 0, dnpOe: 0,
   alturaMontagem: null,
   
-  // 1.1 Novas medidas de montagem da armação
+  // Medidas de montagem da armação
   aro: null, dm: null, vert: null, po: null, coOd: null, coOe: null,
   
   obsReceita: '', armacaoId: '', lenteId: '', valorArmacao: 0, valorLente: 0,
@@ -599,7 +603,15 @@ const avisarSairPagina = (e) => {
   }
 }
 
-// 3.1 Cilíndrico automático em negativo
+// Trava de limite de montagem genérica
+const validarMontagem = (campo, maximo) => {
+  let val = form[campo]
+  if (val !== null && val !== undefined && val !== '') {
+    if (val < 0) form[campo] = 0
+    if (val > maximo) form[campo] = maximo
+  }
+}
+
 const validarCilindrico = (campo) => {
   let val = form[campo]
   if (val > 0) {
@@ -611,7 +623,6 @@ const validarCilindrico = (campo) => {
   form[campo] = val
 }
 
-// 3.2 Eixo de 0 a 180
 const validarEixo = (campo) => {
   let val = form[campo]
   if (val < 0) form[campo] = 0
@@ -688,7 +699,6 @@ const processarSnapshotProdutos = () => {
   recalcularTotaisGenericos()
 }
 
-// 1.3 Cálculo de totais a partir do Desconto em Reais
 const recalcularTotaisGenericos = () => {
   form.valorTotalBruto = (form.valorArmacao || 0) + (form.valorLente || 0)
   const descReais = form.descontoReais || 0
@@ -699,7 +709,7 @@ const recalcularTotaisGenericos = () => {
     form.descontoPercentual = 0
   }
   
-  form.valorTotalLiquido = Math.Max ? Math.Max(0, form.valorTotalBruto - descReais) : Math.max(0, form.valorTotalBruto - descReais)
+  form.valorTotalLiquido = Math.max(0, form.valorTotalBruto - descReais)
 }
 
 const consultarCpfNoBanco = async () => {
