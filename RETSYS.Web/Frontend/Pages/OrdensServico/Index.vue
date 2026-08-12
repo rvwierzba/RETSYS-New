@@ -91,12 +91,20 @@
                 <td class="py-4 text-right font-black font-mono text-slate-950">
                   R$ {{ formatarMoeda(os.valorTotal ?? os.ValorTotal) }}
                 </td>
-                <td class="py-4 text-center">
+                <td class="py-4 text-center flex items-center justify-center gap-2">
                   <button 
                     @click="abrirPranchetaClinica(os)"
                     class="bg-slate-950 hover:bg-slate-800 text-white text-xs font-bold px-3 py-1.5 rounded-lg transition shadow-sm font-mono"
                   >
                     Ver Receita
+                  </button>
+                  <!-- PONTO 1: BOTÃO DE EXCLUIR OS -->
+                  <button 
+                    @click="excluirOS(os.id || os.Id, os.numeroOS || os.NumeroOS)"
+                    class="bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-xs font-bold px-3 py-1.5 rounded-lg transition shadow-sm font-mono"
+                    title="Excluir Ordem de Serviço"
+                  >
+                    🗑️ Excluir
                   </button>
                 </td>
               </tr>
@@ -128,6 +136,15 @@ const irParaNovaOrdem = () => router.get('/ordens/nova')
 const filtrarPorComposicao = (tipo) => router.get('/ordens', { filtroComposicao: tipo }, { preserveState: true })
 const irParaFiltro = (tipo) => filtrarPorComposicao(tipo)
 const abrirPranchetaClinica = (ordem) => { osSelecionada.value = { ...ordem } }
+
+const excluirOS = (id, numero) => {
+  if (confirm(`Deseja realmente excluir a OS ${numero}? O estoque da armação será devolvido automaticamente.`)) {
+    router.post(`/ordens/excluir/${id}`, {}, {
+      preserveScroll: true,
+      onSuccess: () => alert(`OS ${numero} excluída com sucesso!`)
+    })
+  }
+}
 
 const formatarMoeda = (valor) => {
   if (valor === undefined || valor === null) return '0,00'

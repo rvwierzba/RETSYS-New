@@ -179,19 +179,19 @@ namespace RETSYS.Web.Controllers
             });
         }
 
-        // 4. Gravação Definitiva de Nova OS com Clamping / Travas para Montagem
+        // 4. Gravação de Nova OS (Suporta multipart/form-data para upload direto de foto + baixa imediata de estoque)
         [HttpPost("/ordens")]
-        public async Task<IActionResult> Store([FromBody] JsonElement raiz, [FromQuery] int? quantidadeParcelas)
+        public async Task<IActionResult> Store([FromForm] IFormCollection formCollection, [FromQuery] int? quantidadeParcelas)
         {
             try
             {
                 var perfilClaim = User.FindFirst(ClaimTypes.Role)?.Value ?? "VENDEDOR";
 
-                Guid vendedorId = Guid.Parse(raiz.GetProperty("vendedorId").GetString()!);
+                Guid vendedorId = Guid.Parse(formCollection["vendedorId"].ToString());
                 var vendedor = await _context.Usuarios.FindAsync(vendedorId);
                 if (vendedor == null) return BadRequest(new { mensagem = "Vendedor não localizado." });
 
-                string cpfInformado = new string(raiz.GetProperty("cpf").GetString()!.Where(char.IsDigit).ToArray());
+                string cpfInformado = new string(formCollection["cpf"].ToString().Where(char.IsDigit).ToArray());
 
                 var cliente = await _context.Clientes
                     .FirstOrDefaultAsync(c => c.CPF.Replace(".", "").Replace("-", "") == cpfInformado);
@@ -202,41 +202,41 @@ namespace RETSYS.Web.Controllers
                     _context.Clientes.Add(cliente);
                 }
 
-                cliente.Nome = raiz.GetProperty("nome").GetString()!;
-                cliente.Telefone = raiz.TryGetProperty("telefone", out var tel) ? tel.GetString() ?? "" : "";
-                cliente.Logradouro = raiz.TryGetProperty("logradouro", out var log) ? log.GetString() ?? "" : "";
-                cliente.Numero = raiz.TryGetProperty("numero", out var num) ? num.GetString() ?? "" : "";
-                cliente.Bairro = raiz.TryGetProperty("bairro", out var bai) ? bai.GetString() ?? "" : "";
-                cliente.Cidade = raiz.TryGetProperty("cidade", out var cid) ? cid.GetString() ?? "" : "";
-                cliente.Estado = raiz.TryGetProperty("estado", out var est) ? est.GetString() ?? "" : "";
-                cliente.Cep = raiz.TryGetProperty("cep", out var cep) ? cep.GetString() ?? "" : "";
-                cliente.Complemento = raiz.TryGetProperty("complemento", out var comp) ? comp.GetString() : null;
-                cliente.Convenio = raiz.TryGetProperty("convenio", out var conv) ? conv.GetString() : null;
-                cliente.Email = raiz.TryGetProperty("email", out var em) ? em.GetString() : null;
+                cliente.Nome = formCollection["nome"].ToString();
+                cliente.Telefone = formCollection.ContainsKey("telefone") ? formCollection["telefone"].ToString() : "";
+                cliente.Logradouro = formCollection.ContainsKey("logradouro") ? formCollection["logradouro"].ToString() : "";
+                cliente.Numero = formCollection.ContainsKey("numero") ? formCollection["numero"].ToString() : "";
+                cliente.Bairro = formCollection.ContainsKey("bairro") ? formCollection["bairro"].ToString() : "";
+                cliente.Cidade = formCollection.ContainsKey("cidade") ? formCollection["cidade"].ToString() : "";
+                cliente.Estado = formCollection.ContainsKey("estado") ? formCollection["estado"].ToString() : "";
+                cliente.Cep = formCollection.ContainsKey("cep") ? formCollection["cep"].ToString() : "";
+                cliente.Complemento = formCollection.ContainsKey("complemento") ? formCollection["complemento"].ToString() : null;
+                cliente.Convenio = formCollection.ContainsKey("convenio") ? formCollection["convenio"].ToString() : null;
+                cliente.Email = formCollection.ContainsKey("email") ? formCollection["email"].ToString() : null;
 
-                if (raiz.TryGetProperty("dataNascimento", out var dnProp) && !string.IsNullOrEmpty(dnProp.GetString()))
+                if (formCollection.ContainsKey("dataNascimento") && DateTime.TryParse(formCollection["dataNascimento"].ToString(), out var dn))
                 {
-                    cliente.DataNascimento = DateTime.SpecifyKind(DateTime.Parse(dnProp.GetString()!), DateTimeKind.Utc);
+                    cliente.DataNascimento = DateTime.SpecifyKind(dn, DateTimeKind.Utc);
                 }
                 cliente.UpdatedAt = DateTime.UtcNow;
 
                 Guid? armacaoId = null;
-                if (raiz.TryGetProperty("armacaoId", out var armProp) && !string.IsNullOrWhiteSpace(armProp.GetString()) && Guid.TryParse(armProp.GetString(), out Guid armGuid))
+                if (formCollection.ContainsKey("armacaoId") && Guid.TryParse(formCollection["armacaoId"].ToString(), out Guid armGuid))
                 {
                     armacaoId = armGuid;
                 }
 
                 Guid? lentePrecoId = null;
-                if (raiz.TryGetProperty("lentePrecoId", out var lenProp) && !string.IsNullOrWhiteSpace(lenProp.GetString()) && Guid.TryParse(lenProp.GetString(), out Guid lenGuid))
+                if (formCollection.ContainsKey("lentePrecoId") && Guid.TryParse(formCollection["lentePrecoId"].ToString(), out Guid lenGuid))
                 {
                     lentePrecoId = lenGuid;
                 }
 
-                decimal valorArmacao = raiz.TryGetProperty("valorArmacao", out var vArm) ? vArm.GetDecimal() : 0m;
-                decimal valorLente = raiz.TryGetProperty("valorLente", out var vLen) ? vLen.GetDecimal() : 0m;
+                decimal valorArmacao = formCollection.ContainsKey("valorArmacao") && decimal.TryParse(formCollection["valorArmacao"].ToString(), out var vArm) ? vArm : 0m;
+                decimal valorLente = formCollection.ContainsKey("valorLente") && decimal.TryParse(formCollection["valorLente"].ToString(), out var vLen) ? vLen : 0m;
                 decimal totalBruto = valorArmacao + valorLente; 
 
-                decimal descontoReais = raiz.TryGetProperty("descontoReais", out var dReais) ? dReais.GetDecimal() : 0m;
+                decimal descontoReais = formCollection.ContainsKey("descontoReais") && decimal.TryParse(formCollection["descontoReais"].ToString(), out var dReais) ? dReais : 0m;
                 decimal descontoPercentual = totalBruto > 0 ? Math.Round((descontoReais / totalBruto) * 100, 2) : 0m;
 
                 bool ehAdmin = string.Equals(perfilClaim, "ADMIN", StringComparison.OrdinalIgnoreCase) ||
@@ -249,7 +249,7 @@ namespace RETSYS.Web.Controllers
 
                 decimal valorTotalLiquido = Math.Max(0, totalBruto - descontoReais);
 
-                string formaPagamento = raiz.TryGetProperty("formaPagamento", out var fp) ? fp.GetString() ?? "DINHEIRO" : "DINHEIRO";
+                string formaPagamento = formCollection.ContainsKey("formaPagamento") ? formCollection["formaPagamento"].ToString() : "DINHEIRO";
                 int? parcelasFinais = null;
                 int loopParcelas = 1;
 
@@ -269,73 +269,88 @@ namespace RETSYS.Web.Controllers
                     ClienteId = cliente.Id,
                     VendedorId = vendedor.Id,
                     DataEntrada = DateTime.UtcNow,
-                    DataPrevistaEntrega = raiz.TryGetProperty("dataPrevistaEntrega", out var dpe) 
-                        ? DateTime.SpecifyKind(dpe.GetDateTime(), DateTimeKind.Utc) 
+                    DataPrevistaEntrega = formCollection.ContainsKey("dataPrevistaEntrega") && DateTime.TryParse(formCollection["dataPrevistaEntrega"].ToString(), out var dpe)
+                        ? DateTime.SpecifyKind(dpe, DateTimeKind.Utc)
                         : DateTime.UtcNow.AddDays(7),
                     Status = "EM_ABERTO",
-                    MedicoNome = raiz.TryGetProperty("medicoNome", out var mn) ? mn.GetString() : null,
-                    MedicoCrm = raiz.TryGetProperty("medicoCrm", out var mc) ? mc.GetString() : null,
-                    MedicoTipo = raiz.TryGetProperty("medicoTipo", out var mt) ? mt.GetString() ?? "NAO_ESPECIFICADO" : "NAO_ESPECIFICADO",
-                    Observacoes = raiz.TryGetProperty("observacoes", out var obs) ? obs.GetString() : null,
+                    MedicoNome = formCollection.ContainsKey("medicoNome") ? formCollection["medicoNome"].ToString() : null,
+                    MedicoCrm = formCollection.ContainsKey("medicoCrm") ? formCollection["medicoCrm"].ToString() : null,
+                    MedicoTipo = formCollection.ContainsKey("medicoTipo") ? formCollection["medicoTipo"].ToString() : "NAO_ESPECIFICADO",
+                    Observacoes = formCollection.ContainsKey("observacoes") ? formCollection["observacoes"].ToString() : null,
                     IsRetroativa = false,
                     Ativo = true
                 };
 
-                bool temReceitaInformada = raiz.TryGetProperty("odEsferico", out _) || raiz.TryGetProperty("oeEsferico", out _);
-
-                if (temReceitaInformada || lentePrecoId.HasValue)
+                // PONTO 3: Tratar upload simples da foto da receita (sem obrigar IA)
+                string? caminhoFotoAnexa = null;
+                if (Request.Form.Files.Count > 0)
                 {
-                    decimal rawOdCil = raiz.TryGetProperty("odCilindrico", out var odC) ? odC.GetDecimal() : 0m;
-                    decimal odCilindrico = rawOdCil > 0 ? -Math.Abs(rawOdCil) : rawOdCil;
-                    odCilindrico = Math.Clamp(odCilindrico, -15.00m, 0m);
-
-                    int odEixo = Math.Clamp(raiz.TryGetProperty("odEixo", out var odE) ? odE.GetInt32() : 0, 0, 180);
-
-                    decimal rawOeCil = raiz.TryGetProperty("oeCilindrico", out var oeC) ? oeC.GetDecimal() : 0m;
-                    decimal oeCilindrico = rawOeCil > 0 ? -Math.Abs(rawOeCil) : rawOeCil;
-                    oeCilindrico = Math.Clamp(oeCilindrico, -15.00m, 0m);
-
-                    int oeEixo = Math.Clamp(raiz.TryGetProperty("oeEixo", out var oeE) ? oeE.GetInt32() : 0, 0, 180);
-
-                    decimal? adicao = raiz.TryGetProperty("adicao", out var ad) && ad.ValueKind != JsonValueKind.Null ? ad.GetDecimal() : null;
-                    if (adicao.HasValue) adicao = Math.Clamp(adicao.Value, 0m, 3.50m);
-
-                    decimal dnpOd = raiz.TryGetProperty("dnpOd", out var dnpD) ? dnpD.GetDecimal() : 0m;
-                    decimal dnpOe = raiz.TryGetProperty("dnpOe", out var dnpE) ? dnpE.GetDecimal() : 0m;
-
-                    decimal? alturaMontagem = raiz.TryGetProperty("alturaMontagem", out var alt) && alt.ValueKind != JsonValueKind.Null ? alt.GetDecimal() : null;
-
-                    // Clamping para as medidas de montagem (Aro/DM/Vert/Co <= 80mm, PO <= 25mm)
-                    decimal? aro = raiz.TryGetProperty("aro", out var vAro) && vAro.ValueKind != JsonValueKind.Null ? Math.Clamp(vAro.GetDecimal(), 0m, 80m) : null;
-                    decimal? dm = raiz.TryGetProperty("dm", out var vDm) && vDm.ValueKind != JsonValueKind.Null ? Math.Clamp(vDm.GetDecimal(), 0m, 80m) : null;
-                    decimal? vert = raiz.TryGetProperty("vert", out var vVert) && vVert.ValueKind != JsonValueKind.Null ? Math.Clamp(vVert.GetDecimal(), 0m, 80m) : null;
-                    decimal? po = raiz.TryGetProperty("po", out var vPo) && vPo.ValueKind != JsonValueKind.Null ? Math.Clamp(vPo.GetDecimal(), 0m, 25m) : null;
-                    decimal? coOd = raiz.TryGetProperty("coOd", out var vCoOd) && vCoOd.ValueKind != JsonValueKind.Null ? Math.Clamp(vCoOd.GetDecimal(), 0m, 80m) : null;
-                    decimal? coOe = raiz.TryGetProperty("coOe", out var vCoOe) && vCoOe.ValueKind != JsonValueKind.Null ? Math.Clamp(vCoOe.GetDecimal(), 0m, 80m) : null;
-
-                    novaOS.Receita = new OsReceita
+                    var arquivoFoto = Request.Form.Files.GetFile("fotoReceitaArquivo");
+                    if (arquivoFoto != null && arquivoFoto.Length > 0)
                     {
-                        OsId = novaOS.Id,
-                        OdEsferico = raiz.TryGetProperty("odEsferico", out var odEsf) ? odEsf.GetDecimal() : 0m,
-                        OdCilindrico = odCilindrico,
-                        OdEixo = odEixo,
-                        OeEsferico = raiz.TryGetProperty("oeEsferico", out var oeEsf) ? oeEsf.GetDecimal() : 0m,
-                        OeCilindrico = oeCilindrico,
-                        OeEixo = oeEixo,
-                        Adicao = adicao,
-                        DnpOd = dnpOd,
-                        DnpOe = dnpOe,
-                        AlturaMontagem = alturaMontagem,
+                        var pastaUploads = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "uploads", "receitas");
+                        if (!Directory.Exists(pastaUploads)) Directory.CreateDirectory(pastaUploads);
 
-                        Aro = aro,
-                        Dm = dm,
-                        Vert = vert,
-                        Po = po,
-                        CoOd = coOd,
-                        CoOe = coOe,
-                        ObsReceita = raiz.TryGetProperty("obsReceita", out var obsR) ? obsR.GetString() : null
-                    };
+                        var nomeArquivo = Guid.NewGuid().ToString() + Path.GetExtension(arquivoFoto.FileName);
+                        var caminhoCompleto = Path.Combine(pastaUploads, nomeArquivo);
+
+                        using (var stream = new FileStream(caminhoCompleto, FileMode.Create))
+                        {
+                            await arquivoFoto.CopyToAsync(stream);
+                        }
+                        caminhoFotoAnexa = "/uploads/receitas/" + nomeArquivo;
+                    }
                 }
+
+                decimal.TryParse(formCollection["odEsferico"].ToString(), out var odEsf);
+                decimal.TryParse(formCollection["oeEsferico"].ToString(), out var oeEsf);
+                decimal.TryParse(formCollection["odCilindrico"].ToString(), out var rawOdCil);
+                decimal.TryParse(formCollection["oeCilindrico"].ToString(), out var rawOeCil);
+                int.TryParse(formCollection["odEixo"].ToString(), out var odEixo);
+                int.TryParse(formCollection["oeEixo"].ToString(), out var oeEixo);
+
+                decimal odCilindrico = rawOdCil > 0 ? -Math.Abs(rawOdCil) : rawOdCil;
+                decimal oeCilindrico = rawOeCil > 0 ? -Math.Abs(rawOeCil) : rawOeCil;
+
+                decimal? adicao = decimal.TryParse(formCollection["adicao"].ToString(), out var adVal) ? adVal : null;
+                decimal.TryParse(formCollection["dnpOd"].ToString(), out var dnpOd);
+                decimal.TryParse(formCollection["dnpOe"].ToString(), out var dnpOe);
+                decimal? altura = decimal.TryParse(formCollection["alturaMontagem"].ToString(), out var altVal) ? altVal : null;
+
+                decimal? aro = decimal.TryParse(formCollection["aro"].ToString(), out var valAro) ? Math.Clamp(valAro, 0m, 80m) : null;
+                decimal? dm = decimal.TryParse(formCollection["dm"].ToString(), out var valDm) ? Math.Clamp(valDm, 0m, 80m) : null;
+                decimal? vert = decimal.TryParse(formCollection["vert"].ToString(), out var valVert) ? Math.Clamp(valVert, 0m, 80m) : null;
+                decimal? po = decimal.TryParse(formCollection["po"].ToString(), out var valPo) ? Math.Clamp(valPo, 0m, 25m) : null;
+                decimal? coOd = decimal.TryParse(formCollection["coOd"].ToString(), out var valCoOd) ? Math.Clamp(valCoOd, 0m, 80m) : null;
+                decimal? coOe = decimal.TryParse(formCollection["coOe"].ToString(), out var valCoOe) ? Math.Clamp(valCoOe, 0m, 80m) : null;
+
+                string obsReceitaFinal = formCollection.ContainsKey("obsReceita") ? formCollection["obsReceita"].ToString() : "";
+                if (!string.IsNullOrEmpty(caminhoFotoAnexa))
+                {
+                    obsReceitaFinal = $"[Anexo da Receita: {caminhoFotoAnexa}] " + obsReceitaFinal;
+                }
+
+                novaOS.Receita = new OsReceita
+                {
+                    OsId = novaOS.Id,
+                    OdEsferico = odEsf,
+                    OdCilindrico = odCilindrico,
+                    OdEixo = Math.Clamp(odEixo, 0, 180),
+                    OeEsferico = oeEsf,
+                    OeCilindrico = oeCilindrico,
+                    OeEixo = Math.Clamp(oeEixo, 0, 180),
+                    Adicao = adicao,
+                    DnpOd = dnpOd,
+                    DnpOe = dnpOe,
+                    AlturaMontagem = altura,
+                    Aro = aro,
+                    Dm = dm,
+                    Vert = vert,
+                    Po = po,
+                    CoOd = coOd,
+                    CoOe = coOe,
+                    ObsReceita = obsReceitaFinal
+                };
 
                 novaOS.Financeiro = new OsFinanceiro
                 {
@@ -350,7 +365,7 @@ namespace RETSYS.Web.Controllers
                     ValorTotalLiquido = valorTotalLiquido,
                     FormaPagamento = formaPagamento,
                     Parcelas = parcelasFinais,
-                    ValorEntrada = raiz.TryGetProperty("valorEntrada", out var ent) && ent.ValueKind != JsonValueKind.Null ? ent.GetDecimal() : null
+                    ValorEntrada = decimal.TryParse(formCollection["valorEntrada"].ToString(), out var entVal) ? entVal : null
                 };
 
                 decimal valorParcela = Math.Round(valorTotalLiquido / loopParcelas, 2);
@@ -365,6 +380,16 @@ namespace RETSYS.Web.Controllers
                         Valor = i == loopParcelas ? (valorTotalLiquido - (valorParcela * (loopParcelas - 1))) : valorParcela,
                         DataVencimento = DateTime.UtcNow.AddMonths(i)
                     });
+                }
+
+                // PONTO 5: Baixa automática imediata do estoque da armação ao faturar a OS
+                if (armacaoId.HasValue)
+                {
+                    var armacao = await _context.Armacoes.FindAsync(armacaoId.Value);
+                    if (armacao != null)
+                    {
+                        armacao.QuantidadeEstoque = Math.Max(0, armacao.QuantidadeEstoque - 1);
+                    }
                 }
 
                 _context.OrdensServico.Add(novaOS);
@@ -400,21 +425,11 @@ namespace RETSYS.Web.Controllers
                 return RedirectToAction(nameof(Index));
             }
 
-            bool estadoAtualAbateEstoque = (novoStatus == "EM_LABORATORIO" || novoStatus == "ENTREGUE");
-            bool estadoAnteriorJaHaviaAbatido = (statusAnterior == "EM_LABORATORIO" || statusAnterior == "ENTREGUE");
-
-            if (ordem.Financeiro?.ArmacaoId != null)
+            // Estorna o estoque se for cancelado
+            if (novoStatus == "CANCELADO" && ordem.Financeiro?.ArmacaoId != null)
             {
-                if (estadoAtualAbateEstoque && !estadoAnteriorJaHaviaAbatido)
-                {
-                    var armacao = await _context.Armacoes.FindAsync(ordem.Financeiro.ArmacaoId);
-                    if (armacao != null) armacao.QuantidadeEstoque = Math.Max(0, armacao.QuantidadeEstoque - 1);
-                }
-                else if (novoStatus == "CANCELADO" && estadoAnteriorJaHaviaAbatido)
-                {
-                    var armacao = await _context.Armacoes.FindAsync(ordem.Financeiro.ArmacaoId);
-                    if (armacao != null) armacao.QuantidadeEstoque++;
-                }
+                var armacao = await _context.Armacoes.FindAsync(ordem.Financeiro.ArmacaoId);
+                if (armacao != null) armacao.QuantidadeEstoque++;
             }
 
             ordem.Status = novoStatus;
@@ -428,7 +443,7 @@ namespace RETSYS.Web.Controllers
             return RedirectToAction(nameof(Index));
         }
 
-        // 6. Exclusão / Cancelamento de OS
+        // 6. PONTO 1: Exclusão / Cancelamento da OS + Devolução de Estoque
         [HttpPost("/ordens/excluir/{id:guid}")]
         public async Task<IActionResult> Excluir(Guid id)
         {
@@ -438,8 +453,8 @@ namespace RETSYS.Web.Controllers
 
             if (ordem == null) return NotFound();
 
-            // Estorna o estoque da armação se a OS já tiver alterado o inventário
-            if (ordem.Financeiro?.ArmacaoId != null && (ordem.Status == "EM_LABORATORIO" || ordem.Status == "PRONTO" || ordem.Status == "ENTREGUE"))
+            // Estorna o estoque da armação se a OS estava ativa
+            if (ordem.Financeiro?.ArmacaoId != null && ordem.Status != "CANCELADO")
             {
                 var armacao = await _context.Armacoes.FindAsync(ordem.Financeiro.ArmacaoId);
                 if (armacao != null) armacao.QuantidadeEstoque++;

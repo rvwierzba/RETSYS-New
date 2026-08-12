@@ -30,7 +30,6 @@
           <span class="text-xs font-mono bg-teal-500/20 text-teal-400 px-3 py-1 rounded-full border border-teal-500/30">RETSYS CRM v5</span>
         </div>
 
-        <!-- Trava de segurança: @keydown.enter.prevent evita envio acidental do formulário ao apertar Enter -->
         <form @submit.prevent="salvarOrdemServico" @keydown.enter.prevent class="p-6 space-y-8">
 
           <!-- 1. Identificação do Cliente (CRM) -->
@@ -139,7 +138,24 @@
             </div>
           </div>
 
-          <!-- Assistente de IA (Moondream) -->
+          <!-- PONTO 3: ANEXAR FOTO DA RECEITA SEM OBRIGAR USO DA IA -->
+          <div class="bg-amber-50/50 p-6 rounded-2xl border border-amber-200 space-y-3">
+            <h3 class="text-xs font-black text-amber-950 uppercase tracking-wider flex items-center gap-2">
+              <span>📸 Anexar Foto/Scan da Receita na OS</span>
+            </h3>
+            <p class="text-[11px] text-amber-700">Anexe a imagem da receita para salvar no histórico do cliente e da OS (opcional e independente da IA).</p>
+            <div class="flex items-center gap-3 pt-1">
+              <input type="file" id="fotoReceitaAnexo" accept="image/*" @change="vincularFotoReceitaDireta" class="hidden" />
+              <label for="fotoReceitaAnexo" class="bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold px-4 py-2.5 rounded-xl transition cursor-pointer shadow-sm select-none">
+                {{ fotoAnexaArquivo ? 'Alterar Foto Anexada' : '📎 Selecionar Imagem da Receita' }}
+              </label>
+              <span class="text-xs font-mono text-amber-900 truncate">
+                {{ fotoAnexaArquivo ? fotoAnexaArquivo.name : 'Nenhuma imagem anexada' }}
+              </span>
+            </div>
+          </div>
+
+          <!-- Assistente de IA (Moondream - Opcional) -->
           <div class="bg-white rounded-2xl border-2 border-dashed border-slate-200 p-6 space-y-4">
             <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
               <div>
@@ -147,31 +163,31 @@
                   <span class="w-2.5 h-2.5 rounded-full bg-teal-500 animate-pulse"></span>
                   Assistente de Leitura por IA (Moondream)
                 </h3>
-                <p class="text-xs text-slate-400 mt-0.5">Faça o upload da receita médica para decodificação automatizada.</p>
+                <p class="text-xs text-slate-400 mt-0.5">Opcional: Preenche os graus automaticamente analisando a foto.</p>
               </div>
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
               <div class="space-y-3">
                 <div class="flex items-center gap-3">
-                  <input type="file" id="fotoReceita" accept="image/*" @change="manipularArquivo" class="hidden" />
-                  <label for="fotoReceita" class="bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold px-4 py-3 rounded-xl transition cursor-pointer shadow-sm active:scale-95 select-none">
-                    {{ arquivoSelecionado ? 'Alterar Imagem' : 'Selecionar Foto Receita' }}
+                  <input type="file" id="fotoReceitaIa" accept="image/*" @change="manipularArquivoIa" class="hidden" />
+                  <label for="fotoReceitaIa" class="bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold px-4 py-3 rounded-xl transition cursor-pointer shadow-sm active:scale-95 select-none">
+                    {{ arquivoIaSelecionado ? 'Alterar Imagem IA' : 'Selecionar Foto para Leitura' }}
                   </label>
                   <span class="text-xs font-mono text-slate-500 truncate block max-w-[200px]">
-                    {{ arquivoSelecionado ? arquivoSelecionado.name : 'Nenhum arquivo anexado' }}
+                    {{ arquivoIaSelecionado ? arquivoIaSelecionado.name : 'Nenhum arquivo para IA' }}
                   </span>
                 </div>
                 <div class="flex items-start gap-2">
                   <input type="checkbox" id="termoOcr" v-model="termoAceito" class="mt-0.5 rounded border-slate-300 text-teal-600 focus:ring-teal-500" />
                   <label for="termoOcr" class="text-[11px] text-slate-500 leading-tight cursor-pointer select-none">
-                    Confirmo que revisarei minuciosamente todos os graus gerados pela IA antes de emitir a OS.
+                    Confirmo que revisarei os graus após a leitura.
                   </label>
                 </div>
               </div>
               <div class="flex items-end justify-start md:justify-end">
-                <button type="button" @click="executarOcrInteligente" :disabled="!termoAceito || !arquivoSelecionado || carregandoIA" class="w-full sm:w-auto bg-teal-600 hover:bg-teal-700 disabled:bg-slate-100 text-white disabled:text-slate-400 font-bold py-3 px-6 rounded-xl text-xs uppercase tracking-wider transition shadow-sm flex items-center justify-center gap-2">
-                  <span v-if="carregandoIA" class="animate-pulse">Analisando receita...</span>
+                <button type="button" @click="executarOcrInteligente" :disabled="!termoAceito || !arquivoIaSelecionado || carregandoIA" class="w-full sm:w-auto bg-teal-600 hover:bg-teal-700 disabled:bg-slate-100 text-white disabled:text-slate-400 font-bold py-3 px-6 rounded-xl text-xs uppercase tracking-wider transition shadow-sm flex items-center justify-center gap-2">
+                  <span v-if="carregandoIA" class="animate-pulse">Analisando...</span>
                   <span v-else>Iniciar Leitura Digital</span>
                 </button>
               </div>
@@ -295,7 +311,6 @@
                   @keydown.enter.prevent 
                   class="w-full rounded-xl border-teal-200 text-sm focus:border-teal-500 focus:ring-teal-500 bg-white font-mono text-teal-900 font-bold" 
                 />
-                <p class="text-[10px] text-teal-600 mt-1 leading-tight">Obrigatório para lentes progressivas / multifocais.</p>
               </div>
               <div>
                 <label class="block text-[11px] font-bold uppercase text-slate-400 tracking-wider mb-1.5">Atendente / Responsável *</label>
@@ -307,7 +322,7 @@
             </div>
           </div>
 
-          <!-- 3. Medidas Técnicas & Medidas de Montagem da Armação (Com Limites Máximos: Aro/DM/Vert <= 80mm e Ponte <= 25mm) -->
+          <!-- PONTO 4: DIGITAÇÃO LIVRE DE DP/DNP E MEDIDAS DA ARMAÇÃO -->
           <div class="bg-white p-6 rounded-2xl border border-slate-200 space-y-4">
             <h3 class="text-sm font-black text-slate-700 uppercase tracking-wider flex items-center gap-2">
               <span class="w-2 h-2 rounded-full bg-indigo-500"></span> 3. Medidas Técnicas & Montagem da Armação
@@ -317,86 +332,74 @@
               <div>
                 <label class="block text-xs font-bold uppercase text-slate-400 tracking-wider mb-2">DNP OD (20 a 40 mm)</label>
                 <input 
-                  v-model.number="form.dnpOd" 
-                  type="number" 
-                  step="0.5" 
-                  min="20" 
-                  max="40" 
+                  v-model="form.dnpOd" 
+                  type="text" 
                   placeholder="30.0" 
-                  @input="validarDnp('dnpOd')" 
                   @keydown.enter.prevent 
-                  class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500 font-mono font-bold text-slate-800" 
+                  class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 font-mono font-bold text-slate-800" 
                 />
               </div>
               <div>
                 <label class="block text-xs font-bold uppercase text-slate-400 tracking-wider mb-2">DNP OE (20 a 40 mm)</label>
                 <input 
-                  v-model.number="form.dnpOe" 
-                  type="number" 
-                  step="0.5" 
-                  min="20" 
-                  max="40" 
+                  v-model="form.dnpOe" 
+                  type="text" 
                   placeholder="30.0" 
-                  @input="validarDnp('dnpOe')" 
                   @keydown.enter.prevent 
-                  class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500 font-mono font-bold text-slate-800" 
+                  class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 font-mono font-bold text-slate-800" 
                 />
               </div>
               <div>
                 <label class="block text-xs font-bold uppercase text-slate-400 tracking-wider mb-2">Altura Montagem (Máx 33 mm)</label>
                 <input 
-                  v-model.number="form.alturaMontagem" 
-                  type="number" 
-                  step="0.5" 
-                  min="0" 
-                  max="33" 
+                  v-model="form.alturaMontagem" 
+                  type="text" 
                   placeholder="Ex: 18.0" 
-                  @input="validarAltura" 
                   @keydown.enter.prevent 
-                  class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500 font-mono font-bold text-slate-800" 
+                  class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 font-mono font-bold text-slate-800" 
                 />
               </div>
               <div>
                 <label class="block text-xs font-bold uppercase text-slate-400 tracking-wider mb-2">Data Prevista de Entrega *</label>
-                <input v-model="form.dataPrevistaEntrega" type="date" @keydown.enter.prevent class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500 font-mono" required />
+                <input v-model="form.dataPrevistaEntrega" type="date" @keydown.enter.prevent class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 font-mono" required />
               </div>
             </div>
 
-            <!-- NOVOS CAMPOS DE MEDIDAS DE MONTAGEM COM TRAVA DE MÁXIMO -->
+            <!-- MEDIDAS DA ARMAÇÃO -->
             <div class="p-4 bg-indigo-50/40 rounded-xl border border-indigo-100 space-y-3">
-              <span class="text-xs font-black uppercase text-indigo-900 tracking-wider block">📐 Medidas Físicas da Armação (Laboratório / Surfaçagem)</span>
+              <span class="text-xs font-black uppercase text-indigo-900 tracking-wider block">📐 Medidas Físicas da Armação (Digitação Livre)</span>
               
               <div class="grid grid-cols-2 md:grid-cols-6 gap-3">
                 <div>
-                  <label class="block text-[10px] font-bold uppercase text-indigo-700 tracking-wider mb-1" title="Largura Horizontal do Aro (Máx 80mm)">ARO (Máx 80)</label>
-                  <input v-model.number="form.aro" type="number" step="0.1" min="0" max="80" placeholder="Ex: 52.0" @input="validarMontagem('aro', 80)" @keydown.enter.prevent class="w-full rounded-xl border-indigo-200 text-xs text-center font-mono font-bold bg-white" />
+                  <label class="block text-[10px] font-bold uppercase text-indigo-700 tracking-wider mb-1">ARO (Máx 80)</label>
+                  <input v-model="form.aro" type="text" placeholder="Ex: 52.0" @keydown.enter.prevent class="w-full rounded-xl border-indigo-200 text-xs text-center font-mono font-bold bg-white" />
                 </div>
                 <div>
-                  <label class="block text-[10px] font-bold uppercase text-indigo-700 tracking-wider mb-1" title="Diagonal Maior (Máx 80mm)">DM (Máx 80)</label>
-                  <input v-model.number="form.dm" type="number" step="0.1" min="0" max="80" placeholder="Ex: 55.0" @input="validarMontagem('dm', 80)" @keydown.enter.prevent class="w-full rounded-xl border-indigo-200 text-xs text-center font-mono font-bold bg-white" />
+                  <label class="block text-[10px] font-bold uppercase text-indigo-700 tracking-wider mb-1">DM (Máx 80)</label>
+                  <input v-model="form.dm" type="text" placeholder="Ex: 55.0" @keydown.enter.prevent class="w-full rounded-xl border-indigo-200 text-xs text-center font-mono font-bold bg-white" />
                 </div>
                 <div>
-                  <label class="block text-[10px] font-bold uppercase text-indigo-700 tracking-wider mb-1" title="Altura Vertical do Aro (Máx 80mm)">VERT (Máx 80)</label>
-                  <input v-model.number="form.vert" type="number" step="0.1" min="0" max="80" placeholder="Ex: 40.0" @input="validarMontagem('vert', 80)" @keydown.enter.prevent class="w-full rounded-xl border-indigo-200 text-xs text-center font-mono font-bold bg-white" />
+                  <label class="block text-[10px] font-bold uppercase text-indigo-700 tracking-wider mb-1">VERT (Máx 80)</label>
+                  <input v-model="form.vert" type="text" placeholder="Ex: 40.0" @keydown.enter.prevent class="w-full rounded-xl border-indigo-200 text-xs text-center font-mono font-bold bg-white" />
                 </div>
                 <div>
-                  <label class="block text-[10px] font-bold uppercase text-indigo-700 tracking-wider mb-1" title="Ponte (Máx 25mm)">PO (Máx 25)</label>
-                  <input v-model.number="form.po" type="number" step="0.1" min="0" max="25" placeholder="Ex: 18.0" @input="validarMontagem('po', 25)" @keydown.enter.prevent class="w-full rounded-xl border-indigo-200 text-xs text-center font-mono font-bold bg-white" />
+                  <label class="block text-[10px] font-bold uppercase text-indigo-700 tracking-wider mb-1">PO (Máx 25)</label>
+                  <input v-model="form.po" type="text" placeholder="Ex: 18.0" @keydown.enter.prevent class="w-full rounded-xl border-indigo-200 text-xs text-center font-mono font-bold bg-white" />
                 </div>
                 <div>
-                  <label class="block text-[10px] font-bold uppercase text-indigo-700 tracking-wider mb-1" title="Centro Óptico Olho Direito (Máx 80mm)">C.O OD (80)</label>
-                  <input v-model.number="form.coOd" type="number" step="0.1" min="0" max="80" placeholder="Ex: 31.0" @input="validarMontagem('coOd', 80)" @keydown.enter.prevent class="w-full rounded-xl border-indigo-200 text-xs text-center font-mono font-bold bg-white" />
+                  <label class="block text-[10px] font-bold uppercase text-indigo-700 tracking-wider mb-1">C.O OD (80)</label>
+                  <input v-model="form.coOd" type="text" placeholder="Ex: 31.0" @keydown.enter.prevent class="w-full rounded-xl border-indigo-200 text-xs text-center font-mono font-bold bg-white" />
                 </div>
                 <div>
-                  <label class="block text-[10px] font-bold uppercase text-indigo-700 tracking-wider mb-1" title="Centro Óptico Olho Esquerdo (Máx 80mm)">C.O OE (80)</label>
-                  <input v-model.number="form.coOe" type="number" step="0.1" min="0" max="80" placeholder="Ex: 31.0" @input="validarMontagem('coOe', 80)" @keydown.enter.prevent class="w-full rounded-xl border-indigo-200 text-xs text-center font-mono font-bold bg-white" />
+                  <label class="block text-[10px] font-bold uppercase text-indigo-700 tracking-wider mb-1">C.O OE (80)</label>
+                  <input v-model="form.coOe" type="text" placeholder="Ex: 31.0" @keydown.enter.prevent class="w-full rounded-xl border-indigo-200 text-xs text-center font-mono font-bold bg-white" />
                 </div>
               </div>
             </div>
 
             <div>
               <label class="block text-[11px] font-bold uppercase text-slate-400 tracking-wider mb-1.5">Observações da Receita / Laboratório</label>
-              <input v-model="form.obsReceita" type="text" placeholder="Ex: Quebrar cantos das lentes, canalar alta miopia" @keydown.enter.prevent class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500" />
+              <input v-model="form.obsReceita" type="text" placeholder="Ex: Quebrar cantos das lentes" @keydown.enter.prevent class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500" />
             </div>
           </div>
 
@@ -404,7 +407,7 @@
           <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
             <div class="space-y-2">
               <label class="block text-xs font-bold uppercase text-slate-400 tracking-wider mb-1.5">Armação Selecionada (Opcional)</label>
-              <select v-model="form.armacaoId" @change="processarSnapshotProdutos" @keydown.enter.prevent class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500">
+              <select v-model="form.armacaoId" @change="processarSnapshotProdutos" @keydown.enter.prevent class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500">
                 <option value="">(Nenhuma / Cliente trouxe armação própria)</option>
                 <option v-for="a in (Armacoes ?? armacoes)" :key="a.id || a.Id" :value="a.id || a.Id">
                   [{{ a.marcaNome || a.MarcaNome || 'Sem Marca' }}] {{ a.modeloReferencia || a.Modelo }} ({{ a.cor || a.Cor || 'Padrão' }}) — R$ {{ Number(a.precoVenda ?? a.PrecoFinal ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) }}
@@ -413,21 +416,22 @@
             </div>
 
             <div class="space-y-2">
-              <label class="block text-xs font-bold uppercase text-slate-400 tracking-wider mb-1.5">Lente do Catálogo (Opcional)</label>
-              <select v-model="form.lenteId" @change="processarSnapshotProdutos" @keydown.enter.prevent class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500">
-                <option value="">(Nenhuma / Troca de armação sem troca de lente)</option>
+              <label class="block text-xs font-bold uppercase text-slate-400 tracking-wider mb-1.5">Lente do Catálogo / Tabela (Opcional)</label>
+              <select v-model="form.lenteId" @change="processarSnapshotProdutos" @keydown.enter.prevent class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500">
+                <option value="">(Nenhuma / Tabela Própria)</option>
                 <option v-for="l in (Lentes ?? lentes)" :key="l.id || l.Id" :value="l.id || l.Id">
-                  {{ l.laboratorio || l.Laboratorio }} — {{ l.tipo || l.Tipo }} {{ (l.tratamento || l.Tratamento) ? `(${l.tratamento || l.Tratamento})` : '(Sem Tratamento)' }} — R$ {{ Number(l.precoVenda ?? l.PrecoFinal ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) }}
+                  {{ l.laboratorio || l.Laboratorio }} — {{ l.tipo || l.Tipo }} {{ (l.tratamento || l.Tratamento) ? `(${l.tratamento || l.Tratamento})` : '' }} — R$ {{ Number(l.precoVenda ?? l.PrecoFinal ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) }}
                 </option>
               </select>
               
-              <div v-if="lenteManualAtiva" class="animate-fadeIn p-4 bg-teal-50/50 rounded-2xl border border-teal-200/60 mt-3">
-                <label class="block text-xs font-bold uppercase text-teal-900 tracking-wider mb-2">Preço de Venda da Lente Surfaçada *</label>
+              <!-- PONTO 2: PREÇO EDITÁVEL PARA TABELA PRÓPRIA DA LOJA -->
+              <div class="animate-fadeIn p-4 bg-teal-50/50 rounded-2xl border border-teal-200/60 mt-3">
+                <label class="block text-xs font-bold uppercase text-teal-900 tracking-wider mb-1">Preço da Lente (Tabela Própria / Editável)</label>
                 <div class="relative mt-1 rounded-xl shadow-sm">
                   <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
                     <span class="text-sm font-semibold text-teal-600">R$</span>
                   </div>
-                  <input v-model.number="form.valorLente" type="number" step="0.01" min="0" placeholder="0,00" @input="recalcularTotaisGenericos" @keydown.enter.prevent class="w-full rounded-xl border-teal-200 pl-9 text-sm font-mono font-bold focus:border-teal-500 focus:ring-teal-500" />
+                  <input v-model.number="form.valorLente" type="number" step="0.01" min="0" placeholder="0,00" @input="recalcularTotaisGenericos" @keydown.enter.prevent class="w-full rounded-xl border-teal-200 pl-9 text-sm font-mono font-bold focus:border-teal-500" />
                 </div>
               </div>
             </div>
@@ -485,8 +489,7 @@
             <Link href="/ordens" class="px-5 py-3 text-sm font-semibold text-slate-500 hover:text-slate-800 transition">
               Cancelar
             </Link>
-            <!-- Botão único e explícito de submissão -->
-            <button type="submit" :disabled="salvandoOS" class="bg-teal-600 hover:bg-teal-700 disabled:bg-slate-200 disabled:text-slate-400 text-white font-bold py-3.5 px-8 rounded-xl shadow-md transition text-sm min-w-[200px]">
+            <button type="submit" :disabled="salvandoOS" class="bg-teal-600 hover:bg-teal-700 disabled:bg-slate-200 text-white font-bold py-3.5 px-8 rounded-xl shadow-md transition text-sm min-w-[200px]">
               <span v-if="salvandoOS">Processando Emissão...</span>
               <span v-else>Faturar Ordem de Serviço</span>
             </button>
@@ -539,13 +542,14 @@ const osFaturadaResponse = ref({ numeroOS: 'OS-TEMP-00000' })
 const salvandoOS = ref(false)
 const erroSubmissao = ref(null)
 const qtdParcelas = ref(1)
-const lenteManualAtiva = ref(false)
+const lenteManualAtiva = ref(true)
 const clienteLocalizado = ref(null)
 const consultandoCpf = ref(false)
 const buscandoCep = ref(false)
 const termoAceito = ref(false)
 const carregandoIA = ref(false)
-const arquivoSelecionado = ref(null)
+const arquivoIaSelecionado = ref(null)
+const fotoAnexaArquivo = ref(null)
 const rascunhoRestaurado = ref(false)
 
 const form = useForm({
@@ -556,7 +560,6 @@ const form = useForm({
   odEixo: 0, oeEsferico: 0, oeCilindrico: 0, oeEixo: 0, adicao: null, dnpOd: 0, dnpOe: 0,
   alturaMontagem: null,
   
-  // Medidas de montagem da armação
   aro: null, dm: null, vert: null, po: null, coOd: null, coOe: null,
   
   obsReceita: '', armacaoId: '', lenteId: '', valorArmacao: 0, valorLente: 0,
@@ -603,23 +606,15 @@ const avisarSairPagina = (e) => {
   }
 }
 
-// Trava de limite de montagem genérica
-const validarMontagem = (campo, maximo) => {
-  let val = form[campo]
-  if (val !== null && val !== undefined && val !== '') {
-    if (val < 0) form[campo] = 0
-    if (val > maximo) form[campo] = maximo
-  }
+const vincularFotoReceitaDireta = (event) => {
+  const files = event.target.files
+  if (files.length > 0) fotoAnexaArquivo.value = files[0]
 }
 
 const validarCilindrico = (campo) => {
   let val = form[campo]
-  if (val > 0) {
-    val = -Math.abs(val)
-  }
-  if (val < -15.00) {
-    val = -15.00
-  }
+  if (val > 0) val = -Math.abs(val)
+  if (val < -15.00) val = -15.00
   form[campo] = val
 }
 
@@ -632,19 +627,6 @@ const validarEixo = (campo) => {
 const validarAdicao = () => {
   if (form.adicao < 0) form.adicao = 0
   if (form.adicao > 3.5) form.adicao = 3.50
-}
-
-const validarDnp = (campo) => {
-  let val = form[campo]
-  if (val !== null && val !== undefined && val !== 0) {
-    if (val < 20) form[campo] = 20
-    if (val > 40) form[campo] = 40
-  }
-}
-
-const validarAltura = () => {
-  if (form.alturaMontagem > 33) form.alturaMontagem = 33
-  if (form.alturaMontagem < 0) form.alturaMontagem = 0
 }
 
 const tratarDigitacaoCep = () => {
@@ -671,7 +653,7 @@ const buscarEnderecoViaCep = async () => {
       }
     }
   } catch (err) { 
-    console.error('Falha ao consultar ViaCEP:', err) 
+    console.error(err) 
   } finally {
     buscandoCep.value = false
   }
@@ -690,11 +672,7 @@ const processarSnapshotProdutos = () => {
   const lente = listaLentes.find(l => (l.id || l.Id) === form.lenteId)
   if (lente) {
     const preco = Number(lente.precoVenda ?? lente.PrecoFinal ?? 0)
-    form.valorLente = preco
-    lenteManualAtiva.value = preco === 0
-  } else {
-    form.valorLente = 0
-    lenteManualAtiva.value = false
+    if (preco > 0) form.valorLente = preco
   }
   recalcularTotaisGenericos()
 }
@@ -731,37 +709,34 @@ const consultarCpfNoBanco = async () => {
   }
 }
 
-const manipularArquivo = (event) => {
+const manipularArquivoIa = (event) => {
   const arquivos = event.target.files
-  if (arquivos.length > 0) arquivoSelecionado.value = arquivos[0]
+  if (arquivos.length > 0) arquivoIaSelecionado.value = arquivos[0]
 }
 
 const executarOcrInteligente = async () => {
-  if (!arquivoSelecionado.value || !termoAceito.value) return
+  if (!arquivoIaSelecionado.value || !termoAceito.value) return
   carregandoIA.value = true
   try {
     const formData = new FormData()
-    formData.append('foto', arquivoSelecionado.value)
+    formData.append('foto', arquivoIaSelecionado.value)
     const resposta = await axios.post('/ordens-servico/processar-receita-ia', formData, {
       headers: { 'Content-Type': 'multipart/form-data' }
     })
     
     const dados = resposta.data
-
     if (dados.esfericoLongeDireito !== null && dados.esfericoLongeDireito !== undefined) form.odEsferico = dados.esfericoLongeDireito
     if (dados.cilindricoLongeDireito !== null && dados.cilindricoLongeDireito !== undefined) form.odCilindrico = -Math.abs(dados.cilindricoLongeDireito)
     if (dados.eixoLongeDireito !== null && dados.eixoLongeDireito !== undefined) form.odEixo = dados.eixoLongeDireito
-
     if (dados.esfericoLongeEsquerdo !== null && dados.esfericoLongeEsquerdo !== undefined) form.oeEsferico = dados.esfericoLongeEsquerdo
     if (dados.cilindricoLongeEsquerdo !== null && dados.cilindricoLongeEsquerdo !== undefined) form.oeCilindrico = -Math.abs(dados.cilindricoLongeEsquerdo)
     if (dados.eixoLongeEsquerdo !== null && dados.eixoLongeEsquerdo !== undefined) form.oeEixo = dados.eixoLongeEsquerdo
-
     if (dados.adicao !== null && dados.adicao !== undefined) form.adicao = dados.adicao
     if (dados.medico) form.medicoNome = dados.medico
 
-    alert('✨ Leitura da receita concluída! Confira os graus antes de emitir a OS.')
+    alert('✨ Leitura concluída!')
   } catch (err) { 
-    alert(err.response?.data?.erro || 'Não foi possível interpretar a receita com clareza. Preencha os campos manualmente.') 
+    alert('Preencha os campos manualmente.') 
   } finally { 
     carregandoIA.value = false 
   }
@@ -771,9 +746,20 @@ const salvarOrdemServico = async () => {
   erroSubmissao.value = null
   salvandoOS.value = true
   try {
+    const formData = new FormData()
+    Object.keys(form).forEach(key => {
+      if (form[key] !== null && form[key] !== undefined) {
+        formData.append(key, form[key])
+      }
+    })
+    if (fotoAnexaArquivo.value) {
+      formData.append('fotoReceitaArquivo', fotoAnexaArquivo.value)
+    }
+
     const query = form.formaPagamento === 'CARTAO_CREDITO' ? `?quantidadeParcelas=${qtdParcelas.value}` : ''
-    const payload = { ...form, cpf: form.cpf.replace(/\D/g, ''), lentePrecoId: form.lenteId }
-    const { data } = await axios.post(`/ordens${query}`, payload)
+    const { data } = await axios.post(`/ordens${query}`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' }
+    })
     
     localStorage.removeItem(CHAVE_RASCUNHO)
     osFaturadaResponse.value = { numeroOS: data.numeroOS || 'OS-FINALIZADA' }
