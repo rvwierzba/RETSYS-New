@@ -178,7 +178,8 @@ namespace RETSYS.Infrastructure.Data
 
                 b.Property(r => r.DnpOd).HasPrecision(4, 1);
                 b.Property(r => r.DnpOe).HasPrecision(4, 1);
-                b.Property(r => r.AlturaMontagem).HasPrecision(4, 1);
+               b.Property(r => r.AlturaMontagemOd).HasPrecision(4, 1);
+b.Property(r => r.AlturaMontagemOe).HasPrecision(4, 1);
 
                 // 📐 Medidas de montagem da armação
                 b.Property(r => r.Aro).HasPrecision(4, 1);

@@ -23,7 +23,7 @@ namespace RETSYS.Web.Controllers
             _context = context;
         }
 
-        // 1. Listagem, Busca Textual, Filtro por Período e Status de Entrega (2.2)
+        // 1. Listagem, Busca Textual, Filtro por Período e Status de Entrega
         [HttpGet("/clientes")]
         public async Task<IActionResult> Index([FromQuery] string? busca, [FromQuery] int? mes, [FromQuery] int? ano)
         {
@@ -35,7 +35,7 @@ namespace RETSYS.Web.Controllers
             if (!string.IsNullOrWhiteSpace(busca))
             {
                 var termo = busca.Trim().ToLower();
-                query = query.Where(c => c.Nome.ToLower().Contains(termo) || c.CPF.Contains(termo));
+                query = query.Where(c => c.Nome.ToLower().Contains(termo) || (c.CPF != null && c.CPF.Contains(termo)));
             }
 
             if (mes.HasValue && ano.HasValue)
@@ -61,7 +61,7 @@ namespace RETSYS.Web.Controllers
                     UltimaOs = c.OrdensServico.OrderByDescending(os => os.DataEntrada).Select(os => os.NumeroOS).FirstOrDefault() ?? 
                                (c.DataUltimaCompra.HasValue ? "MIGRAÇÃO (CRM)" : "Nenhuma"),
 
-                    // 2.2 Mapeamento de Status de Entrega da OS mais recente
+                    // Mapeamento de Status de Entrega da OS mais recente
                     StatusEntrega = c.OrdensServico.OrderByDescending(os => os.DataEntrada).Select(os => 
                         os.Status == "ENTREGUE" ? "Entregue" :
                         os.DataPrevistaEntrega.Date < hojeUtc ? "Atrasado" : "A entregar"
@@ -89,7 +89,7 @@ namespace RETSYS.Web.Controllers
 
             var cliente = await _context.Clientes
                 .AsNoTracking()
-                .FirstOrDefaultAsync(c => c.CPF == cpfLimpo || c.CPF == cpf);
+                .FirstOrDefaultAsync(c => (c.CPF != null && c.CPF == cpfLimpo) || c.CPF == cpf);
 
             if (cliente == null)
             {
@@ -113,7 +113,7 @@ namespace RETSYS.Web.Controllers
             });
         }
 
-        // 2. Gravação de Cliente com suporte a Cadastro Rápido e Ficha de Migração (2.1)
+        // 2. Gravação de Cliente com suporte a Cadastro Rápido e Ficha de Migração (Ponto 1: CPF Opcional na Ficha Antiga)
         [HttpPost("/clientes")]
         public async Task<IActionResult> Store([FromForm] ClienteCadastroRequest model)
         {
@@ -122,16 +122,16 @@ namespace RETSYS.Web.Controllers
                 return RedirectToAction(nameof(Index));
             }
 
-            // Normaliza CPF se preenchido
-            string cpfFinal = !string.IsNullOrWhiteSpace(model.CPF) 
+            // Normaliza CPF se preenchido (ou deixa nulo caso esteja em branco)
+            string? cpfFinal = !string.IsNullOrWhiteSpace(model.CPF) 
                 ? new string(model.CPF.Where(char.IsDigit).ToArray()) 
-                : "";
+                : null;
 
             var novoCliente = new Cliente
             {
                 Id = Guid.NewGuid(),
                 Nome = model.Nome,
-                CPF = cpfFinal,
+                CPF = cpfFinal ?? string.Empty,
                 Telefone = model.Telefone ?? string.Empty,
                 Cep = model.Cep ?? string.Empty,
                 Logradouro = model.Logradouro ?? string.Empty,
@@ -162,7 +162,7 @@ namespace RETSYS.Web.Controllers
                 novoCliente.UltimaAdicao = model.UltimaAdicao; 
                 novoCliente.UltimaDnpOd = model.UltimaDnpOd; 
                 novoCliente.UltimaDnpOe = model.UltimaDnpOe; 
-                novoCliente.UltimaAlturaMontagem = model.UltimaAlturaMontagem;
+                novoCliente.UltimaAlturaMontagem = model.UltimaAlturaMontagemOd ?? model.UltimaAlturaMontagem;
 
                 if (model.HistoricoFotoReceita != null && model.HistoricoFotoReceita.Length > 0)
                 {
@@ -329,5 +329,7 @@ namespace RETSYS.Web.Controllers
         public decimal? UltimaDnpOd { get; set; }
         public decimal? UltimaDnpOe { get; set; }
         public decimal? UltimaAlturaMontagem { get; set; }
+        public decimal? UltimaAlturaMontagemOd { get; set; }
+        public decimal? UltimaAlturaMontagemOe { get; set; }
     }
 }

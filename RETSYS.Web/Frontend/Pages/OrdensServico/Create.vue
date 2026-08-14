@@ -138,7 +138,7 @@
             </div>
           </div>
 
-          <!-- PONTO 3: ANEXAR FOTO DA RECEITA SEM OBRIGAR USO DA IA -->
+          <!-- Anexar foto da receita -->
           <div class="bg-amber-50/50 p-6 rounded-2xl border border-amber-200 space-y-3">
             <h3 class="text-xs font-black text-amber-950 uppercase tracking-wider flex items-center gap-2">
               <span>📸 Anexar Foto/Scan da Receita na OS</span>
@@ -155,7 +155,7 @@
             </div>
           </div>
 
-          <!-- Assistente de IA (Moondream - Opcional) -->
+          <!-- Assistente de IA -->
           <div class="bg-white rounded-2xl border-2 border-dashed border-slate-200 p-6 space-y-4">
             <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
               <div>
@@ -239,6 +239,7 @@
                   @keydown.enter.prevent 
                   class="rounded-xl border-slate-200 text-sm text-center font-mono focus:border-teal-500" 
                 />
+                <!-- PONTO 2.1: Cilíndrico convertido para negativo ao digitar/desfocar -->
                 <input 
                   v-model.number="form.odCilindrico" 
                   type="number" 
@@ -249,11 +250,13 @@
                   @keydown.enter.prevent 
                   class="rounded-xl border-slate-200 text-sm text-center font-mono text-amber-700 font-bold focus:border-teal-500" 
                 />
+                <!-- PONTO 2.2: Eixo entre 0 e 180 inteiros -->
                 <input 
                   v-model.number="form.odEixo" 
                   type="number" 
                   min="0" 
                   max="180" 
+                  step="1"
                   placeholder="0" 
                   @input="validarEixo('odEixo')" 
                   @keydown.enter.prevent 
@@ -272,6 +275,7 @@
                   @keydown.enter.prevent 
                   class="rounded-xl border-slate-200 text-sm text-center font-mono focus:border-teal-500" 
                 />
+                <!-- PONTO 2.1: Cilíndrico convertido para negativo -->
                 <input 
                   v-model.number="form.oeCilindrico" 
                   type="number" 
@@ -282,11 +286,13 @@
                   @keydown.enter.prevent 
                   class="rounded-xl border-slate-200 text-sm text-center font-mono text-amber-700 font-bold focus:border-teal-500" 
                 />
+                <!-- PONTO 2.2: Eixo entre 0 e 180 inteiros -->
                 <input 
                   v-model.number="form.oeEixo" 
                   type="number" 
                   min="0" 
                   max="180" 
+                  step="1"
                   placeholder="0" 
                   @input="validarEixo('oeEixo')" 
                   @keydown.enter.prevent 
@@ -322,13 +328,13 @@
             </div>
           </div>
 
-          <!-- PONTO 4: DIGITAÇÃO LIVRE DE DP/DNP E MEDIDAS DA ARMAÇÃO -->
+          <!-- 3. Medidas Técnicas & Montagem da Armação -->
           <div class="bg-white p-6 rounded-2xl border border-slate-200 space-y-4">
             <h3 class="text-sm font-black text-slate-700 uppercase tracking-wider flex items-center gap-2">
               <span class="w-2 h-2 rounded-full bg-indigo-500"></span> 3. Medidas Técnicas & Montagem da Armação
             </h3>
             
-            <div class="grid grid-cols-1 md:grid-cols-4 gap-6">
+            <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
               <div>
                 <label class="block text-xs font-bold uppercase text-slate-400 tracking-wider mb-2">DNP OD (20 a 40 mm)</label>
                 <input 
@@ -349,16 +355,29 @@
                   class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 font-mono font-bold text-slate-800" 
                 />
               </div>
+
+              <!-- PONTO 3: Altura de Montagem separada por olho (OD e OE) -->
               <div>
-                <label class="block text-xs font-bold uppercase text-slate-400 tracking-wider mb-2">Altura Montagem (Máx 33 mm)</label>
+                <label class="block text-xs font-bold uppercase text-slate-400 tracking-wider mb-2">Altura Mont. OD (mm)</label>
                 <input 
-                  v-model="form.alturaMontagem" 
+                  v-model="form.alturaMontagemOd" 
                   type="text" 
                   placeholder="Ex: 18.0" 
                   @keydown.enter.prevent 
                   class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 font-mono font-bold text-slate-800" 
                 />
               </div>
+              <div>
+                <label class="block text-xs font-bold uppercase text-slate-400 tracking-wider mb-2">Altura Mont. OE (mm)</label>
+                <input 
+                  v-model="form.alturaMontagemOe" 
+                  type="text" 
+                  placeholder="Ex: 18.0" 
+                  @keydown.enter.prevent 
+                  class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 font-mono font-bold text-slate-800" 
+                />
+              </div>
+
               <div>
                 <label class="block text-xs font-bold uppercase text-slate-400 tracking-wider mb-2">Data Prevista de Entrega *</label>
                 <input v-model="form.dataPrevistaEntrega" type="date" @keydown.enter.prevent class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 font-mono" required />
@@ -410,7 +429,7 @@
               <select v-model="form.armacaoId" @change="processarSnapshotProdutos" @keydown.enter.prevent class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500">
                 <option value="">(Nenhuma / Cliente trouxe armação própria)</option>
                 <option v-for="a in (Armacoes ?? armacoes)" :key="a.id || a.Id" :value="a.id || a.Id">
-                  [{{ a.marcaNome || a.MarcaNome || 'Sem Marca' }}] {{ a.modeloReferencia || a.Modelo }} ({{ a.cor || a.Cor || 'Padrão' }}) — R$ {{ Number(a.precoVenda ?? a.PrecoFinal ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) }}
+                  [{{ a.marcaNome || a.MarcaNome || 'Sem Marca' }}] {{ a.modeloReferencia || a.Modelo }} ({{ a.cor || a.Cor || 'Padrão' }}) — {{ formatarMoeda(a.precoVenda ?? a.PrecoFinal ?? 0) }}
                 </option>
               </select>
             </div>
@@ -420,24 +439,28 @@
               <select v-model="form.lenteId" @change="processarSnapshotProdutos" @keydown.enter.prevent class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500">
                 <option value="">(Nenhuma / Tabela Própria)</option>
                 <option v-for="l in (Lentes ?? lentes)" :key="l.id || l.Id" :value="l.id || l.Id">
-                  {{ l.laboratorio || l.Laboratorio }} — {{ l.tipo || l.Tipo }} {{ (l.tratamento || l.Tratamento) ? `(${l.tratamento || l.Tratamento})` : '' }} — R$ {{ Number(l.precoVenda ?? l.PrecoFinal ?? 0).toLocaleString('pt-BR', { minimumFractionDigits: 2 }) }}
+                  {{ l.laboratorio || l.Laboratorio }} — {{ l.tipo || l.Tipo }} {{ (l.tratamento || l.Tratamento) ? `(${l.tratamento || l.Tratamento})` : '' }} — {{ formatarMoeda(l.precoVenda ?? l.PrecoFinal ?? 0) }}
                 </option>
               </select>
               
-              <!-- PONTO 2: PREÇO EDITÁVEL PARA TABELA PRÓPRIA DA LOJA -->
+              <!-- PONTO 4: Preço da Lente com Formatação em Reais -->
               <div class="animate-fadeIn p-4 bg-teal-50/50 rounded-2xl border border-teal-200/60 mt-3">
                 <label class="block text-xs font-bold uppercase text-teal-900 tracking-wider mb-1">Preço da Lente (Tabela Própria / Editável)</label>
                 <div class="relative mt-1 rounded-xl shadow-sm">
-                  <div class="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3">
-                    <span class="text-sm font-semibold text-teal-600">R$</span>
-                  </div>
-                  <input v-model.number="form.valorLente" type="number" step="0.01" min="0" placeholder="0,00" @input="recalcularTotaisGenericos" @keydown.enter.prevent class="w-full rounded-xl border-teal-200 pl-9 text-sm font-mono font-bold focus:border-teal-500" />
+                  <input 
+                    :value="valorLenteFormatado" 
+                    @input="tratarInputValorLente" 
+                    @keydown.enter.prevent 
+                    type="text" 
+                    placeholder="R$ 0,00" 
+                    class="w-full rounded-xl border-teal-200 text-sm font-mono font-bold focus:border-teal-500" 
+                  />
                 </div>
               </div>
             </div>
           </div>
 
-          <!-- Resumo Financeiro -->
+          <!-- Resumo Financeiro (PONTO 4: Formatação de Moedas em Reais) -->
           <div class="p-5 bg-amber-50/40 rounded-2xl border border-amber-200/60 space-y-4">
             <h4 class="font-bold text-amber-950 uppercase tracking-wider text-[10px]">Resumo do Pedido & Condições de Pagamento</h4>
             <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -458,16 +481,16 @@
                 </select>
               </div>
 
+              <!-- PONTO 4: Desconto formatado em Reais -->
               <div>
                 <label class="block font-bold text-amber-900 uppercase mb-1.5">Desconto (R$)</label>
                 <div class="relative">
                   <input 
-                    v-model.number="form.descontoReais" 
-                    type="number" 
-                    min="0" 
-                    step="0.01" 
-                    @input="recalcularTotaisGenericos" 
+                    :value="descontoReaisFormatado" 
+                    @input="tratarInputDescontoReais" 
                     @keydown.enter.prevent 
+                    type="text" 
+                    placeholder="R$ 0,00" 
                     class="w-full rounded-xl border-amber-200 text-xs bg-white font-mono font-bold pr-16" 
                   />
                   <span class="absolute right-2 top-1.5 text-[10px] text-amber-700 font-mono font-bold bg-amber-100 px-1.5 py-0.5 rounded">
@@ -479,7 +502,7 @@
               <div>
                 <label class="block font-bold text-teal-950 uppercase mb-1.5">Total Líquido do Pedido</label>
                 <div class="text-base font-black font-mono text-teal-700 bg-teal-50 px-3 py-2 rounded-xl border border-teal-100 text-center">
-                  R$ {{ form.valorTotalLiquido.toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}
+                  {{ formatarMoeda(form.valorTotalLiquido) }}
                 </div>
               </div>
             </div>
@@ -520,7 +543,7 @@
 </template>
 
 <script setup>
-import { ref, watch, onMounted, onBeforeUnmount } from 'vue'
+import { ref, watch, onMounted, onBeforeUnmount, computed } from 'vue'
 import { useForm, Link, router } from '@inertiajs/vue3'
 import axios from 'axios'
 import AuthenticatedLayout from '../../Shared/AuthenticatedLayout.vue'
@@ -558,7 +581,10 @@ const form = useForm({
   dataReceita: new Date().toISOString().split('T')[0], dataPrevistaEntrega: '', medicoNome: '',
   medicoCrm: '', medicoTipo: 'NAO_ESPECIFICADO', observacoes: '', odEsferico: 0, odCilindrico: 0,
   odEixo: 0, oeEsferico: 0, oeCilindrico: 0, oeEixo: 0, adicao: null, dnpOd: 0, dnpOe: 0,
-  alturaMontagem: null,
+  
+  // PONTO 3: Altura de Montagem por Olho
+  alturaMontagemOd: null,
+  alturaMontagemOe: null,
   
   aro: null, dm: null, vert: null, po: null, coOd: null, coOe: null,
   
@@ -566,6 +592,25 @@ const form = useForm({
   valorTotalBruto: 0, descontoReais: 0, descontoPercentual: 0, valorTotalLiquido: 0, valorEntrada: null,
   formaPagamento: 'DINHEIRO'
 })
+
+// PONTO 4: Formatação de Moeda em Reais
+const formatarMoeda = (valor) => {
+  return Number(valor || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+}
+
+const valorLenteFormatado = computed(() => formatarMoeda(form.valorLente))
+const tratarInputValorLente = (e) => {
+  const digitos = e.target.value.replace(/\D/g, '')
+  form.valorLente = digitos ? parseFloat(digitos) / 100 : 0
+  recalcularTotaisGenericos()
+}
+
+const descontoReaisFormatado = computed(() => formatarMoeda(form.descontoReais))
+const tratarInputDescontoReais = (e) => {
+  const digitos = e.target.value.replace(/\D/g, '')
+  form.descontoReais = digitos ? parseFloat(digitos) / 100 : 0
+  recalcularTotaisGenericos()
+}
 
 onMounted(() => {
   const dadosSalvos = localStorage.getItem(CHAVE_RASCUNHO)
@@ -611,6 +656,7 @@ const vincularFotoReceitaDireta = (event) => {
   if (files.length > 0) fotoAnexaArquivo.value = files[0]
 }
 
+// PONTO 2.1: Cilíndrico assumindo valor negativo automaticamente
 const validarCilindrico = (campo) => {
   let val = form[campo]
   if (val > 0) val = -Math.abs(val)
@@ -618,10 +664,14 @@ const validarCilindrico = (campo) => {
   form[campo] = val
 }
 
+// PONTO 2.2: Eixo aceita apenas inteiros de 0 a 180
 const validarEixo = (campo) => {
   let val = form[campo]
-  if (val < 0) form[campo] = 0
-  if (val > 180) form[campo] = 180
+  if (val !== null && val !== undefined) {
+    val = Math.floor(val)
+    if (val < 0) form[campo] = 0
+    if (val > 180) form[campo] = 180
+  }
 }
 
 const validarAdicao = () => {

@@ -156,7 +156,7 @@ namespace RETSYS.Web.Controllers
             if (string.IsNullOrEmpty(cleanCpf)) return BadRequest(new { mensagem = "CPF inválido." });
 
             var cliente = await _context.Clientes
-                .FirstOrDefaultAsync(c => c.CPF.Replace(".", "").Replace("-", "") == cleanCpf);
+                .FirstOrDefaultAsync(c => c.CPF != null && c.CPF.Replace(".", "").Replace("-", "") == cleanCpf);
 
             if (cliente == null) return NotFound();
 
@@ -179,7 +179,7 @@ namespace RETSYS.Web.Controllers
             });
         }
 
-        // 4. Gravação de Nova OS (Suporta multipart/form-data para upload direto de foto + baixa imediata de estoque)
+        // 4. Gravação de Nova OS
         [HttpPost("/ordens")]
         public async Task<IActionResult> Store([FromForm] IFormCollection formCollection, [FromQuery] int? quantidadeParcelas)
         {
@@ -194,7 +194,7 @@ namespace RETSYS.Web.Controllers
                 string cpfInformado = new string(formCollection["cpf"].ToString().Where(char.IsDigit).ToArray());
 
                 var cliente = await _context.Clientes
-                    .FirstOrDefaultAsync(c => c.CPF.Replace(".", "").Replace("-", "") == cpfInformado);
+                    .FirstOrDefaultAsync(c => c.CPF != null && c.CPF.Replace(".", "").Replace("-", "") == cpfInformado);
 
                 if (cliente == null)
                 {
@@ -281,7 +281,7 @@ namespace RETSYS.Web.Controllers
                     Ativo = true
                 };
 
-                // PONTO 3: Tratar upload simples da foto da receita (sem obrigar IA)
+                // Tratar upload simples da foto da receita (sem obrigar IA)
                 string? caminhoFotoAnexa = null;
                 if (Request.Form.Files.Count > 0)
                 {
@@ -309,13 +309,26 @@ namespace RETSYS.Web.Controllers
                 int.TryParse(formCollection["odEixo"].ToString(), out var odEixo);
                 int.TryParse(formCollection["oeEixo"].ToString(), out var oeEixo);
 
+                // PONTO 2.1: Cilíndrico sempre em valor negativo
                 decimal odCilindrico = rawOdCil > 0 ? -Math.Abs(rawOdCil) : rawOdCil;
                 decimal oeCilindrico = rawOeCil > 0 ? -Math.Abs(rawOeCil) : rawOeCil;
+
+                // PONTO 2.2: Eixo de 0 a 180
+                int odEixoValidado = Math.Clamp(odEixo, 0, 180);
+                int oeEixoValidado = Math.Clamp(oeEixo, 0, 180);
 
                 decimal? adicao = decimal.TryParse(formCollection["adicao"].ToString(), out var adVal) ? adVal : null;
                 decimal.TryParse(formCollection["dnpOd"].ToString(), out var dnpOd);
                 decimal.TryParse(formCollection["dnpOe"].ToString(), out var dnpOe);
-                decimal? altura = decimal.TryParse(formCollection["alturaMontagem"].ToString(), out var altVal) ? altVal : null;
+
+                // PONTO 3: Altura de Montagem OD e OE
+                decimal? alturaOd = decimal.TryParse(formCollection["alturaMontagemOd"].ToString(), out var altOdVal) 
+                    ? altOdVal 
+                    : (decimal.TryParse(formCollection["alturaMontagem"].ToString(), out var altGenVal) ? altGenVal : null);
+
+                decimal? alturaOe = decimal.TryParse(formCollection["alturaMontagemOe"].ToString(), out var altOeVal) 
+                    ? altOeVal 
+                    : (decimal.TryParse(formCollection["alturaMontagem"].ToString(), out var altGenVal2) ? altGenVal2 : null);
 
                 decimal? aro = decimal.TryParse(formCollection["aro"].ToString(), out var valAro) ? Math.Clamp(valAro, 0m, 80m) : null;
                 decimal? dm = decimal.TryParse(formCollection["dm"].ToString(), out var valDm) ? Math.Clamp(valDm, 0m, 80m) : null;
@@ -335,14 +348,15 @@ namespace RETSYS.Web.Controllers
                     OsId = novaOS.Id,
                     OdEsferico = odEsf,
                     OdCilindrico = odCilindrico,
-                    OdEixo = Math.Clamp(odEixo, 0, 180),
+                    OdEixo = odEixoValidado,
                     OeEsferico = oeEsf,
                     OeCilindrico = oeCilindrico,
-                    OeEixo = Math.Clamp(oeEixo, 0, 180),
+                    OeEixo = oeEixoValidado,
                     Adicao = adicao,
                     DnpOd = dnpOd,
                     DnpOe = dnpOe,
-                    AlturaMontagem = altura,
+                    AlturaMontagemOd = alturaOd,
+                    AlturaMontagemOe = alturaOe,
                     Aro = aro,
                     Dm = dm,
                     Vert = vert,
@@ -382,7 +396,7 @@ namespace RETSYS.Web.Controllers
                     });
                 }
 
-                // PONTO 5: Baixa automática imediata do estoque da armação ao faturar a OS
+                // Baixa de estoque da armação na emissão
                 if (armacaoId.HasValue)
                 {
                     var armacao = await _context.Armacoes.FindAsync(armacaoId.Value);
@@ -443,7 +457,7 @@ namespace RETSYS.Web.Controllers
             return RedirectToAction(nameof(Index));
         }
 
-        // 6. PONTO 1: Exclusão / Cancelamento da OS + Devolução de Estoque
+        // 6. Exclusão / Cancelamento de OS
         [HttpPost("/ordens/excluir/{id:guid}")]
         public async Task<IActionResult> Excluir(Guid id)
         {
@@ -453,7 +467,6 @@ namespace RETSYS.Web.Controllers
 
             if (ordem == null) return NotFound();
 
-            // Estorna o estoque da armação se a OS estava ativa
             if (ordem.Financeiro?.ArmacaoId != null && ordem.Status != "CANCELADO")
             {
                 var armacao = await _context.Armacoes.FindAsync(ordem.Financeiro.ArmacaoId);

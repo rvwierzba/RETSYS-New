@@ -22,7 +22,10 @@ namespace RETSYS.Domain.Entities
         // Medidas de Centragem Técnica
         public decimal DnpOd { get; set; }
         public decimal DnpOe { get; set; }
-        public decimal? AlturaMontagem { get; set; }
+        
+        // 📐 ITEM 3: Altura de Montagem separada por olho (OD e OE)
+        public decimal? AlturaMontagemOd { get; set; }
+        public decimal? AlturaMontagemOe { get; set; }
 
         // =======================================================
         // 📐 MEDIDAS DE MONTAGEM DA ARMAÇÃO (NOVOS CAMPOS)

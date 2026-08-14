@@ -49,7 +49,7 @@
         </div>
       </div>
 
-      <!-- Form com Seletor de Modo: Cadastro Rápido vs Ficha Antiga com Trava do Enter -->
+      <!-- Form com Seletor de Modo: Cadastro Rápido vs Ficha Antiga -->
       <div v-if="exibirFormNovoCliente" class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm transition duration-300">
         
         <!-- Abas de Alternância dos Modos de Cadastro -->
@@ -85,10 +85,18 @@
 
           <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
             <div>
+              <!-- PONTO 1: CPF opcional tanto no Cadastro Rápido quanto na Ficha Antiga -->
               <label class="block font-bold uppercase text-slate-400 tracking-wider mb-1.5">
-                CPF <span v-if="modoCadastro === 'rapido'" class="text-[10px] text-slate-400 font-normal">(Opcional no Rápido)</span>
+                CPF <span class="text-[10px] text-slate-400 font-normal">(Opcional)</span>
               </label>
-              <input v-model="form.CPF" type="text" placeholder="000.000.000-00" @keydown.enter.prevent class="w-full rounded-xl border-slate-200 text-xs focus:border-teal-500" :required="modoCadastro === 'ficha_antiga'" />
+              <input 
+                v-model="form.CPF" 
+                type="text" 
+                placeholder="000.000.000-00" 
+                @keydown.enter.prevent 
+                class="w-full rounded-xl border-slate-200 text-xs focus:border-teal-500" 
+                :required="false" 
+              />
             </div>
             <div>
               <label class="block font-bold uppercase text-slate-400 tracking-wider mb-1.5">WhatsApp / Telefone</label>
@@ -130,7 +138,7 @@
             </div>
           </div>
 
-          <!-- Seção de Ficha Antiga (Migração de Histórico) com Limites de Montagem -->
+          <!-- Seção de Ficha Antiga (Migração de Histórico) -->
           <div v-if="modoCadastro === 'ficha_antiga'" class="p-5 bg-amber-50/60 rounded-2xl border border-amber-200 space-y-4 animate-fadeIn">
             <div>
               <h4 class="font-bold text-amber-950 uppercase tracking-wider text-[10px] flex items-center gap-2">
@@ -146,10 +154,22 @@
                   <label class="block font-bold text-amber-900 uppercase mb-1.5">Data da Última Compra</label>
                   <input v-model="form.HistoricoData" type="date" @keydown.enter.prevent class="w-full rounded-xl border-amber-200 bg-white" />
                 </div>
+
+                <!-- PONTO 4: Formatação de Valor Monetário em Reais -->
                 <div>
                   <label class="block font-bold text-amber-900 uppercase mb-1.5">Valor Total Gasto (R$)</label>
-                  <input v-model.number="form.HistoricoValor" type="number" step="0.01" placeholder="R$ 0,00" @keydown.enter.prevent class="w-full rounded-xl border-amber-200 bg-white font-mono font-bold" />
+                  <div class="relative">
+                    <input 
+                      :value="historicoValorFormatado" 
+                      @input="tratarInputHistoricoValor" 
+                      @keydown.enter.prevent 
+                      type="text" 
+                      placeholder="R$ 0,00" 
+                      class="w-full rounded-xl border-amber-200 bg-white font-mono font-bold" 
+                    />
+                  </div>
                 </div>
+
                 <div class="md:col-span-2">
                   <label class="block font-bold text-amber-900 uppercase mb-1.5">Produto Adquirido (Armação/Lente)</label>
                   <input v-model="form.HistoricoLente" type="text" placeholder="Ex: Ray-Ban + Bifocal Tomada AR" @keydown.enter.prevent class="w-full rounded-xl border-amber-200 bg-white" />
@@ -162,24 +182,31 @@
                 <div class="grid grid-cols-4 gap-2 font-bold text-[10px] text-slate-400 uppercase text-center border-b pb-1">
                   <div>Olho</div>
                   <div>Esférico</div>
-                  <div>Cilíndrico</div>
+                  <div>Cilíndrico (-)</div>
                   <div>Eixo (°)</div>
                 </div>
 
+                <!-- OD -->
                 <div class="grid grid-cols-4 gap-2 items-center">
                   <div class="text-xs font-black text-slate-700 text-center">OD</div>
                   <input v-model.number="form.UltimaOdEsferico" type="number" step="0.25" placeholder="0,00" @keydown.enter.prevent class="rounded-xl border-slate-200 text-center font-mono py-1" />
-                  <input v-model.number="form.UltimaOdCilindrico" type="number" step="0.25" placeholder="0,00" @keydown.enter.prevent class="rounded-xl border-slate-200 text-center font-mono py-1" />
-                  <input v-model.number="form.UltimaOdEixo" type="number" min="0" max="180" placeholder="0" @keydown.enter.prevent class="rounded-xl border-slate-200 text-center font-mono py-1" />
+                  <!-- PONTO 2.1: Cilíndrico negativo automático -->
+                  <input v-model.number="form.UltimaOdCilindrico" @blur="validarCilindricoFicha('UltimaOdCilindrico')" type="number" step="0.25" placeholder="-0,00" @keydown.enter.prevent class="rounded-xl border-slate-200 text-center font-mono py-1 text-amber-700 font-bold" />
+                  <!-- PONTO 2.2: Eixo 0 a 180 -->
+                  <input v-model.number="form.UltimaOdEixo" @input="validarEixoFicha('UltimaOdEixo')" type="number" min="0" max="180" placeholder="0" @keydown.enter.prevent class="rounded-xl border-slate-200 text-center font-mono py-1" />
                 </div>
 
+                <!-- OE -->
                 <div class="grid grid-cols-4 gap-2 items-center">
                   <div class="text-xs font-black text-slate-700 text-center">OE</div>
                   <input v-model.number="form.UltimaOeEsferico" type="number" step="0.25" placeholder="0,00" @keydown.enter.prevent class="rounded-xl border-slate-200 text-center font-mono py-1" />
-                  <input v-model.number="form.UltimaOeCilindrico" type="number" step="0.25" placeholder="0,00" @keydown.enter.prevent class="rounded-xl border-slate-200 text-center font-mono py-1" />
-                  <input v-model.number="form.UltimaOeEixo" type="number" min="0" max="180" placeholder="0" @keydown.enter.prevent class="rounded-xl border-slate-200 text-center font-mono py-1" />
+                  <!-- PONTO 2.1: Cilíndrico negativo automático -->
+                  <input v-model.number="form.UltimaOeCilindrico" @blur="validarCilindricoFicha('UltimaOeCilindrico')" type="number" step="0.25" placeholder="-0,00" @keydown.enter.prevent class="rounded-xl border-slate-200 text-center font-mono py-1 text-amber-700 font-bold" />
+                  <!-- PONTO 2.2: Eixo 0 a 180 -->
+                  <input v-model.number="form.UltimaOeEixo" @input="validarEixoFicha('UltimaOeEixo')" type="number" min="0" max="180" placeholder="0" @keydown.enter.prevent class="rounded-xl border-slate-200 text-center font-mono py-1" />
                 </div>
 
+                <!-- Medidas Técnicas -->
                 <div class="grid grid-cols-4 gap-2 pt-2 border-t border-slate-100">
                   <div>
                     <label class="block font-bold text-slate-400 mb-1">Adição (AD)</label>
@@ -193,9 +220,17 @@
                     <label class="block font-bold text-slate-400 mb-1">DNP Esquerda</label>
                     <input v-model.number="form.UltimaDnpOe" type="number" step="0.5" min="20" max="40" placeholder="mm" @keydown.enter.prevent class="w-full rounded-xl border-slate-200 text-center font-mono py-1" />
                   </div>
+                  <!-- PONTO 3: Altura Montagem por Olho na Ficha Antiga -->
                   <div>
-                    <label class="block font-bold text-slate-400 mb-1">Altura</label>
-                    <input v-model.number="form.UltimaAlturaMontagem" type="number" step="0.5" min="0" max="33" placeholder="mm" @keydown.enter.prevent class="w-full rounded-xl border-slate-200 text-center font-mono py-1" />
+                    <label class="block font-bold text-slate-400 mb-1">Altura Mont. OD</label>
+                    <input v-model.number="form.UltimaAlturaMontagemOd" type="number" step="0.5" min="0" max="33" placeholder="mm" @keydown.enter.prevent class="w-full rounded-xl border-slate-200 text-center font-mono py-1" />
+                  </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-2 pt-1">
+                  <div>
+                    <label class="block font-bold text-slate-400 mb-1">Altura Mont. OE</label>
+                    <input v-model.number="form.UltimaAlturaMontagemOe" type="number" step="0.5" min="0" max="33" placeholder="mm" @keydown.enter.prevent class="w-full rounded-xl border-slate-200 text-center font-mono py-1" />
                   </div>
                 </div>
 
@@ -256,7 +291,7 @@
         </form>
       </div>
 
-      <!-- Tabela de Clientes com Status de Entrega da OS -->
+      <!-- Tabela de Clientes -->
       <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
         <h3 class="text-sm font-black text-slate-950 uppercase tracking-wider font-mono mb-4">Registros Encontrados</h3>
 
@@ -310,8 +345,9 @@
                   {{ c.UltimaOs }}
                 </td>
 
+                <!-- PONTO 4: Exibição monetária formatada em Reais -->
                 <td class="py-4 text-right font-black text-slate-950 font-mono text-xs">
-                  R$ {{ (c.TotalGasto || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}
+                  R$ {{ Number(c.TotalGasto || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}
                 </td>
                 
                 <td class="py-4 text-center">
@@ -333,7 +369,7 @@
 </template>
 
 <script setup>
-import { ref, reactive } from 'vue'
+import { ref, reactive, computed } from 'vue'
 import { useForm, Link, router } from '@inertiajs/vue3'
 import AuthenticatedLayout from '../../Shared/AuthenticatedLayout.vue'
 
@@ -389,6 +425,8 @@ const form = useForm({
   UltimaDnpOd: 0,
   UltimaDnpOe: 0,
   UltimaAlturaMontagem: null,
+  UltimaAlturaMontagemOd: null,
+  UltimaAlturaMontagemOe: null,
 
   aro: null,
   dm: null,
@@ -397,6 +435,32 @@ const form = useForm({
   coOd: null,
   coOe: null
 })
+
+// PONTO 4: Formatação de Moeda na Ficha Antiga
+const historicoValorFormatado = computed(() => {
+  return Number(form.HistoricoValor || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
+})
+
+const tratarInputHistoricoValor = (e) => {
+  const digitos = e.target.value.replace(/\D/g, '')
+  form.HistoricoValor = digitos ? parseFloat(digitos) / 100 : 0
+}
+
+// PONTO 2.1: Conversão automática de cilíndrico para negativo
+const validarCilindricoFicha = (campo) => {
+  let val = form[campo]
+  if (val > 0) form[campo] = -Math.abs(val)
+}
+
+// PONTO 2.2: Trava de Eixo entre 0 e 180
+const validarEixoFicha = (campo) => {
+  let val = form[campo]
+  if (val !== null && val !== undefined) {
+    val = Math.floor(val)
+    if (val < 0) form[campo] = 0
+    if (val > 180) form[campo] = 180
+  }
+}
 
 const validarMontagem = (campo, maximo) => {
   let val = form[campo]
