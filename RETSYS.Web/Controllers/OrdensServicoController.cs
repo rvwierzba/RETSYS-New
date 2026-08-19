@@ -26,22 +26,29 @@ namespace RETSYS.Web.Controllers
             _context = context;
         }
 
-        // 1. Listagem de todas as OSs com Isolamento por Perfil (RBAC) e Filtros de Composição
+        // 1. Listagem de todas as OSs com Suporte a Filtro por Vendedora (Ponto 4) e Projeção Completa da OS (Ponto 2)
         [HttpGet("/ordens")]
-        public async Task<IActionResult> Index([FromQuery] string? filtroComposicao)
+        public async Task<IActionResult> Index([FromQuery] string? filtroComposicao, [FromQuery] Guid? vendedorId)
         {
             var usuarioIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             var perfilClaim = User.FindFirst(ClaimTypes.Role)?.Value ?? "VENDEDOR";
 
             IQueryable<OrdemServico> query = _context.OrdensServico
                 .Include(os => os.Cliente)
+                .Include(os => os.Vendedor)
                 .Include(os => os.Receita)
                 .Include(os => os.Financeiro)
+                .Include(os => os.Parcelas)
                 .Where(os => os.Status != "CANCELADO" && os.Status != "CANCELADA" && os.Ativo);
 
-            if (string.Equals(perfilClaim, "VENDEDOR", StringComparison.OrdinalIgnoreCase) && Guid.TryParse(usuarioIdClaim, out Guid vendedorId))
+            // Isolamento por perfil ou filtro explícito do Administrador/Gerente (Ponto 4)
+            if (string.Equals(perfilClaim, "VENDEDOR", StringComparison.OrdinalIgnoreCase) && Guid.TryParse(usuarioIdClaim, out Guid vendedorLogadoId))
             {
-                query = query.Where(os => os.VendedorId == vendedorId);
+                query = query.Where(os => os.VendedorId == vendedorLogadoId);
+            }
+            else if (vendedorId.HasValue && vendedorId.Value != Guid.Empty)
+            {
+                query = query.Where(os => os.VendedorId == vendedorId.Value);
             }
 
             query = filtroComposicao switch
@@ -59,6 +66,7 @@ namespace RETSYS.Web.Controllers
                 _ => await query.SumAsync(os => os.Financeiro != null ? os.Financeiro.ValorTotalLiquido : 0)
             };
 
+            // PONTO 2: Mapeamento detalhado e completo de todos os blocos da OS para exibição na modal
             var ordens = await query
                 .OrderByDescending(os => os.DataEntrada)
                 .Select(os => new
@@ -69,26 +77,84 @@ namespace RETSYS.Web.Controllers
                     os.DataPrevistaEntrega,
                     os.Status,
                     Medico = os.MedicoNome,
-                    ClienteNome = os.Cliente.Nome,
-                    ValorTotal = os.Financeiro != null ? os.Financeiro.ValorTotalLiquido : 0,
-                    Refracao = os.Receita != null ? new
+                    os.MedicoCrm,
+                    os.MedicoTipo,
+                    os.Observacoes,
+                    VendedorNome = os.Vendedor != null ? os.Vendedor.Nome : "Não informado",
+                    os.VendedorId,
+                    Cliente = os.Cliente != null ? new
                     {
-                        EsfericoLongeDireito = os.Receita.OdEsferico,
-                        CilindricoLongeDireito = os.Receita.OdCilindrico,
-                        EixoLongeDireito = os.Receita.OdEixo,
-                        EsfericoLongeEsquerdo = os.Receita.OeEsferico,
-                        CilindricoLongeEsquerdo = os.Receita.OeCilindrico,
-                        EixoLongeEsquerdo = os.Receita.OeEixo,
+                        os.Cliente.Id,
+                        os.Cliente.Nome,
+                        os.Cliente.CPF,
+                        os.Cliente.Telefone,
+                        os.Cliente.Email,
+                        os.Cliente.Logradouro,
+                        os.Cliente.Numero,
+                        os.Cliente.Bairro,
+                        os.Cliente.Cidade,
+                        os.Cliente.Estado,
+                        os.Cliente.Convenio
+                    } : null,
+                    ClienteNome = os.Cliente != null ? os.Cliente.Nome : "Cliente Não Identificado",
+                    ValorTotal = os.Financeiro != null ? os.Financeiro.ValorTotalLiquido : 0,
+                    Financeiro = os.Financeiro != null ? new
+                    {
+                        os.Financeiro.ValorArmacao,
+                        os.Financeiro.ValorLente,
+                        os.Financeiro.ValorTotalBruto,
+                        os.Financeiro.DescontoReais,
+                        os.Financeiro.DescontoPercentual,
+                        os.Financeiro.ValorTotalLiquido,
+                        os.Financeiro.FormaPagamento,
+                        os.Financeiro.Parcelas,
+                        os.Financeiro.ValorEntrada
+                    } : null,
+                    Receita = os.Receita != null ? new
+                    {
+                        os.Receita.OdEsferico,
+                        os.Receita.OdCilindrico,
+                        os.Receita.OdEixo,
+                        os.Receita.OeEsferico,
+                        os.Receita.OeCilindrico,
+                        os.Receita.OeEixo,
                         os.Receita.Adicao,
+                        os.Receita.DnpOd,
+                        os.Receita.DnpOe,
+                        os.Receita.AlturaMontagemOd,
+                        os.Receita.AlturaMontagemOe,
+                        os.Receita.Aro,
+                        os.Receita.Dm,
+                        os.Receita.Vert,
+                        os.Receita.Po,
+                        os.Receita.CoOd,
+                        os.Receita.CoOe,
+                        os.Receita.ObsReceita,
                         EsfericoPertoDireito = os.Receita.OdEsferico + (os.Receita.Adicao ?? 0),
                         EsfericoPertoEsquerdo = os.Receita.OeEsferico + (os.Receita.Adicao ?? 0)
-                    } : null
+                    } : null,
+                    Parcelas = os.Parcelas.Select(p => new
+                    {
+                        p.NumeroParcela,
+                        p.DescricaoParcela,
+                        p.Valor,
+                        p.DataVencimento
+                    }).ToList()
                 })
+                .ToListAsync();
+
+            // PONTO 4: Lista de vendedores para popular o filtro no frontend
+            var vendedores = await _context.Usuarios
+                .Where(u => u.Ativo)
+                .OrderBy(u => u.Nome)
+                .Select(u => new { u.Id, u.Nome })
                 .ToListAsync();
 
             return Inertia.Render("OrdensServico/Index", new { 
                 Ordens = ordens,
+                Vendedores = vendedores,
                 FiltroAtivo = filtroComposicao ?? "total",
+                VendedorFiltro = vendedorId,
                 TotalFiltroAtivo = totalFiltroAtivo
             });
         }
@@ -281,7 +347,7 @@ namespace RETSYS.Web.Controllers
                     Ativo = true
                 };
 
-                // Tratar upload simples da foto da receita (sem obrigar IA)
+                // Upload de foto da receita
                 string? caminhoFotoAnexa = null;
                 if (Request.Form.Files.Count > 0)
                 {
@@ -309,11 +375,9 @@ namespace RETSYS.Web.Controllers
                 int.TryParse(formCollection["odEixo"].ToString(), out var odEixo);
                 int.TryParse(formCollection["oeEixo"].ToString(), out var oeEixo);
 
-                // PONTO 2.1: Cilíndrico sempre em valor negativo
                 decimal odCilindrico = rawOdCil > 0 ? -Math.Abs(rawOdCil) : rawOdCil;
                 decimal oeCilindrico = rawOeCil > 0 ? -Math.Abs(rawOeCil) : rawOeCil;
 
-                // PONTO 2.2: Eixo de 0 a 180
                 int odEixoValidado = Math.Clamp(odEixo, 0, 180);
                 int oeEixoValidado = Math.Clamp(oeEixo, 0, 180);
 
@@ -321,7 +385,6 @@ namespace RETSYS.Web.Controllers
                 decimal.TryParse(formCollection["dnpOd"].ToString(), out var dnpOd);
                 decimal.TryParse(formCollection["dnpOe"].ToString(), out var dnpOe);
 
-                // PONTO 3: Altura de Montagem OD e OE
                 decimal? alturaOd = decimal.TryParse(formCollection["alturaMontagemOd"].ToString(), out var altOdVal) 
                     ? altOdVal 
                     : (decimal.TryParse(formCollection["alturaMontagem"].ToString(), out var altGenVal) ? altGenVal : null);

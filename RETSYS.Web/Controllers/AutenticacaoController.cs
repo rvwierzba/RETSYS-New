@@ -43,9 +43,14 @@ namespace RETSYS.Web.Controllers
                 return RedirectToAction(nameof(Login));
             }
 
+            // Atualiza e grava no banco a data e hora do último login
+            usuario.UltimoAcesso = DateTime.UtcNow;
+            await _context.SaveChangesAsync();
+
             // Cria os "crachás" (Claims) de identificação do usuário dentro do sistema
             var credenciais = new List<Claim>
             {
+                new Claim(ClaimTypes.NameIdentifier, usuario.Id.ToString()),
                 new Claim(ClaimTypes.Name, usuario.Nome),
                 new Claim(ClaimTypes.Email, usuario.Email),
                 new Claim(ClaimTypes.Role, usuario.Perfil.ToString()), // Vendedor, Gerente ou Admin

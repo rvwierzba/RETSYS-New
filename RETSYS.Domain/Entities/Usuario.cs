@@ -33,7 +33,7 @@ namespace RETSYS.Domain.Entities
         
         // Permite desativar comissão por vendedora mantendo o % global ativo
         public bool ComissaoAtiva { get; set; } = true;
-        
+        public DateTime? UltimoAcesso { get; set; }
         public DateTime CriadoEm { get; set; } = DateTime.UtcNow;
     }
 }

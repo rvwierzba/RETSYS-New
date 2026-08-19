@@ -32,24 +32,31 @@ namespace RETSYS.Web.Controllers
                     .ThenInclude(os => os.Financeiro)
                 .AsQueryable();
 
+            // PONTO 1: Busca expansiva por Nome, CPF e Telefone
             if (!string.IsNullOrWhiteSpace(busca))
             {
                 var termo = busca.Trim().ToLower();
-                query = query.Where(c => c.Nome.ToLower().Contains(termo) || (c.CPF != null && c.CPF.Contains(termo)));
+                query = query.Where(c => 
+                    c.Nome.ToLower().Contains(termo) || 
+                    (c.CPF != null && c.CPF.Contains(termo)) ||
+                    (c.Telefone != null && c.Telefone.Contains(termo))
+                );
             }
 
+            // PONTO 1: Inclui c.CreatedAt para não sumir com o cliente recém-cadastrado sem OS
             if (mes.HasValue && ano.HasValue)
             {
                 query = query.Where(c => 
                     c.OrdensServico.Any(os => os.DataEntrada.Month == mes.Value && os.DataEntrada.Year == ano.Value) ||
-                    (c.DataUltimaCompra.HasValue && c.DataUltimaCompra.Value.Month == mes.Value && c.DataUltimaCompra.Value.Year == ano.Value)
+                    (c.DataUltimaCompra.HasValue && c.DataUltimaCompra.Value.Month == mes.Value && c.DataUltimaCompra.Value.Year == ano.Value) ||
+                    (c.CreatedAt.Month == mes.Value && c.CreatedAt.Year == ano.Value)
                 );
             }
 
             var hojeUtc = DateTime.UtcNow.Date;
 
             var listaClientes = await query
-                .OrderBy(c => c.Nome)
+                .OrderByDescending(c => c.CreatedAt) // Ordena pelos cadastros mais recentes no topo
                 .Select(c => new
                 {
                     c.Id,
@@ -113,7 +120,7 @@ namespace RETSYS.Web.Controllers
             });
         }
 
-        // 2. Gravação de Cliente com suporte a Cadastro Rápido e Ficha de Migração (Ponto 1: CPF Opcional na Ficha Antiga)
+        // 2. Gravação de Cliente com suporte a Cadastro Rápido e Ficha de Migração (CPF Opcional)
         [HttpPost("/clientes")]
         public async Task<IActionResult> Store([FromForm] ClienteCadastroRequest model)
         {
@@ -130,7 +137,7 @@ namespace RETSYS.Web.Controllers
             var novoCliente = new Cliente
             {
                 Id = Guid.NewGuid(),
-                Nome = model.Nome,
+                Nome = model.Nome.Trim(),
                 CPF = cpfFinal ?? string.Empty,
                 Telefone = model.Telefone ?? string.Empty,
                 Cep = model.Cep ?? string.Empty,

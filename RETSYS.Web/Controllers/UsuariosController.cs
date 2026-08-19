@@ -39,6 +39,7 @@ public class UsuariosController : Controller
                 PerfilNome = u.Perfil == PerfilUsuario.Admin ? "Administrador" : "Vendedor",
                 u.Ativo,
                 u.FotoUrl,
+                u.UltimoAcesso, // Exposto para a tabela de Gerenciar Equipe
                 u.CriadoEm
             })
             .ToListAsync();

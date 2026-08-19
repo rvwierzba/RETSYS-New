@@ -68,6 +68,7 @@
                   <th class="pb-3">Colaborador</th>
                   <th class="pb-3 text-center">Perfil</th>
                   <th class="pb-3 text-center">Filial</th>
+                  <th class="pb-3 text-center">Último Acesso</th>
                   <th class="pb-3 text-center">Status</th>
                   <th class="pb-3 text-center">Ações</th>
                 </tr>
@@ -85,6 +86,10 @@
                   </td>
                   <td class="py-4 text-center text-sm font-medium text-slate-700">
                     {{ user.filialLoja || user.FilialLoja || 'Matriz' }}
+                  </td>
+                  <!-- Coluna de Último Acesso -->
+                  <td class="py-4 text-center font-mono text-xs text-slate-500">
+                    {{ formatarDataAcesso(user.ultimoAcesso || user.UltimoAcesso) }}
                   </td>
                   <td class="py-4 text-center">
                     <span :class="(user.ativo ?? user.Ativo) ? 'bg-emerald-50 text-emerald-700 border-emerald-100' : 'bg-red-50 text-red-700 border-red-100'" class="px-2.5 py-0.5 rounded-full text-xs font-bold border">
@@ -142,5 +147,11 @@ const cadastrarColaborador = () => {
 const alterarStatusUsuario = (id) => {
   if (!id) return
   router.post(`/equipe/alternar-status/${id}`, {}, { preserveScroll: true })
+}
+
+const formatarDataAcesso = (dataRaw) => {
+  if (!dataRaw) return 'Nunca acessou'
+  const data = new Date(dataRaw)
+  return data.toLocaleDateString('pt-BR') + ' às ' + data.toLocaleTimeString('pt-BR', { hour: '2-digit', minute: '2-digit' })
 }
 </script>
