@@ -21,10 +21,10 @@ namespace RETSYS.Web.Controllers
         }
 
         // =========================================================================
-        // 👤 PAINEL DA VENDEDORA (EXIGÊNCIA 05/07 - SEÇÃO 2)
+        // 👤 PAINEL DA VENDEDORA
         // =========================================================================
 
-        // 1. Renderiza a visão reativa de extrato e histórico individual da vendedora
+        // 1. Renderiza a visão de extrato e histórico individual da vendedora
         [HttpGet("/minhas-comissoes")]
         public async Task<IActionResult> MinhasComissoes([FromQuery] string? periodo)
         {
@@ -34,10 +34,12 @@ namespace RETSYS.Web.Controllers
                 return Redirect("/login");
             }
 
-            // Define o período de referência do mês atual (Ex: "2026-07") se nenhum for enviado
+            var vendedor = await _context.Usuarios.AsNoTracking().FirstOrDefaultAsync(u => u.Id == vendedorId);
+
+            // Define o período de referência do mês atual (Ex: "2026-08") se nenhum for enviado
             string periodoAlvo = periodo ?? DateTime.UtcNow.ToString("yyyy-MM");
 
-            // Extrato do período: Lista de OS da vendedora com valor bruto e comissão gerada (Seção 2)
+            // Extrato do período
             var extratoComissoes = await _context.Comissoes
                 .Include(c => c.OrdemServico)
                 .Where(c => c.VendedorId == vendedorId && c.PeriodoReferencia == periodoAlvo)
@@ -46,14 +48,15 @@ namespace RETSYS.Web.Controllers
                 {
                     c.Id,
                     NumeroOS = c.OrdemServico.NumeroOS,
-                    ValorBrutoVenda = c.ValorBase, // valor_total_bruto mapeado na regra de negócio
+                    ValorBrutoVenda = c.ValorBase,
+                    PercentualAplicado = c.PercentualAplicado,
                     ComissaoGerada = c.ValorComissao,
                     c.Status,
-                    DataLançamento = c.DataGeracao.ToString("dd/MM/yyyy")
+                    DataLancamento = c.DataGeracao.ToString("dd/MM/yyyy")
                 })
                 .ToListAsync();
 
-            // Histórico de comissões por mês: Consolida os fechamentos já processados da funcionária (Seção 2)
+            // Histórico de fechamentos
             var historicoFechamentos = await _context.FechamentosComissao
                 .Where(f => f.VendedorId == vendedorId)
                 .OrderByDescending(f => f.PeriodoReferencia)
@@ -69,7 +72,6 @@ namespace RETSYS.Web.Controllers
                 })
                 .ToListAsync();
 
-            // Comissão acumulada do mês corrente em tempo real (Status PENDENTE ou PAGO, ignora ESTORNADO)
             decimal comissaoAcumuladaMes = extratoComissoes
                 .Where(c => c.Status == "PENDENTE" || c.Status == "PAGO")
                 .Sum(c => c.ComissaoGerada);
@@ -79,12 +81,13 @@ namespace RETSYS.Web.Controllers
                 Extrato = extratoComissoes,
                 Historico = historicoFechamentos,
                 ComissaoAcumulada = comissaoAcumuladaMes,
+                TaxaComissao = vendedor?.PercentualComissao ?? 3.00m, // Retorna a taxa individual da vendedora
                 PeriodoFiltro = periodoAlvo
             });
         }
 
         // =========================================================================
-        // ⚙️ PAINEL DO GESTOR / ADMINISTRATIVO (EXIGÊNCIA 05/07 - SEÇÃO 2)
+        // ⚙️ PAINEL DO GESTOR / ADMINISTRATIVO
         // =========================================================================
 
         // 2. Tela Administrativa de Extratos e Fechamentos Consolidados (GET)
@@ -97,6 +100,7 @@ namespace RETSYS.Web.Controllers
                 .Select(f => new
                 {
                     f.Id,
+                    VendedorId = f.VendedorId,
                     VendedorNome = f.Vendedor.Nome,
                     f.PeriodoReferencia,
                     f.TotalVendasBrutas,
@@ -108,16 +112,55 @@ namespace RETSYS.Web.Controllers
                 })
                 .ToListAsync();
 
-            return Inertia.Render("Admin/Comissoes/Index", new { Fechamentos = fechamentos });
+            // Traz a lista de vendedores e suas taxas individuais de comissão para o Admin gerenciar
+            var vendedores = await _context.Usuarios
+                .AsNoTracking()
+                .Where(u => u.Ativo)
+                .OrderBy(u => u.Nome)
+                .Select(u => new
+                {
+                    u.Id,
+                    u.Nome,
+                    u.Email,
+                    u.FilialLoja,
+                    u.PercentualComissao,
+                    u.ComissaoAtiva
+                })
+                .ToListAsync();
+
+            return Inertia.Render("Admin/Comissoes/Index", new { Fechamentos = fechamentos, Vendedores = vendedores });
         }
 
-        // 3. Processa e consolida o fechamento de mês de um vendedor (POST)
+        // 3. Atualização rápida da porcentagem individual de comissão da vendedora (POST Admin)
+        [HttpPost("/admin/comissoes/atualizar-taxa/{vendedorId:guid}")]
+        public async Task<IActionResult> AtualizarTaxaVendedor(Guid vendedorId, [FromBody] DtoAtualizarTaxa model)
+        {
+            var vendedor = await _context.Usuarios.FindAsync(vendedorId);
+            if (vendedor == null)
+            {
+                return NotFound(new { message = "Vendedor não localizado." });
+            }
+
+            vendedor.PercentualComissao = Math.Max(0, model.PercentualComissao);
+            await _context.SaveChangesAsync();
+
+            return RedirectToAction(nameof(Index));
+        }
+
+        // 4. Processa e consolida o fechamento de mês de um vendedor (POST)
         [HttpPost("/admin/comissoes/fechar-mes")]
         public async Task<IActionResult> FecharMes([FromQuery] Guid vendedorId, [FromQuery] string periodo)
         {
             if (string.IsNullOrEmpty(periodo) || periodo.Length != 7)
             {
                 Inertia.Share("erro", "Período de referência inválido.");
+                return RedirectToAction(nameof(Index));
+            }
+
+            var vendedor = await _context.Usuarios.FindAsync(vendedorId);
+            if (vendedor == null)
+            {
+                Inertia.Share("erro", "Vendedor não encontrado.");
                 return RedirectToAction(nameof(Index));
             }
 
@@ -130,6 +173,7 @@ namespace RETSYS.Web.Controllers
                 return RedirectToAction(nameof(Index));
             }
 
+            // Garante que comissões de OSs entregues no mês usem a taxa individual da vendedora
             var comissoesDoMes = await _context.Comissoes
                 .Where(c => c.VendedorId == vendedorId && c.PeriodoReferencia == periodo && c.Status == "PENDENTE")
                 .ToListAsync();
@@ -172,7 +216,7 @@ namespace RETSYS.Web.Controllers
             return RedirectToAction(nameof(Index));
         }
 
-        // 4. Realiza a baixa financeira e liquida o pagamento das comissões (POST)
+        // 5. Realiza a baixa financeira e liquida o pagamento das comissões (POST)
         [HttpPost("/admin/comissoes/pagar/{id:guid}")]
         public async Task<IActionResult> PagarVendedor(Guid id)
         {
@@ -196,7 +240,6 @@ namespace RETSYS.Web.Controllers
                 comissao.DataPagamento = DateTime.UtcNow;
             }
 
-            // Registra a data de confirmação de pagamento por vendedora no cabeçalho (Seção 2)
             fechamento.Status = "PAGO";
             fechamento.DataPagamento = DateTime.UtcNow;
 
@@ -204,4 +247,6 @@ namespace RETSYS.Web.Controllers
             return RedirectToAction(nameof(Index));
         }
     }
+
+    public record DtoAtualizarTaxa(decimal PercentualComissao);
 }

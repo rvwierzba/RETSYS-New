@@ -33,6 +33,10 @@ namespace RETSYS.Domain.Entities
         
         // Permite desativar comissão por vendedora mantendo o % global ativo
         public bool ComissaoAtiva { get; set; } = true;
+
+        // Percentual individual de comissão da vendedora (padrão 3.00%)
+        public decimal PercentualComissao { get; set; } = 3.00m;
+
         public DateTime? UltimoAcesso { get; set; }
         public DateTime CriadoEm { get; set; } = DateTime.UtcNow;
     }

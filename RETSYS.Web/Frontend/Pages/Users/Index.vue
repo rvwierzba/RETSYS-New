@@ -4,7 +4,7 @@
       
       <div>
         <h1 class="text-2xl font-black text-slate-950">Controle de Equipe</h1>
-        <p class="text-sm text-slate-500">Gerencie os acessos de vendedores e administradores das filiais.</p>
+        <p class="text-sm text-slate-500">Gerencie os acessos, filiais e taxas individuais de comissão de vendedoras e administradores.</p>
       </div>
 
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -29,12 +29,20 @@
               <input v-model="form.Senha" type="password" placeholder="••••••••" class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500" required />
             </div>
 
-            <div>
-              <label class="block text-[11px] font-bold uppercase text-slate-400 tracking-wider mb-1.5">Perfil de Acesso *</label>
-              <select v-model="form.Perfil" class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500">
-                <option :value="2">Vendedor</option>
-                <option :value="1">Administrador</option>
-              </select>
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="block text-[11px] font-bold uppercase text-slate-400 tracking-wider mb-1.5">Perfil *</label>
+                <select v-model="form.Perfil" class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500">
+                  <option :value="2">Vendedor</option>
+                  <option :value="1">Administrador</option>
+                </select>
+              </div>
+
+              <!-- Novo Campo: Porcentagem de Comissão Individual -->
+              <div>
+                <label class="block text-[11px] font-bold uppercase text-slate-400 tracking-wider mb-1.5">Comissão (%) *</label>
+                <input v-model.number="form.PercentualComissao" type="number" step="0.1" min="0" max="100" placeholder="3.0" class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500 font-mono font-bold" required />
+              </div>
             </div>
 
             <div>
@@ -67,7 +75,7 @@
                 <tr class="border-b border-slate-100 text-slate-400 text-xs font-bold uppercase tracking-wider">
                   <th class="pb-3">Colaborador</th>
                   <th class="pb-3 text-center">Perfil</th>
-                  <th class="pb-3 text-center">Filial</th>
+                  <th class="pb-3 text-center">% Comissão</th>
                   <th class="pb-3 text-center">Último Acesso</th>
                   <th class="pb-3 text-center">Status</th>
                   <th class="pb-3 text-center">Ações</th>
@@ -84,10 +92,10 @@
                       {{ user.perfilNome || user.PerfilNome || (user.perfil === 1 ? 'Admin' : 'Vendedor') }}
                     </span>
                   </td>
-                  <td class="py-4 text-center text-sm font-medium text-slate-700">
-                    {{ user.filialLoja || user.FilialLoja || 'Matriz' }}
+                  <!-- Coluna do % Individual de Comissão -->
+                  <td class="py-4 text-center font-mono text-xs font-black text-teal-700">
+                    {{ (user.percentualComissao ?? user.PercentualComissao ?? 3).toFixed(2) }}%
                   </td>
-                  <!-- Coluna de Último Acesso -->
                   <td class="py-4 text-center font-mono text-xs text-slate-500">
                     {{ formatarDataAcesso(user.ultimoAcesso || user.UltimoAcesso) }}
                   </td>
@@ -96,11 +104,18 @@
                       {{ (user.ativo ?? user.Ativo) ? 'Ativo' : 'Inativo' }}
                     </span>
                   </td>
-                  <td class="py-4 text-center">
+                  <td class="py-4 text-center flex items-center justify-center gap-1.5">
+                    <button 
+                      @click="abrirModalEdicao(user)"
+                      class="bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold px-2.5 py-1.5 rounded-lg transition shadow-sm"
+                      title="Editar Vendedora / Comissão"
+                    >
+                      ✏️ Editar
+                    </button>
                     <button 
                       @click="alterarStatusUsuario(user.id || user.Id)"
                       :class="(user.ativo ?? user.Ativo) ? 'bg-slate-950 hover:bg-slate-800' : 'bg-teal-600 hover:bg-teal-700'"
-                      class="text-white text-xs font-bold px-3 py-1.5 rounded-lg transition shadow-sm whitespace-nowrap"
+                      class="text-white text-xs font-bold px-2.5 py-1.5 rounded-lg transition shadow-sm whitespace-nowrap"
                     >
                       {{ (user.ativo ?? user.Ativo) ? 'Desativar' : 'Reativar' }}
                     </button>
@@ -112,11 +127,71 @@
         </div>
 
       </div>
+
+      <!-- MODAL DE EDIÇÃO DE COLABORADOR E TAXA DE COMISSÃO -->
+      <div v-if="modalEdicaoAberta" class="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-md w-full p-6 space-y-5">
+          <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+            <h3 class="text-base font-bold text-slate-950">Editar Colaborador</h3>
+            <button @click="modalEdicaoAberta = false" class="text-slate-400 hover:text-slate-800 font-bold">✕</button>
+          </div>
+
+          <form @submit.prevent="salvarEdicao" class="space-y-4 text-xs">
+            <div>
+              <label class="block font-bold uppercase text-slate-400 tracking-wider mb-1">Nome Completo *</label>
+              <input v-model="formEdicao.Nome" type="text" class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500" required />
+            </div>
+
+            <div>
+              <label class="block font-bold uppercase text-slate-400 tracking-wider mb-1">E-mail Corporativo *</label>
+              <input v-model="formEdicao.Email" type="email" class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500" required />
+            </div>
+
+            <div class="grid grid-cols-2 gap-3">
+              <div>
+                <label class="block font-bold uppercase text-slate-400 tracking-wider mb-1">Perfil *</label>
+                <select v-model="formEdicao.Perfil" class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500">
+                  <option :value="2">Vendedor</option>
+                  <option :value="1">Administrador</option>
+                </select>
+              </div>
+
+              <!-- Edição de Comissão Individual -->
+              <div>
+                <label class="block font-bold uppercase text-slate-400 tracking-wider mb-1">Comissão (%) *</label>
+                <input v-model.number="formEdicao.PercentualComissao" type="number" step="0.1" min="0" max="100" class="w-full rounded-xl border-slate-200 text-sm font-mono font-bold text-teal-700 focus:border-teal-500 focus:ring-teal-500" required />
+              </div>
+            </div>
+
+            <div>
+              <label class="block font-bold uppercase text-slate-400 tracking-wider mb-1">Filial / Loja *</label>
+              <input v-model="formEdicao.FilialLoja" type="text" class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500" required />
+            </div>
+
+            <div>
+              <label class="block font-bold uppercase text-slate-400 tracking-wider mb-1">Nova Senha (deixe em branco para não alterar)</label>
+              <input v-model="formEdicao.NovaSenha" type="password" placeholder="••••••••" class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500" />
+            </div>
+
+            <div class="flex items-center gap-2 pt-1">
+              <input v-model="formEdicao.Ativo" type="checkbox" id="editAtivo" class="rounded border-slate-300 text-teal-600 focus:ring-teal-500" />
+              <label for="editAtivo" class="font-bold text-slate-700">Usuário Ativo no Sistema</label>
+            </div>
+
+            <div class="flex justify-end gap-2 pt-3 border-t border-slate-100">
+              <button type="button" @click="modalEdicaoAberta = false" class="px-4 py-2 rounded-xl text-slate-600 font-bold hover:bg-slate-100">Cancelar</button>
+              <button type="submit" :disabled="formEdicao.processing" class="px-5 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold transition">Salvar Alterações</button>
+            </div>
+          </form>
+        </div>
+      </div>
+
     </div>
   </AuthenticatedLayout>
 </template>
 
 <script setup>
+import { ref } from 'vue'
 import { useForm, router } from '@inertiajs/vue3'
 import AuthenticatedLayout from '../../Shared/AuthenticatedLayout.vue'
 
@@ -125,12 +200,26 @@ defineProps({
   equipe: Array
 })
 
+const modalEdicaoAberta = ref(false)
+
 const form = useForm({
   Nome: '',
   Email: '',
   Senha: '',
   Perfil: 2, // Padrão: Vendedor (2)
-  FilialLoja: 'Matriz'
+  FilialLoja: 'Matriz',
+  PercentualComissao: 3.00
+})
+
+const formEdicao = useForm({
+  id: null,
+  Nome: '',
+  Email: '',
+  FilialLoja: '',
+  Perfil: 2,
+  Ativo: true,
+  PercentualComissao: 3.00,
+  NovaSenha: ''
 })
 
 const cadastrarColaborador = () => {
@@ -140,6 +229,28 @@ const cadastrarColaborador = () => {
       form.reset('Senha')
       form.Nome = ''
       form.Email = ''
+      form.PercentualComissao = 3.00
+    }
+  })
+}
+
+const abrirModalEdicao = (user) => {
+  formEdicao.id = user.id || user.Id
+  formEdicao.Nome = user.nome || user.Nome || ''
+  formEdicao.Email = user.email || user.Email || ''
+  formEdicao.FilialLoja = user.filialLoja || user.FilialLoja || 'Matriz'
+  formEdicao.Perfil = user.perfil ?? user.Perfil ?? 2
+  formEdicao.Ativo = user.ativo ?? user.Ativo ?? true
+  formEdicao.PercentualComissao = user.percentualComissao ?? user.PercentualComissao ?? 3.00
+  formEdicao.NovaSenha = ''
+  modalEdicaoAberta.value = true
+}
+
+const salvarEdicao = () => {
+  formEdicao.post(`/equipe/editar/${formEdicao.id}`, {
+    preserveScroll: true,
+    onSuccess: () => {
+      modalEdicaoAberta.value = false
     }
   })
 }

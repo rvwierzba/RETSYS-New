@@ -38,8 +38,9 @@ public class UsuariosController : Controller
                 Perfil = (int)u.Perfil,
                 PerfilNome = u.Perfil == PerfilUsuario.Admin ? "Administrador" : "Vendedor",
                 u.Ativo,
+                u.PercentualComissao, // Percentual individual de comissão
                 u.FotoUrl,
-                u.UltimoAcesso, // Exposto para a tabela de Gerenciar Equipe
+                u.UltimoAcesso,
                 u.CriadoEm
             })
             .ToListAsync();
@@ -80,7 +81,8 @@ public class UsuariosController : Controller
             Email = model.Email.Trim().ToLower(),
             SenhaHash = hashSenha,
             FilialLoja = string.IsNullOrWhiteSpace(model.FilialLoja) ? "Matriz" : model.FilialLoja.Trim(),
-            Perfil = model.Perfil, // Assume Vendedor por padrão via DTO se não for especificado
+            Perfil = model.Perfil,
+            PercentualComissao = model.PercentualComissao > 0 ? model.PercentualComissao : 3.00m,
             Ativo = true,
             CriadoEm = DateTime.UtcNow
         };
@@ -115,6 +117,7 @@ public class UsuariosController : Controller
         usuario.FilialLoja = model.FilialLoja;
         usuario.Perfil = model.Perfil;
         usuario.Ativo = model.Ativo;
+        usuario.PercentualComissao = model.PercentualComissao;
 
         if (!string.IsNullOrWhiteSpace(model.NovaSenha))
         {
@@ -161,7 +164,8 @@ public record DtoNovoColaborador(
     string Email, 
     string FilialLoja, 
     string Senha,
-    PerfilUsuario Perfil = PerfilUsuario.Vendedor
+    PerfilUsuario Perfil = PerfilUsuario.Vendedor,
+    decimal PercentualComissao = 3.00m
 );
 
 public record DtoEditarColaborador(
@@ -170,5 +174,6 @@ public record DtoEditarColaborador(
     string FilialLoja, 
     PerfilUsuario Perfil, 
     bool Ativo, 
+    decimal PercentualComissao = 3.00m,
     string? NovaSenha = null
 );
