@@ -16,7 +16,7 @@
         </button>
       </div>
 
-      <!-- Barra de Filtros e Faturamento (PONTO 4: Filtro por Vendedora) -->
+      <!-- Barra de Filtros e Faturamento -->
       <div class="grid grid-cols-1 lg:grid-cols-4 gap-4 bg-white p-4 rounded-2xl border border-slate-200 shadow-sm items-center">
         
         <div class="lg:col-span-3 flex flex-wrap items-center gap-3">
@@ -52,7 +52,7 @@
             </button>
           </div>
 
-          <!-- PONTO 4: Select de Filtro por Vendedora -->
+          <!-- Select de Filtro por Vendedora -->
           <div class="w-full sm:w-auto min-w-[180px]">
             <select 
               v-model="vendedorSelecionado" 
@@ -89,6 +89,7 @@
                 <th class="pb-3">Nº Documento / Data</th>
                 <th class="pb-3">Cliente / Paciente</th>
                 <th class="pb-3">Atendente / Vendedora</th>
+                <th class="pb-3 text-center">Status</th>
                 <th class="pb-3 text-right">Valor Total</th>
                 <th class="pb-3 text-center">Ações</th>
               </tr>
@@ -109,24 +110,43 @@
                 <td class="py-4 text-slate-600 text-xs font-medium">
                   {{ os.vendedorNome || os.VendedorNome || 'Não atribuído' }}
                 </td>
+                <td class="py-4 text-center">
+                  <span 
+                    :class="[
+                      (os.status === 'CANCELADO' || os.status === 'CANCELADA') ? 'bg-rose-50 text-rose-700 border-rose-200' :
+                      os.status === 'ENTREGUE' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                      os.status === 'PRONTO' ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                      'bg-amber-50 text-amber-700 border-amber-200'
+                    ]"
+                    class="px-2.5 py-0.5 rounded-full text-[11px] font-bold border"
+                  >
+                    {{ (os.status === 'CANCELADO' || os.status === 'CANCELADA') ? 'CANCELADA' : (os.status || 'EM ABERTO') }}
+                  </span>
+                </td>
                 <td class="py-4 text-right font-black font-mono text-slate-950">
                   {{ formatarMoeda(os.valorTotal ?? os.ValorTotal) }}
                 </td>
                 <td class="py-4 text-center flex items-center justify-center gap-2">
-                  <!-- PONTO 2: Botão para abrir modal de detalhes completos da OS -->
+                  <!-- Botão para abrir modal de detalhes completos da OS -->
                   <button 
                     @click="abrirPranchetaClinica(os)"
                     class="bg-slate-950 hover:bg-slate-800 text-white text-xs font-bold px-3 py-1.5 rounded-lg transition shadow-sm font-mono flex items-center gap-1"
                   >
                     <span>👁️</span> Ver Receita / OS
                   </button>
+
+                  <!-- Botões de Ação / Cancelamento de OS -->
                   <button 
-                    @click="excluirOS(os.id || os.Id, os.numeroOS || os.NumeroOS)"
-                    class="bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-xs font-bold px-3 py-1.5 rounded-lg transition shadow-sm font-mono"
-                    title="Excluir Ordem de Serviço"
+                    v-if="os.status !== 'CANCELADO' && os.status !== 'CANCELADA'"
+                    @click="cancelarOS(os.id || os.Id, os.numeroOS || os.NumeroOS)"
+                    class="bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-xs font-bold px-3 py-1.5 rounded-lg transition shadow-sm font-mono flex items-center gap-1"
+                    title="Cancelar Ordem de Serviço"
                   >
-                    🗑️
+                    <span>🚫</span> Cancelar OS
                   </button>
+                  <span v-else class="text-xs font-bold font-mono text-rose-500 bg-rose-50/50 px-2 py-1 rounded border border-rose-100">
+                    Cancelada
+                  </span>
                 </td>
               </tr>
             </tbody>
@@ -134,15 +154,22 @@
         </div>
       </div>
 
-      <!-- PONTO 2: MODAL / PRANCHETA COMPLETA DA ORDEM DE SERVIÇO -->
+      <!-- MODAL / PRANCHETA COMPLETA DA ORDEM DE SERVIÇO -->
       <div v-if="osSelecionada" class="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 overflow-y-auto">
         <div class="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-3xl w-full max-h-[90vh] overflow-y-auto p-6 md:p-8 space-y-6">
           
           <!-- Cabeçalho da Modal -->
           <div class="flex items-center justify-between border-b border-slate-100 pb-4">
             <div>
-              <span class="text-[10px] font-mono font-bold bg-teal-100 text-teal-800 px-2.5 py-0.5 rounded-full uppercase">
-                Ordem de Serviço
+              <span 
+                :class="[
+                  (osSelecionada.status === 'CANCELADO' || osSelecionada.status === 'CANCELADA') ? 'bg-rose-100 text-rose-800' :
+                  osSelecionada.status === 'ENTREGUE' ? 'bg-emerald-100 text-emerald-800' :
+                  'bg-teal-100 text-teal-800'
+                ]" 
+                class="text-[10px] font-mono font-bold px-2.5 py-0.5 rounded-full uppercase"
+              >
+                Ordem de Serviço — {{ osSelecionada.status || 'EM_ABERTO' }}
               </span>
               <h2 class="text-xl font-black font-mono text-slate-950 mt-1">
                 {{ osSelecionada.numeroOS || osSelecionada.NumeroOS }}
@@ -201,7 +228,6 @@
                     <td class="py-2.5 font-bold text-amber-700">{{ formatarGrau(receitaObj.odCilindrico) }}</td>
                     <td class="py-2.5 text-slate-700">{{ receitaObj.odEixo }}°</td>
                     <td class="py-2.5 text-slate-700">{{ receitaObj.dnpOd || '--' }} mm</td>
-                    <!-- PONTO 3: Exibição da Altura de Montagem OD -->
                     <td class="py-2.5 font-bold text-indigo-700">{{ receitaObj.alturaMontagemOd || receitaObj.alturaMontagem || '--' }} mm</td>
                   </tr>
                   <!-- OE -->
@@ -211,7 +237,6 @@
                     <td class="py-2.5 font-bold text-amber-700">{{ formatarGrau(receitaObj.oeCilindrico) }}</td>
                     <td class="py-2.5 text-slate-700">{{ receitaObj.oeEixo }}°</td>
                     <td class="py-2.5 text-slate-700">{{ receitaObj.dnpOe || '--' }} mm</td>
-                    <!-- PONTO 3: Exibição da Altura de Montagem OE -->
                     <td class="py-2.5 font-bold text-indigo-700">{{ receitaObj.alturaMontagemOe || receitaObj.alturaMontagem || '--' }} mm</td>
                   </tr>
                 </tbody>
@@ -325,17 +350,17 @@ const aplicarFiltros = (tipoComposicao = null) => {
 
 const filtrarPorComposicao = (tipo) => aplicarFiltros(tipo)
 const filtrarPorVendedor = () => aplicarFiltros()
-const irParaFiltro = (tipo) => filtrarPorComposicao(tipo)
 
 const abrirPranchetaClinica = (ordem) => { 
   osSelecionada.value = { ...ordem } 
 }
 
-const excluirOS = (id, numero) => {
-  if (confirm(`Deseja realmente excluir a OS ${numero}? O estoque da armação será devolvido automaticamente.`)) {
-    router.post(`/ordens/excluir/${id}`, {}, {
+// Subsituição de Exclusão por Cancelamento Auditável
+const cancelarOS = (id, numero) => {
+  if (confirm(`Deseja realmente CANCELAR a OS ${numero}? O estoque da armação será estornado e a venda será desconsiderada dos relatórios e comissões.`)) {
+    router.post(`/ordens/cancelar/${id}`, {}, {
       preserveScroll: true,
-      onSuccess: () => alert(`OS ${numero} excluída com sucesso!`)
+      onSuccess: () => alert(`OS ${numero} cancelada com sucesso!`)
     })
   }
 }

@@ -26,7 +26,7 @@ namespace RETSYS.Web.Controllers
             _context = context;
         }
 
-        // 1. Listagem de todas as OSs com Suporte a Filtro por Vendedora (Ponto 4) e Projeção Completa da OS (Ponto 2)
+        // 1. Listagem de OSs com Suporte a Filtro por Vendedora, Status de Cancelamento e Projeção Completa
         [HttpGet("/ordens")]
         public async Task<IActionResult> Index([FromQuery] string? filtroComposicao, [FromQuery] Guid? vendedorId)
         {
@@ -39,9 +39,9 @@ namespace RETSYS.Web.Controllers
                 .Include(os => os.Receita)
                 .Include(os => os.Financeiro)
                 .Include(os => os.Parcelas)
-                .Where(os => os.Status != "CANCELADO" && os.Status != "CANCELADA" && os.Ativo);
+                .Where(os => os.Ativo);
 
-            // Isolamento por perfil ou filtro explícito do Administrador/Gerente (Ponto 4)
+            // Isolamento por perfil de vendedora ou filtro de gestão
             if (string.Equals(perfilClaim, "VENDEDOR", StringComparison.OrdinalIgnoreCase) && Guid.TryParse(usuarioIdClaim, out Guid vendedorLogadoId))
             {
                 query = query.Where(os => os.VendedorId == vendedorLogadoId);
@@ -59,14 +59,16 @@ namespace RETSYS.Web.Controllers
                 _ => query
             };
 
+            // Cálculo do Faturamento do Filtro (Desconsidera OSs com status CANCELADO)
+            var queryValidasFaturamento = query.Where(os => os.Status != "CANCELADO" && os.Status != "CANCELADA");
+
             decimal totalFiltroAtivo = filtroComposicao switch
             {
-                "armacao" => await query.SumAsync(os => os.Financeiro != null ? os.Financeiro.ValorArmacao : 0),
-                "lente" => await query.SumAsync(os => os.Financeiro != null ? os.Financeiro.ValorLente : 0),
-                _ => await query.SumAsync(os => os.Financeiro != null ? os.Financeiro.ValorTotalLiquido : 0)
+                "armacao" => await queryValidasFaturamento.SumAsync(os => os.Financeiro != null ? os.Financeiro.ValorArmacao : 0),
+                "lente" => await queryValidasFaturamento.SumAsync(os => os.Financeiro != null ? os.Financeiro.ValorLente : 0),
+                _ => await queryValidasFaturamento.SumAsync(os => os.Financeiro != null ? os.Financeiro.ValorTotalLiquido : 0)
             };
 
-            // PONTO 2: Mapeamento detalhado e completo de todos os blocos da OS para exibição na modal
             var ordens = await query
                 .OrderByDescending(os => os.DataEntrada)
                 .Select(os => new
@@ -143,7 +145,6 @@ namespace RETSYS.Web.Controllers
                 })
                 .ToListAsync();
 
-            // PONTO 4: Lista de vendedores para popular o filtro no frontend
             var vendedores = await _context.Usuarios
                 .Where(u => u.Ativo)
                 .OrderBy(u => u.Nome)
@@ -245,7 +246,7 @@ namespace RETSYS.Web.Controllers
             });
         }
 
-        // 4. Gravação de Nova OS
+        // 4. Gravação de Nova OS (Data da Emissão é sempre gerada pelo servidor como Data Atual UTC)
         [HttpPost("/ordens")]
         public async Task<IActionResult> Store([FromForm] IFormCollection formCollection, [FromQuery] int? quantidadeParcelas)
         {
@@ -334,7 +335,7 @@ namespace RETSYS.Web.Controllers
                     Id = Guid.NewGuid(),
                     ClienteId = cliente.Id,
                     VendedorId = vendedor.Id,
-                    DataEntrada = DateTime.UtcNow,
+                    DataEntrada = DateTime.UtcNow, // Data de emissão automática definida pelo servidor
                     DataPrevistaEntrega = formCollection.ContainsKey("dataPrevistaEntrega") && DateTime.TryParse(formCollection["dataPrevistaEntrega"].ToString(), out var dpe)
                         ? DateTime.SpecifyKind(dpe, DateTimeKind.Utc)
                         : DateTime.UtcNow.AddDays(7),
@@ -502,7 +503,7 @@ namespace RETSYS.Web.Controllers
                 return RedirectToAction(nameof(Index));
             }
 
-            // Estorna o estoque se for cancelado
+            // Estorna o estoque se for alterado para CANCELADO
             if (novoStatus == "CANCELADO" && ordem.Financeiro?.ArmacaoId != null)
             {
                 var armacao = await _context.Armacoes.FindAsync(ordem.Financeiro.ArmacaoId);
@@ -520,9 +521,10 @@ namespace RETSYS.Web.Controllers
             return RedirectToAction(nameof(Index));
         }
 
-        // 6. Exclusão / Cancelamento de OS
+        // 6. Cancelamento Seguro da OS (Auditoria / Retorno de Estoque / Estorno do Faturamento)
+        [HttpPost("/ordens/cancelar/{id:guid}")]
         [HttpPost("/ordens/excluir/{id:guid}")]
-        public async Task<IActionResult> Excluir(Guid id)
+        public async Task<IActionResult> Cancelar(Guid id)
         {
             var ordem = await _context.OrdensServico
                 .Include(os => os.Financeiro)
@@ -530,13 +532,22 @@ namespace RETSYS.Web.Controllers
 
             if (ordem == null) return NotFound();
 
-            if (ordem.Financeiro?.ArmacaoId != null && ordem.Status != "CANCELADO")
+            // Estorna estoque da armação se a OS ainda não estava cancelada
+            if (ordem.Status != "CANCELADO" && ordem.Status != "CANCELADA" && ordem.Financeiro?.ArmacaoId != null)
             {
                 var armacao = await _context.Armacoes.FindAsync(ordem.Financeiro.ArmacaoId);
                 if (armacao != null) armacao.QuantidadeEstoque++;
             }
 
-            ordem.Ativo = false;
+            // Cancela comissões pendentes geradas para esta OS
+            var comissoes = await _context.Comissoes.Where(c => c.OrdemServicoId == id).ToListAsync();
+            foreach (var comissao in comissoes)
+            {
+                comissao.Status = "CANCELADO";
+            }
+
+            // A OS permanece gravada para histórico e auditoria (Ativo = true), porém com Status = CANCELADO
+            ordem.Ativo = true;
             ordem.Status = "CANCELADO";
 
             await _context.SaveChangesAsync();

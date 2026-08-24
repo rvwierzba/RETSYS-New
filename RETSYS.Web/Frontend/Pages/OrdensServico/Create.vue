@@ -73,6 +73,17 @@
             </div>
 
             <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+              <!-- DATA DE EMISSÃO AUTOMÁTICA E BLOQUEADA -->
+              <div>
+                <label class="block text-[11px] font-bold uppercase text-teal-700 tracking-wider mb-1.5">Emissão da OS (Hoje) 🔒</label>
+                <input 
+                  :value="dataEmissaoHoje" 
+                  type="date" 
+                  disabled 
+                  class="w-full rounded-xl border-slate-200 text-sm font-mono font-bold bg-slate-100 text-slate-600 cursor-not-allowed" 
+                  title="Data de emissão definida automaticamente com a data de hoje"
+                />
+              </div>
               <div>
                 <label class="block text-[11px] font-bold uppercase text-slate-400 tracking-wider mb-1.5">WhatsApp / Telefone *</label>
                 <input v-model="form.telefone" type="text" placeholder="(00) 00000-0000" @keydown.enter.prevent class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500" required />
@@ -81,7 +92,7 @@
                 <label class="block text-[11px] font-bold uppercase text-slate-400 tracking-wider mb-1.5">Data de Nascimento</label>
                 <input v-model="form.dataNascimento" type="date" @keydown.enter.prevent class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500" />
               </div>
-              <div class="md:col-span-2">
+              <div>
                 <label class="block text-[11px] font-bold uppercase text-slate-400 tracking-wider mb-1.5">Convênio / Plano Óptico</label>
                 <input v-model="form.convenio" type="text" placeholder="Particular, Porto Seguro, etc." @keydown.enter.prevent class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500" />
               </div>
@@ -239,7 +250,6 @@
                   @keydown.enter.prevent 
                   class="rounded-xl border-slate-200 text-sm text-center font-mono focus:border-teal-500" 
                 />
-                <!-- PONTO 2.1: Cilíndrico convertido para negativo ao digitar/desfocar -->
                 <input 
                   v-model.number="form.odCilindrico" 
                   type="number" 
@@ -250,7 +260,6 @@
                   @keydown.enter.prevent 
                   class="rounded-xl border-slate-200 text-sm text-center font-mono text-amber-700 font-bold focus:border-teal-500" 
                 />
-                <!-- PONTO 2.2: Eixo entre 0 e 180 inteiros -->
                 <input 
                   v-model.number="form.odEixo" 
                   type="number" 
@@ -275,7 +284,6 @@
                   @keydown.enter.prevent 
                   class="rounded-xl border-slate-200 text-sm text-center font-mono focus:border-teal-500" 
                 />
-                <!-- PONTO 2.1: Cilíndrico convertido para negativo -->
                 <input 
                   v-model.number="form.oeCilindrico" 
                   type="number" 
@@ -286,7 +294,6 @@
                   @keydown.enter.prevent 
                   class="rounded-xl border-slate-200 text-sm text-center font-mono text-amber-700 font-bold focus:border-teal-500" 
                 />
-                <!-- PONTO 2.2: Eixo entre 0 e 180 inteiros -->
                 <input 
                   v-model.number="form.oeEixo" 
                   type="number" 
@@ -356,7 +363,6 @@
                 />
               </div>
 
-              <!-- PONTO 3: Altura de Montagem separada por olho (OD e OE) -->
               <div>
                 <label class="block text-xs font-bold uppercase text-slate-400 tracking-wider mb-2">Altura Mont. OD (mm)</label>
                 <input 
@@ -443,7 +449,6 @@
                 </option>
               </select>
               
-              <!-- PONTO 4: Preço da Lente com Formatação em Reais -->
               <div class="animate-fadeIn p-4 bg-teal-50/50 rounded-2xl border border-teal-200/60 mt-3">
                 <label class="block text-xs font-bold uppercase text-teal-900 tracking-wider mb-1">Preço da Lente (Tabela Própria / Editável)</label>
                 <div class="relative mt-1 rounded-xl shadow-sm">
@@ -460,7 +465,7 @@
             </div>
           </div>
 
-          <!-- Resumo Financeiro (PONTO 4: Formatação de Moedas em Reais) -->
+          <!-- Resumo Financeiro -->
           <div class="p-5 bg-amber-50/40 rounded-2xl border border-amber-200/60 space-y-4">
             <h4 class="font-bold text-amber-950 uppercase tracking-wider text-[10px]">Resumo do Pedido & Condições de Pagamento</h4>
             <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
@@ -481,7 +486,6 @@
                 </select>
               </div>
 
-              <!-- PONTO 4: Desconto formatado em Reais -->
               <div>
                 <label class="block font-bold text-amber-900 uppercase mb-1.5">Desconto (R$)</label>
                 <div class="relative">
@@ -559,13 +563,14 @@ const props = defineProps({
 
 const CHAVE_RASCUNHO = 'retsys_os_rascunho'
 
+const dataEmissaoHoje = computed(() => new Date().toISOString().split('T')[0])
+
 const exibirFaturaSucesso = ref(false)
 const tipoComprovanteImpressao = ref('completa')
 const osFaturadaResponse = ref({ numeroOS: 'OS-TEMP-00000' })
 const salvandoOS = ref(false)
 const erroSubmissao = ref(null)
 const qtdParcelas = ref(1)
-const lenteManualAtiva = ref(true)
 const clienteLocalizado = ref(null)
 const consultandoCpf = ref(false)
 const buscandoCep = ref(false)
@@ -582,7 +587,6 @@ const form = useForm({
   medicoCrm: '', medicoTipo: 'NAO_ESPECIFICADO', observacoes: '', odEsferico: 0, odCilindrico: 0,
   odEixo: 0, oeEsferico: 0, oeCilindrico: 0, oeEixo: 0, adicao: null, dnpOd: 0, dnpOe: 0,
   
-  // PONTO 3: Altura de Montagem por Olho
   alturaMontagemOd: null,
   alturaMontagemOe: null,
   
@@ -593,7 +597,6 @@ const form = useForm({
   formaPagamento: 'DINHEIRO'
 })
 
-// PONTO 4: Formatação de Moeda em Reais
 const formatarMoeda = (valor) => {
   return Number(valor || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
 }
@@ -656,7 +659,6 @@ const vincularFotoReceitaDireta = (event) => {
   if (files.length > 0) fotoAnexaArquivo.value = files[0]
 }
 
-// PONTO 2.1: Cilíndrico assumindo valor negativo automaticamente
 const validarCilindrico = (campo) => {
   let val = form[campo]
   if (val > 0) val = -Math.abs(val)
@@ -664,7 +666,6 @@ const validarCilindrico = (campo) => {
   form[campo] = val
 }
 
-// PONTO 2.2: Eixo aceita apenas inteiros de 0 a 180
 const validarEixo = (campo) => {
   let val = form[campo]
   if (val !== null && val !== undefined) {
