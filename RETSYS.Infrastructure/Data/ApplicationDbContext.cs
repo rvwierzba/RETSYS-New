@@ -41,7 +41,7 @@ namespace RETSYS.Infrastructure.Data
                 b.Property(u => u.Perfil).HasConversion<int>();
                 b.Property(u => u.LimiteDesconto).HasPrecision(5, 2);
                 b.Property(u => u.MetaMensal).HasPrecision(18, 2);
-
+                b.Property(u => u.PercentualComissao).HasPrecision(5, 2);
                 b.HasIndex(u => u.Email).IsUnique();
             });
 
@@ -178,8 +178,8 @@ namespace RETSYS.Infrastructure.Data
 
                 b.Property(r => r.DnpOd).HasPrecision(4, 1);
                 b.Property(r => r.DnpOe).HasPrecision(4, 1);
-               b.Property(r => r.AlturaMontagemOd).HasPrecision(4, 1);
-b.Property(r => r.AlturaMontagemOe).HasPrecision(4, 1);
+                b.Property(r => r.AlturaMontagemOd).HasPrecision(4, 1);
+                b.Property(r => r.AlturaMontagemOe).HasPrecision(4, 1);
 
                 // 📐 Medidas de montagem da armação
                 b.Property(r => r.Aro).HasPrecision(4, 1);

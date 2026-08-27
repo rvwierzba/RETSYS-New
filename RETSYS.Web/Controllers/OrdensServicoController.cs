@@ -394,8 +394,8 @@ namespace RETSYS.Web.Controllers
 
                 Guid? lentePrecoId = null;
 
-                if (formCollection.ContainsKey("lentePrecoId") &&
-                    Guid.TryParse(formCollection["lentePrecoId"].ToString(), out Guid lenGuid))
+                if (formCollection.ContainsKey("lenteId") &&
+                    Guid.TryParse(formCollection["lenteId"].ToString(), out Guid lenGuid))
                 {
                     lentePrecoId = lenGuid;
                 }
@@ -663,6 +663,7 @@ namespace RETSYS.Web.Controllers
                 _context.OrdensServico.Add(novaOS);
 
                 // Comissão é registrada junto com a OS, preservando a taxa vigente da vendedora.
+                // A base é sempre o valor líquido, já considerando descontos concedidos.
                 if (vendedor.ComissaoAtiva && vendedor.PercentualComissao > 0)
                 {
                     decimal percentualComissao = vendedor.PercentualComissao;
@@ -672,10 +673,10 @@ namespace RETSYS.Web.Controllers
                         Id = Guid.NewGuid(),
                         OrdemServicoId = novaOS.Id,
                         VendedorId = vendedor.Id,
-                        ValorBase = totalBruto,
+                        ValorBase = valorTotalLiquido,
                         PercentualAplicado = percentualComissao,
                         ValorComissao = Math.Round(
-                            totalBruto * percentualComissao / 100m,
+                            valorTotalLiquido * percentualComissao / 100m,
                             2,
                             MidpointRounding.AwayFromZero
                         ),
@@ -828,7 +829,7 @@ namespace RETSYS.Web.Controllers
 
             foreach (var comissao in comissoesPendentes)
             {
-                comissao.Status = "ESTORNADO";
+                comissao.Status = "CANCELADO";
                 comissao.Observacoes = string.IsNullOrWhiteSpace(comissao.Observacoes)
                     ? "Comissão estornada automaticamente devido ao cancelamento da OS."
                     : $"{comissao.Observacoes} Comissão estornada automaticamente devido ao cancelamento da OS.";
