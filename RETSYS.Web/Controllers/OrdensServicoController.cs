@@ -26,9 +26,11 @@ namespace RETSYS.Web.Controllers
             _context = context;
         }
 
-        // 1. Listagem de OSs com Suporte a Filtro por Vendedora, Status de Cancelamento e Projeção Completa
+        // 1. Listagem de OSs com suporte a filtro por vendedora, status e composição.
         [HttpGet("/ordens")]
-        public async Task<IActionResult> Index([FromQuery] string? filtroComposicao, [FromQuery] Guid? vendedorId)
+        public async Task<IActionResult> Index(
+            [FromQuery] string? filtroComposicao,
+            [FromQuery] Guid? vendedorId)
         {
             var usuarioIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             var perfilClaim = User.FindFirst(ClaimTypes.Role)?.Value ?? "VENDEDOR";
@@ -53,11 +55,19 @@ namespace RETSYS.Web.Controllers
 
             query = filtroComposicao switch
             {
-                "armacao" => query.Where(os => os.Financeiro != null && os.Financeiro.ValorArmacao > 0),
-                "lente" => query.Where(os => os.Financeiro != null && os.Financeiro.ValorLente > 0),
-                "completo" => query.Where(os => os.Financeiro != null &&
-                                               os.Financeiro.ValorArmacao > 0 &&
-                                               os.Financeiro.ValorLente > 0),
+                "armacao" => query.Where(os =>
+                    os.Financeiro != null &&
+                    os.Financeiro.ValorArmacao > 0),
+
+                "lente" => query.Where(os =>
+                    os.Financeiro != null &&
+                    os.Financeiro.ValorLente > 0),
+
+                "completo" => query.Where(os =>
+                    os.Financeiro != null &&
+                    os.Financeiro.ValorArmacao > 0 &&
+                    os.Financeiro.ValorLente > 0),
+
                 _ => query
             };
 
@@ -68,13 +78,19 @@ namespace RETSYS.Web.Controllers
             decimal totalFiltroAtivo = filtroComposicao switch
             {
                 "armacao" => await queryValidasFaturamento.SumAsync(os =>
-                    os.Financeiro != null ? os.Financeiro.ValorArmacao : 0),
+                    os.Financeiro != null
+                        ? os.Financeiro.ValorArmacao
+                        : 0),
 
                 "lente" => await queryValidasFaturamento.SumAsync(os =>
-                    os.Financeiro != null ? os.Financeiro.ValorLente : 0),
+                    os.Financeiro != null
+                        ? os.Financeiro.ValorLente
+                        : 0),
 
                 _ => await queryValidasFaturamento.SumAsync(os =>
-                    os.Financeiro != null ? os.Financeiro.ValorTotalLiquido : 0)
+                    os.Financeiro != null
+                        ? os.Financeiro.ValorTotalLiquido
+                        : 0)
             };
 
             var ordens = await query
@@ -85,12 +101,18 @@ namespace RETSYS.Web.Controllers
                     os.NumeroOS,
                     os.DataEntrada,
                     os.DataPrevistaEntrega,
+                    os.DataEntregaReal,
                     os.Status,
                     Medico = os.MedicoNome,
                     os.MedicoCrm,
                     os.MedicoTipo,
                     os.Observacoes,
-                    VendedorNome = os.Vendedor != null ? os.Vendedor.Nome : "Não informado",
+                    os.IsRetroativa,
+
+                    VendedorNome = os.Vendedor != null
+                        ? os.Vendedor.Nome
+                        : "Não informado",
+
                     os.VendedorId,
 
                     Cliente = os.Cliente != null
@@ -112,7 +134,7 @@ namespace RETSYS.Web.Controllers
 
                     ClienteNome = os.Cliente != null
                         ? os.Cliente.Nome
-                        : "Cliente Não Identificado",
+                        : "Cliente não identificado",
 
                     ValorTotal = os.Financeiro != null
                         ? os.Financeiro.ValorTotalLiquido
@@ -154,18 +176,27 @@ namespace RETSYS.Web.Controllers
                             os.Receita.CoOd,
                             os.Receita.CoOe,
                             os.Receita.ObsReceita,
-                            EsfericoPertoDireito = os.Receita.OdEsferico + (os.Receita.Adicao ?? 0),
-                            EsfericoPertoEsquerdo = os.Receita.OeEsferico + (os.Receita.Adicao ?? 0)
+
+                            EsfericoPertoDireito =
+                                os.Receita.OdEsferico +
+                                (os.Receita.Adicao ?? 0),
+
+                            EsfericoPertoEsquerdo =
+                                os.Receita.OeEsferico +
+                                (os.Receita.Adicao ?? 0)
                         }
                         : null,
 
-                    Parcelas = os.Parcelas.Select(p => new
-                    {
-                        p.NumeroParcela,
-                        p.DescricaoParcela,
-                        p.Valor,
-                        p.DataVencimento
-                    }).ToList()
+                    Parcelas = os.Parcelas
+                        .OrderBy(p => p.NumeroParcela)
+                        .Select(p => new
+                        {
+                            p.NumeroParcela,
+                            p.DescricaoParcela,
+                            p.Valor,
+                            p.DataVencimento
+                        })
+                        .ToList()
                 })
                 .ToListAsync();
 
@@ -189,7 +220,7 @@ namespace RETSYS.Web.Controllers
             });
         }
 
-        // 2. Abre a tela de cadastro de uma nova OS
+        // 2. Tela de cadastro de nova OS.
         [HttpGet("/ordens/nova")]
         public async Task<IActionResult> Criar()
         {
@@ -225,7 +256,10 @@ namespace RETSYS.Web.Controllers
                 .Select(a => new
                 {
                     a.Id,
-                    MarcaNome = a.Marca != null ? a.Marca.Nome : "Sem Marca",
+                    MarcaNome = a.Marca != null
+                        ? a.Marca.Nome
+                        : "Sem marca",
+
                     a.ModeloReferencia,
                     a.Cor,
                     a.QuantidadeEstoque,
@@ -255,7 +289,7 @@ namespace RETSYS.Web.Controllers
             });
         }
 
-        // 3. Busca rápida de Cliente por CPF
+        // 3. Busca rápida de cliente por CPF.
         [HttpGet("/api/clientes/buscar-cpf/{cpf}")]
         public async Task<IActionResult> BuscarPorCpf(string cpf)
         {
@@ -263,7 +297,10 @@ namespace RETSYS.Web.Controllers
 
             if (string.IsNullOrEmpty(cleanCpf))
             {
-                return BadRequest(new { mensagem = "CPF inválido." });
+                return BadRequest(new
+                {
+                    mensagem = "CPF inválido."
+                });
             }
 
             var cliente = await _context.Clientes
@@ -295,7 +332,7 @@ namespace RETSYS.Web.Controllers
             });
         }
 
-        // 4. Gravação de Nova OS e geração automática da comissão
+        // 4. Criação de nova OS, baixa de estoque e geração automática de comissão.
         [HttpPost("/ordens")]
         public async Task<IActionResult> Store(
             [FromForm] IFormCollection formCollection,
@@ -304,19 +341,51 @@ namespace RETSYS.Web.Controllers
             try
             {
                 var perfilClaim = User.FindFirst(ClaimTypes.Role)?.Value ?? "VENDEDOR";
+                var usuarioIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
 
-                Guid vendedorId = Guid.Parse(formCollection["vendedorId"].ToString());
+                if (!Guid.TryParse(formCollection["vendedorId"].ToString(), out Guid vendedorId))
+                {
+                    return BadRequest(new
+                    {
+                        mensagem = "Selecione uma vendedora válida."
+                    });
+                }
 
                 var vendedor = await _context.Usuarios.FindAsync(vendedorId);
 
-                if (vendedor == null)
+                if (vendedor == null || !vendedor.Ativo)
                 {
-                    return BadRequest(new { mensagem = "Vendedor não localizado." });
+                    return BadRequest(new
+                    {
+                        mensagem = "Vendedora não localizada ou inativa."
+                    });
+                }
+
+                bool ehAdminOuGerente =
+                    string.Equals(perfilClaim, "ADMIN", StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(perfilClaim, "GERENTE", StringComparison.OrdinalIgnoreCase);
+
+                if (!ehAdminOuGerente &&
+                    (!Guid.TryParse(usuarioIdClaim, out Guid usuarioLogadoId) ||
+                     usuarioLogadoId != vendedorId))
+                {
+                    return StatusCode(StatusCodes.Status403Forbidden, new
+                    {
+                        mensagem = "Você só pode emitir Ordens de Serviço vinculadas ao seu próprio usuário."
+                    });
                 }
 
                 string cpfInformado = new string(
                     formCollection["cpf"].ToString().Where(char.IsDigit).ToArray()
                 );
+
+                if (string.IsNullOrWhiteSpace(cpfInformado))
+                {
+                    return BadRequest(new
+                    {
+                        mensagem = "Informe um CPF válido para o cliente."
+                    });
+                }
 
                 var cliente = await _context.Clientes
                     .FirstOrDefaultAsync(c =>
@@ -377,9 +446,12 @@ namespace RETSYS.Web.Controllers
                     : null;
 
                 if (formCollection.ContainsKey("dataNascimento") &&
-                    DateTime.TryParse(formCollection["dataNascimento"].ToString(), out var dn))
+                    DateTime.TryParse(formCollection["dataNascimento"].ToString(), out var dataNascimento))
                 {
-                    cliente.DataNascimento = DateTime.SpecifyKind(dn, DateTimeKind.Utc);
+                    cliente.DataNascimento = DateTime.SpecifyKind(
+                        dataNascimento,
+                        DateTimeKind.Utc
+                    );
                 }
 
                 cliente.UpdatedAt = DateTime.UtcNow;
@@ -395,37 +467,49 @@ namespace RETSYS.Web.Controllers
                 Guid? lentePrecoId = null;
 
                 if (formCollection.ContainsKey("lenteId") &&
-                    Guid.TryParse(formCollection["lenteId"].ToString(), out Guid lenGuid))
+                    Guid.TryParse(formCollection["lenteId"].ToString(), out Guid lenteGuid))
                 {
-                    lentePrecoId = lenGuid;
+                    lentePrecoId = lenteGuid;
                 }
 
                 decimal valorArmacao = formCollection.ContainsKey("valorArmacao") &&
-                                       decimal.TryParse(formCollection["valorArmacao"].ToString(), out var vArm)
-                    ? vArm
+                                       decimal.TryParse(formCollection["valorArmacao"].ToString(), out var valorArmacaoInformado)
+                    ? valorArmacaoInformado
                     : 0m;
 
                 decimal valorLente = formCollection.ContainsKey("valorLente") &&
-                                     decimal.TryParse(formCollection["valorLente"].ToString(), out var vLen)
-                    ? vLen
+                                     decimal.TryParse(formCollection["valorLente"].ToString(), out var valorLenteInformado)
+                    ? valorLenteInformado
                     : 0m;
+
+                if (valorArmacao < 0 || valorLente < 0)
+                {
+                    return BadRequest(new
+                    {
+                        mensagem = "Os valores da armação e da lente não podem ser negativos."
+                    });
+                }
 
                 decimal totalBruto = valorArmacao + valorLente;
 
                 decimal descontoReais = formCollection.ContainsKey("descontoReais") &&
-                                        decimal.TryParse(formCollection["descontoReais"].ToString(), out var dReais)
-                    ? dReais
+                                        decimal.TryParse(formCollection["descontoReais"].ToString(), out var descontoInformado)
+                    ? descontoInformado
                     : 0m;
+
+                if (descontoReais < 0 || descontoReais > totalBruto)
+                {
+                    return BadRequest(new
+                    {
+                        mensagem = "O desconto informado é inválido."
+                    });
+                }
 
                 decimal descontoPercentual = totalBruto > 0
                     ? Math.Round((descontoReais / totalBruto) * 100, 2)
                     : 0m;
 
-                bool ehAdmin =
-                    string.Equals(perfilClaim, "ADMIN", StringComparison.OrdinalIgnoreCase) ||
-                    string.Equals(perfilClaim, "GERENTE", StringComparison.OrdinalIgnoreCase);
-
-                if (!ehAdmin && descontoPercentual > vendedor.LimiteDesconto)
+                if (!ehAdminOuGerente && descontoPercentual > vendedor.LimiteDesconto)
                 {
                     return BadRequest(new
                     {
@@ -433,7 +517,7 @@ namespace RETSYS.Web.Controllers
                     });
                 }
 
-                decimal valorTotalLiquido = Math.Max(0, totalBruto - descontoReais);
+                decimal valorTotalLiquido = totalBruto - descontoReais;
 
                 string formaPagamento = formCollection.ContainsKey("formaPagamento")
                     ? formCollection["formaPagamento"].ToString()
@@ -456,20 +540,66 @@ namespace RETSYS.Web.Controllers
                     loopParcelas = parcelasFinais.Value;
                 }
 
+                Armacao? armacaoSelecionada = null;
+
+                if (armacaoId.HasValue)
+                {
+                    armacaoSelecionada = await _context.Armacoes
+                        .FirstOrDefaultAsync(a =>
+                            a.Id == armacaoId.Value &&
+                            a.Ativo);
+
+                    if (armacaoSelecionada == null)
+                    {
+                        return BadRequest(new
+                        {
+                            mensagem = "A armação selecionada não foi localizada ou está inativa."
+                        });
+                    }
+
+                    if (armacaoSelecionada.QuantidadeEstoque <= 0)
+                    {
+                        return BadRequest(new
+                        {
+                            mensagem = "A armação selecionada não possui estoque disponível."
+                        });
+                    }
+                }
+
+                if (lentePrecoId.HasValue)
+                {
+                    bool lenteExiste = await _context.LentesTabelaPrecos
+                        .AnyAsync(lp =>
+                            lp.Id == lentePrecoId.Value &&
+                            lp.Ativo &&
+                            lp.Lente != null &&
+                            lp.Lente.Ativo);
+
+                    if (!lenteExiste)
+                    {
+                        return BadRequest(new
+                        {
+                            mensagem = "A lente selecionada não foi localizada ou está inativa."
+                        });
+                    }
+                }
+
                 var novaOS = new OrdemServico
                 {
                     Id = Guid.NewGuid(),
                     ClienteId = cliente.Id,
                     VendedorId = vendedor.Id,
                     DataEntrada = DateTime.UtcNow,
+
                     DataPrevistaEntrega = formCollection.ContainsKey("dataPrevistaEntrega") &&
                                           DateTime.TryParse(
                                               formCollection["dataPrevistaEntrega"].ToString(),
-                                              out var dpe)
-                        ? DateTime.SpecifyKind(dpe, DateTimeKind.Utc)
+                                              out var dataPrevistaEntrega)
+                        ? DateTime.SpecifyKind(dataPrevistaEntrega, DateTimeKind.Utc)
                         : DateTime.UtcNow.AddDays(7),
 
                     Status = "EM_ABERTO",
+
                     MedicoNome = formCollection.ContainsKey("medicoNome")
                         ? formCollection["medicoNome"].ToString()
                         : null,
@@ -510,33 +640,44 @@ namespace RETSYS.Web.Controllers
                             Directory.CreateDirectory(pastaUploads);
                         }
 
-                        var nomeArquivo = Guid.NewGuid() + Path.GetExtension(arquivoFoto.FileName);
+                        var nomeArquivo = Guid.NewGuid() +
+                                          Path.GetExtension(arquivoFoto.FileName);
+
                         var caminhoCompleto = Path.Combine(pastaUploads, nomeArquivo);
 
-                        using (var stream = new FileStream(caminhoCompleto, FileMode.Create))
-                        {
-                            await arquivoFoto.CopyToAsync(stream);
-                        }
+                        await using var stream = new FileStream(
+                            caminhoCompleto,
+                            FileMode.Create
+                        );
+
+                        await arquivoFoto.CopyToAsync(stream);
 
                         caminhoFotoAnexa = "/uploads/receitas/" + nomeArquivo;
                     }
                 }
 
-                decimal.TryParse(formCollection["odEsferico"].ToString(), out var odEsf);
-                decimal.TryParse(formCollection["oeEsferico"].ToString(), out var oeEsf);
-                decimal.TryParse(formCollection["odCilindrico"].ToString(), out var rawOdCil);
-                decimal.TryParse(formCollection["oeCilindrico"].ToString(), out var rawOeCil);
+                decimal.TryParse(formCollection["odEsferico"].ToString(), out var odEsferico);
+                decimal.TryParse(formCollection["oeEsferico"].ToString(), out var oeEsferico);
+                decimal.TryParse(formCollection["odCilindrico"].ToString(), out var rawOdCilindrico);
+                decimal.TryParse(formCollection["oeCilindrico"].ToString(), out var rawOeCilindrico);
                 int.TryParse(formCollection["odEixo"].ToString(), out var odEixo);
                 int.TryParse(formCollection["oeEixo"].ToString(), out var oeEixo);
 
-                decimal odCilindrico = rawOdCil > 0 ? -Math.Abs(rawOdCil) : rawOdCil;
-                decimal oeCilindrico = rawOeCil > 0 ? -Math.Abs(rawOeCil) : rawOeCil;
+                decimal odCilindrico = rawOdCilindrico > 0
+                    ? -Math.Abs(rawOdCilindrico)
+                    : rawOdCilindrico;
+
+                decimal oeCilindrico = rawOeCilindrico > 0
+                    ? -Math.Abs(rawOeCilindrico)
+                    : rawOeCilindrico;
 
                 int odEixoValidado = Math.Clamp(odEixo, 0, 180);
                 int oeEixoValidado = Math.Clamp(oeEixo, 0, 180);
 
-                decimal? adicao = decimal.TryParse(formCollection["adicao"].ToString(), out var adVal)
-                    ? adVal
+                decimal? adicao = decimal.TryParse(
+                    formCollection["adicao"].ToString(),
+                    out var adicaoInformada)
+                    ? adicaoInformada
                     : null;
 
                 decimal.TryParse(formCollection["dnpOd"].ToString(), out var dnpOd);
@@ -544,60 +685,77 @@ namespace RETSYS.Web.Controllers
 
                 decimal? alturaOd = decimal.TryParse(
                     formCollection["alturaMontagemOd"].ToString(),
-                    out var altOdVal)
-                    ? altOdVal
-                    : decimal.TryParse(formCollection["alturaMontagem"].ToString(), out var altGenVal)
-                        ? altGenVal
+                    out var alturaOdInformada)
+                    ? alturaOdInformada
+                    : decimal.TryParse(
+                        formCollection["alturaMontagem"].ToString(),
+                        out var alturaGeral)
+                        ? alturaGeral
                         : null;
 
                 decimal? alturaOe = decimal.TryParse(
                     formCollection["alturaMontagemOe"].ToString(),
-                    out var altOeVal)
-                    ? altOeVal
-                    : decimal.TryParse(formCollection["alturaMontagem"].ToString(), out var altGenVal2)
-                        ? altGenVal2
+                    out var alturaOeInformada)
+                    ? alturaOeInformada
+                    : decimal.TryParse(
+                        formCollection["alturaMontagem"].ToString(),
+                        out var alturaGeralOe)
+                        ? alturaGeralOe
                         : null;
 
-                decimal? aro = decimal.TryParse(formCollection["aro"].ToString(), out var valAro)
-                    ? Math.Clamp(valAro, 0m, 80m)
+                decimal? aro = decimal.TryParse(
+                    formCollection["aro"].ToString(),
+                    out var valorAro)
+                    ? Math.Clamp(valorAro, 0m, 80m)
                     : null;
 
-                decimal? dm = decimal.TryParse(formCollection["dm"].ToString(), out var valDm)
-                    ? Math.Clamp(valDm, 0m, 80m)
+                decimal? dm = decimal.TryParse(
+                    formCollection["dm"].ToString(),
+                    out var valorDm)
+                    ? Math.Clamp(valorDm, 0m, 80m)
                     : null;
 
-                decimal? vert = decimal.TryParse(formCollection["vert"].ToString(), out var valVert)
-                    ? Math.Clamp(valVert, 0m, 80m)
+                decimal? vert = decimal.TryParse(
+                    formCollection["vert"].ToString(),
+                    out var valorVert)
+                    ? Math.Clamp(valorVert, 0m, 80m)
                     : null;
 
-                decimal? po = decimal.TryParse(formCollection["po"].ToString(), out var valPo)
-                    ? Math.Clamp(valPo, 0m, 25m)
+                decimal? po = decimal.TryParse(
+                    formCollection["po"].ToString(),
+                    out var valorPo)
+                    ? Math.Clamp(valorPo, 0m, 25m)
                     : null;
 
-                decimal? coOd = decimal.TryParse(formCollection["coOd"].ToString(), out var valCoOd)
-                    ? Math.Clamp(valCoOd, 0m, 80m)
+                decimal? coOd = decimal.TryParse(
+                    formCollection["coOd"].ToString(),
+                    out var valorCoOd)
+                    ? Math.Clamp(valorCoOd, 0m, 80m)
                     : null;
 
-                decimal? coOe = decimal.TryParse(formCollection["coOe"].ToString(), out var valCoOe)
-                    ? Math.Clamp(valCoOe, 0m, 80m)
+                decimal? coOe = decimal.TryParse(
+                    formCollection["coOe"].ToString(),
+                    out var valorCoOe)
+                    ? Math.Clamp(valorCoOe, 0m, 80m)
                     : null;
 
-                string obsReceitaFinal = formCollection.ContainsKey("obsReceita")
+                string observacaoReceita = formCollection.ContainsKey("obsReceita")
                     ? formCollection["obsReceita"].ToString()
                     : "";
 
                 if (!string.IsNullOrEmpty(caminhoFotoAnexa))
                 {
-                    obsReceitaFinal = $"[Anexo da Receita: {caminhoFotoAnexa}] {obsReceitaFinal}";
+                    observacaoReceita =
+                        $"[Anexo da Receita: {caminhoFotoAnexa}] {observacaoReceita}";
                 }
 
                 novaOS.Receita = new OsReceita
                 {
                     OsId = novaOS.Id,
-                    OdEsferico = odEsf,
+                    OdEsferico = odEsferico,
                     OdCilindrico = odCilindrico,
                     OdEixo = odEixoValidado,
-                    OeEsferico = oeEsf,
+                    OeEsferico = oeEsferico,
                     OeCilindrico = oeCilindrico,
                     OeEixo = oeEixoValidado,
                     Adicao = adicao,
@@ -611,7 +769,7 @@ namespace RETSYS.Web.Controllers
                     Po = po,
                     CoOd = coOd,
                     CoOe = coOe,
-                    ObsReceita = obsReceitaFinal
+                    ObsReceita = observacaoReceita
                 };
 
                 novaOS.Financeiro = new OsFinanceiro
@@ -627,12 +785,19 @@ namespace RETSYS.Web.Controllers
                     ValorTotalLiquido = valorTotalLiquido,
                     FormaPagamento = formaPagamento,
                     Parcelas = parcelasFinais,
-                    ValorEntrada = decimal.TryParse(formCollection["valorEntrada"].ToString(), out var entVal)
-                        ? entVal
+
+                    ValorEntrada = decimal.TryParse(
+                        formCollection["valorEntrada"].ToString(),
+                        out var valorEntrada)
+                        ? valorEntrada
                         : null
                 };
 
-                decimal valorParcela = Math.Round(valorTotalLiquido / loopParcelas, 2);
+                decimal valorParcela = Math.Round(
+                    valorTotalLiquido / loopParcelas,
+                    2,
+                    MidpointRounding.AwayFromZero
+                );
 
                 for (int i = 1; i <= loopParcelas; i++)
                 {
@@ -642,6 +807,7 @@ namespace RETSYS.Web.Controllers
                         OrdemServicoId = novaOS.Id,
                         NumeroParcela = i,
                         DescricaoParcela = $"PARC. {i}/{loopParcelas} - OS: {novaOS.NumeroOS}",
+
                         Valor = i == loopParcelas
                             ? valorTotalLiquido - (valorParcela * (loopParcelas - 1))
                             : valorParcela,
@@ -650,20 +816,13 @@ namespace RETSYS.Web.Controllers
                     });
                 }
 
-                if (armacaoId.HasValue)
+                if (armacaoSelecionada != null)
                 {
-                    var armacao = await _context.Armacoes.FindAsync(armacaoId.Value);
-
-                    if (armacao != null)
-                    {
-                        armacao.QuantidadeEstoque = Math.Max(0, armacao.QuantidadeEstoque - 1);
-                    }
+                    armacaoSelecionada.QuantidadeEstoque--;
                 }
 
                 _context.OrdensServico.Add(novaOS);
 
-                // Comissão é registrada junto com a OS, preservando a taxa vigente da vendedora.
-                // A base é sempre o valor líquido, já considerando descontos concedidos.
                 if (vendedor.ComissaoAtiva && vendedor.PercentualComissao > 0)
                 {
                     decimal percentualComissao = vendedor.PercentualComissao;
@@ -675,15 +834,19 @@ namespace RETSYS.Web.Controllers
                         VendedorId = vendedor.Id,
                         ValorBase = valorTotalLiquido,
                         PercentualAplicado = percentualComissao,
+
                         ValorComissao = Math.Round(
                             valorTotalLiquido * percentualComissao / 100m,
                             2,
                             MidpointRounding.AwayFromZero
                         ),
+
                         Status = "PENDENTE",
                         DataGeracao = DateTime.UtcNow,
                         PeriodoReferencia = novaOS.DataEntrada.ToString("yyyy-MM"),
-                        Observacoes = $"Comissão gerada automaticamente na emissão da OS {novaOS.NumeroOS}."
+
+                        Observacoes =
+                            $"Comissão gerada automaticamente na emissão da OS {novaOS.NumeroOS}."
                     });
                 }
 
@@ -698,15 +861,17 @@ namespace RETSYS.Web.Controllers
             {
                 return BadRequest(new
                 {
-                    message = "Falha ao processar a Ordem de Serviço.",
+                    mensagem = "Falha ao processar a Ordem de Serviço.",
                     erro = ex.Message
                 });
             }
         }
 
-        // 5. Alteração de Status com Atualização de Estoque e Estorno de Comissão
+        // 5. Alteração de status, estoque e estorno de comissão.
         [HttpPost("/ordens/alterar-status/{id:guid}")]
-        public async Task<IActionResult> AlterarStatus(Guid id, [FromQuery] string novoStatus)
+        public async Task<IActionResult> AlterarStatus(
+            Guid id,
+            [FromQuery] string novoStatus)
         {
             var ordem = await _context.OrdensServico
                 .Include(os => os.Financeiro)
@@ -733,16 +898,13 @@ namespace RETSYS.Web.Controllers
                 return RedirectToAction(nameof(Index));
             }
 
-            if (ordem.IsRetroativa)
+            if (novoStatus == "CANCELADO" &&
+                await OrdemPossuiComissaoPagaAsync(ordem.Id))
             {
-                ordem.Status = novoStatus;
-
-                if (novoStatus == "CANCELADO")
-                {
-                    await EstornarComissoesDaOrdemAsync(ordem.Id);
-                }
-
-                await _context.SaveChangesAsync();
+                Inertia.Share(
+                    "erro",
+                    "Esta OS possui comissão já paga. O cancelamento exige um ajuste financeiro manual e auditável."
+                );
 
                 return RedirectToAction(nameof(Index));
             }
@@ -750,9 +912,11 @@ namespace RETSYS.Web.Controllers
             if (novoStatus == "CANCELADO" &&
                 statusAnterior != "CANCELADO" &&
                 statusAnterior != "CANCELADA" &&
+                !ordem.IsRetroativa &&
                 ordem.Financeiro?.ArmacaoId != null)
             {
-                var armacao = await _context.Armacoes.FindAsync(ordem.Financeiro.ArmacaoId);
+                var armacao = await _context.Armacoes
+                    .FindAsync(ordem.Financeiro.ArmacaoId);
 
                 if (armacao != null)
                 {
@@ -771,13 +935,17 @@ namespace RETSYS.Web.Controllers
             {
                 ordem.DataEntregaReal = DateTime.UtcNow;
             }
+            else if (statusAnterior == "ENTREGUE")
+            {
+                ordem.DataEntregaReal = null;
+            }
 
             await _context.SaveChangesAsync();
 
             return RedirectToAction(nameof(Index));
         }
 
-        // 6. Cancelamento Seguro da OS
+        // 6. Cancelamento lógico seguro da OS.
         [HttpPost("/ordens/cancelar/{id:guid}")]
         [HttpPost("/ordens/excluir/{id:guid}")]
         public async Task<IActionResult> Cancelar(Guid id)
@@ -791,6 +959,16 @@ namespace RETSYS.Web.Controllers
                 return NotFound();
             }
 
+            if (await OrdemPossuiComissaoPagaAsync(ordem.Id))
+            {
+                Inertia.Share(
+                    "erro",
+                    "Esta OS possui comissão já paga. O cancelamento exige um ajuste financeiro manual e auditável."
+                );
+
+                return RedirectToAction(nameof(Index));
+            }
+
             bool jaEstavaCancelada =
                 ordem.Status == "CANCELADO" ||
                 ordem.Status == "CANCELADA";
@@ -799,7 +977,8 @@ namespace RETSYS.Web.Controllers
                 !ordem.IsRetroativa &&
                 ordem.Financeiro?.ArmacaoId != null)
             {
-                var armacao = await _context.Armacoes.FindAsync(ordem.Financeiro.ArmacaoId);
+                var armacao = await _context.Armacoes
+                    .FindAsync(ordem.Financeiro.ArmacaoId);
 
                 if (armacao != null)
                 {
@@ -811,32 +990,100 @@ namespace RETSYS.Web.Controllers
 
             ordem.Ativo = true;
             ordem.Status = "CANCELADO";
+            ordem.DataEntregaReal = null;
 
             await _context.SaveChangesAsync();
 
             return RedirectToAction(nameof(Index));
         }
 
-        // Estorna apenas comissões ainda pendentes.
-        // Comissão já paga não é apagada nem alterada automaticamente para preservar auditoria financeira.
+        private async Task<bool> OrdemPossuiComissaoPagaAsync(Guid ordemServicoId)
+        {
+            return await _context.Comissoes.AnyAsync(c =>
+                c.OrdemServicoId == ordemServicoId &&
+                c.Status == "PAGO");
+        }
+
         private async Task EstornarComissoesDaOrdemAsync(Guid ordemServicoId)
         {
-            var comissoesPendentes = await _context.Comissoes
+            var comissoesParaEstorno = await _context.Comissoes
                 .Where(c =>
                     c.OrdemServicoId == ordemServicoId &&
-                    c.Status == "PENDENTE")
+                    (c.Status == "PENDENTE" || c.Status == "FECHADO"))
                 .ToListAsync();
 
-            foreach (var comissao in comissoesPendentes)
+            if (!comissoesParaEstorno.Any())
             {
+                return;
+            }
+
+            var idsComissoesEstornadas = comissoesParaEstorno
+                .Select(c => c.Id)
+                .ToList();
+
+            var fechamentosAfetados = comissoesParaEstorno
+                .Where(c => c.Status == "FECHADO")
+                .Select(c => new
+                {
+                    c.VendedorId,
+                    c.PeriodoReferencia
+                })
+                .Distinct()
+                .ToList();
+
+            foreach (var comissao in comissoesParaEstorno)
+            {
+                string statusAnterior = comissao.Status;
+
                 comissao.Status = "CANCELADO";
+                comissao.DataPagamento = null;
+
                 comissao.Observacoes = string.IsNullOrWhiteSpace(comissao.Observacoes)
-                    ? "Comissão estornada automaticamente devido ao cancelamento da OS."
-                    : $"{comissao.Observacoes} Comissão estornada automaticamente devido ao cancelamento da OS.";
+                    ? $"Comissão cancelada automaticamente porque a OS foi cancelada. Status anterior: {statusAnterior}."
+                    : $"{comissao.Observacoes} Comissão cancelada automaticamente porque a OS foi cancelada. Status anterior: {statusAnterior}.";
+            }
+
+            foreach (var referencia in fechamentosAfetados)
+            {
+                var fechamento = await _context.FechamentosComissao
+                    .FirstOrDefaultAsync(f =>
+                        f.VendedorId == referencia.VendedorId &&
+                        f.PeriodoReferencia == referencia.PeriodoReferencia &&
+                        f.Status == "FECHADO");
+
+                if (fechamento == null)
+                {
+                    continue;
+                }
+
+                // Exclui explicitamente as comissões que estão sendo estornadas.
+                // Isso evita que elas entrem no total do fechamento antes do SaveChangesAsync().
+                var comissoesAindaFechadas = await _context.Comissoes
+                    .Where(c =>
+                        c.VendedorId == fechamento.VendedorId &&
+                        c.PeriodoReferencia == fechamento.PeriodoReferencia &&
+                        c.Status == "FECHADO" &&
+                        !idsComissoesEstornadas.Contains(c.Id))
+                    .ToListAsync();
+
+                fechamento.TotalVendasBrutas = comissoesAindaFechadas.Sum(c => c.ValorBase);
+                fechamento.TotalComissao = comissoesAindaFechadas.Sum(c => c.ValorComissao);
+
+                fechamento.QtdOs = comissoesAindaFechadas
+                    .Select(c => c.OrdemServicoId)
+                    .Distinct()
+                    .Count();
+
+                if (!comissoesAindaFechadas.Any())
+                {
+                    fechamento.Status = "ABERTO";
+                    fechamento.DataFechamento = null;
+                    fechamento.DataPagamento = null;
+                }
             }
         }
 
-        // 7. Processamento de Leitura de Receita por IA
+        // 7. Processamento de receita por IA via Ollama.
         [HttpPost("/ordens/processar-receita-ia")]
         public async Task<IActionResult> ProcessarReceitaIA(IFormFile imagemReceita)
         {
@@ -850,11 +1097,11 @@ namespace RETSYS.Web.Controllers
 
             try
             {
-                using var ms = new MemoryStream();
+                using var memoryStream = new MemoryStream();
 
-                await imagemReceita.CopyToAsync(ms);
+                await imagemReceita.CopyToAsync(memoryStream);
 
-                string base64Imagem = Convert.ToBase64String(ms.ToArray());
+                string base64Imagem = Convert.ToBase64String(memoryStream.ToArray());
 
                 var payloadOllama = new
                 {
@@ -883,7 +1130,10 @@ namespace RETSYS.Web.Controllers
 
                 if (!respostaOllama.IsSuccessStatusCode)
                 {
-                    return StatusCode(500, "Erro no motor local de IA.");
+                    return StatusCode(500, new
+                    {
+                        mensagem = "Erro no motor local de IA."
+                    });
                 }
 
                 string jsonString = await respostaOllama.Content.ReadAsStringAsync();
@@ -893,12 +1143,15 @@ namespace RETSYS.Web.Controllers
                 if (documentoJson.RootElement.TryGetProperty("response", out var elementoResposta))
                 {
                     return Content(
-                        elementoResposta.GetString()!,
+                        elementoResposta.GetString() ?? "{}",
                         "application/json"
                     );
                 }
 
-                return BadRequest("Falha ao decodificar dados da IA.");
+                return BadRequest(new
+                {
+                    mensagem = "Falha ao decodificar os dados retornados pela IA."
+                });
             }
             catch (Exception ex)
             {
@@ -912,6 +1165,7 @@ namespace RETSYS.Web.Controllers
             }
         }
 
+        // 8. Processamento de receita pela implementação registrada de IServicoIa.
         [HttpPost("/ordens-servico/processar-receita-ia")]
         public async Task<IActionResult> ProcessarReceitaIa(
             IFormFile foto,
@@ -925,7 +1179,7 @@ namespace RETSYS.Web.Controllers
                 });
             }
 
-            using var stream = foto.OpenReadStream();
+            await using var stream = foto.OpenReadStream();
 
             var resultado = await servicoIa.ProcessarFotoReceitaAsync(stream);
 

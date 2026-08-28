@@ -22,7 +22,11 @@ namespace RETSYS.Domain.Entities
         // ValorBase * PercentualAplicado / 100.
         public decimal ValorComissao { get; set; }
 
-        // Status possíveis: PENDENTE, PAGO, CANCELADO.
+        // Status possíveis:
+        // PENDENTE   = comissão gerada, ainda disponível para fechamento;
+        // FECHADO    = incluída em um fechamento mensal, aguardando pagamento;
+        // PAGO       = pagamento confirmado;
+        // CANCELADO  = estornada por cancelamento da OS antes do pagamento.
         public string Status { get; set; } = "PENDENTE";
 
         public DateTime DataGeracao { get; set; } = DateTime.UtcNow;

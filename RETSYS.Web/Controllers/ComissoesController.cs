@@ -1,13 +1,12 @@
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using InertiaCore;
-using RETSYS.Infrastructure.Data;
 using RETSYS.Domain.Entities;
+using RETSYS.Infrastructure.Data;
 using System;
 using System.Linq;
 using System.Security.Claims;
 using System.Threading.Tasks;
-using System.Collections.Generic;
 
 namespace RETSYS.Web.Controllers
 {
@@ -24,26 +23,45 @@ namespace RETSYS.Web.Controllers
         // 👤 PAINEL DA VENDEDORA
         // =========================================================================
 
-        // 1. Renderiza a visão de extrato e histórico individual da vendedora
         [HttpGet("/minhas-comissoes")]
         public async Task<IActionResult> MinhasComissoes([FromQuery] string? periodo)
         {
             var usuarioIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
             if (!Guid.TryParse(usuarioIdClaim, out Guid vendedorId))
             {
                 return Redirect("/login");
             }
 
-            var vendedor = await _context.Usuarios.AsNoTracking().FirstOrDefaultAsync(u => u.Id == vendedorId);
+            string periodoAlvo = string.IsNullOrWhiteSpace(periodo)
+                ? DateTime.UtcNow.ToString("yyyy-MM")
+                : periodo;
 
-            // Define o período de referência do mês atual (Ex: "2026-08") se nenhum for enviado
-            string periodoAlvo = periodo ?? DateTime.UtcNow.ToString("yyyy-MM");
+            if (!PeriodoValido(periodoAlvo))
+            {
+                Inertia.Share("erro", "Período de referência inválido. Use o formato AAAA-MM.");
+                return Redirect("/minhas-comissoes");
+            }
 
-            // Extrato do período
-            var extratoComissoes = await _context.Comissoes
+            var vendedor = await _context.Usuarios
+                .AsNoTracking()
+                .FirstOrDefaultAsync(u => u.Id == vendedorId);
+
+            if (vendedor == null)
+            {
+                return Redirect("/login");
+            }
+
+            var comissoes = await _context.Comissoes
+                .AsNoTracking()
                 .Include(c => c.OrdemServico)
-                .Where(c => c.VendedorId == vendedorId && c.PeriodoReferencia == periodoAlvo)
+                .Where(c =>
+                    c.VendedorId == vendedorId &&
+                    c.PeriodoReferencia == periodoAlvo)
                 .OrderByDescending(c => c.DataGeracao)
+                .ToListAsync();
+
+            var extratoComissoes = comissoes
                 .Select(c => new
                 {
                     c.Id,
@@ -54,12 +72,15 @@ namespace RETSYS.Web.Controllers
                     c.Status,
                     DataLancamento = c.DataGeracao.ToString("dd/MM/yyyy")
                 })
-                .ToListAsync();
+                .ToList();
 
-            // Histórico de fechamentos
-            var historicoFechamentos = await _context.FechamentosComissao
+            var fechamentos = await _context.FechamentosComissao
+                .AsNoTracking()
                 .Where(f => f.VendedorId == vendedorId)
                 .OrderByDescending(f => f.PeriodoReferencia)
+                .ToListAsync();
+
+            var historicoFechamentos = fechamentos
                 .Select(f => new
                 {
                     f.Id,
@@ -68,35 +89,41 @@ namespace RETSYS.Web.Controllers
                     f.TotalComissao,
                     f.QtdOs,
                     f.Status,
-                    DataLiquidacao = f.DataPagamento.HasValue ? f.DataPagamento.Value.ToString("dd/MM/yyyy") : null
+                    DataLiquidacao = f.DataPagamento.HasValue
+                        ? f.DataPagamento.Value.ToString("dd/MM/yyyy")
+                        : null
                 })
-                .ToListAsync();
+                .ToList();
 
             decimal comissaoAcumuladaMes = extratoComissoes
-                .Where(c => c.Status == "PENDENTE" || c.Status == "PAGO")
+                .Where(c =>
+                    c.Status == "PENDENTE" ||
+                    c.Status == "FECHADO" ||
+                    c.Status == "PAGO")
                 .Sum(c => c.ComissaoGerada);
 
-            return Inertia.Render("Comissoes/MinhaComissao", new
+            return Inertia.Render("Admin/Comissoes/MinhaComissao", new
             {
                 Extrato = extratoComissoes,
                 Historico = historicoFechamentos,
                 ComissaoAcumulada = comissaoAcumuladaMes,
-                TaxaComissao = vendedor?.PercentualComissao ?? 3.00m, // Retorna a taxa individual da vendedora
+                TaxaComissao = vendedor.PercentualComissao,
                 PeriodoFiltro = periodoAlvo
             });
         }
 
         // =========================================================================
-        // ⚙️ PAINEL DO GESTOR / ADMINISTRATIVO
+        // ⚙️ PAINEL ADMINISTRATIVO
         // =========================================================================
 
-        // 2. Tela Administrativa de Extratos e Fechamentos Consolidados (GET)
         [HttpGet("/admin/comissoes")]
         public async Task<IActionResult> Index()
         {
             var fechamentos = await _context.FechamentosComissao
+                .AsNoTracking()
                 .Include(f => f.Vendedor)
                 .OrderByDescending(f => f.PeriodoReferencia)
+                .ThenBy(f => f.Vendedor.Nome)
                 .Select(f => new
                 {
                     f.Id,
@@ -112,7 +139,6 @@ namespace RETSYS.Web.Controllers
                 })
                 .ToListAsync();
 
-            // Traz a lista de vendedores e suas taxas individuais de comissão para o Admin gerenciar
             var vendedores = await _context.Usuarios
                 .AsNoTracking()
                 .Where(u => u.Ativo)
@@ -128,123 +154,241 @@ namespace RETSYS.Web.Controllers
                 })
                 .ToListAsync();
 
-            return Inertia.Render("Admin/Comissoes/Index", new { Fechamentos = fechamentos, Vendedores = vendedores });
+            return Inertia.Render("Admin/Comissoes/Index", new
+            {
+                Fechamentos = fechamentos,
+                Vendedores = vendedores
+            });
         }
 
-        // 3. Atualização rápida da porcentagem individual de comissão da vendedora (POST Admin)
         [HttpPost("/admin/comissoes/atualizar-taxa/{vendedorId:guid}")]
-        public async Task<IActionResult> AtualizarTaxaVendedor(Guid vendedorId, [FromBody] DtoAtualizarTaxa model)
+        public async Task<IActionResult> AtualizarTaxaVendedor(
+            Guid vendedorId,
+            [FromBody] DtoAtualizarTaxa model)
         {
-            var vendedor = await _context.Usuarios.FindAsync(vendedorId);
-            if (vendedor == null)
+            if (model.PercentualComissao < 0 || model.PercentualComissao > 100)
             {
-                return NotFound(new { message = "Vendedor não localizado." });
-            }
-
-            vendedor.PercentualComissao = Math.Max(0, model.PercentualComissao);
-            await _context.SaveChangesAsync();
-
-            return RedirectToAction(nameof(Index));
-        }
-
-        // 4. Processa e consolida o fechamento de mês de um vendedor (POST)
-        [HttpPost("/admin/comissoes/fechar-mes")]
-        public async Task<IActionResult> FecharMes([FromQuery] Guid vendedorId, [FromQuery] string periodo)
-        {
-            if (string.IsNullOrEmpty(periodo) || periodo.Length != 7)
-            {
-                Inertia.Share("erro", "Período de referência inválido.");
+                Inertia.Share("erro", "A taxa de comissão deve estar entre 0% e 100%.");
                 return RedirectToAction(nameof(Index));
             }
 
             var vendedor = await _context.Usuarios.FindAsync(vendedorId);
+
+            if (vendedor == null)
+            {
+                Inertia.Share("erro", "Vendedor não localizado.");
+                return RedirectToAction(nameof(Index));
+            }
+
+            vendedor.PercentualComissao = Math.Round(model.PercentualComissao, 2);
+
+            await _context.SaveChangesAsync();
+
+            Inertia.Share("sucesso", "Taxa de comissão atualizada com sucesso.");
+
+            return RedirectToAction(nameof(Index));
+        }
+
+        [HttpPost("/admin/comissoes/fechar-mes")]
+        public async Task<IActionResult> FecharMes(
+            [FromQuery] Guid vendedorId,
+            [FromQuery] string? periodo)
+        {
+            if (vendedorId == Guid.Empty)
+            {
+                Inertia.Share("erro", "Selecione uma vendedora para realizar o fechamento.");
+                return RedirectToAction(nameof(Index));
+            }
+
+            if (!PeriodoValido(periodo))
+            {
+                Inertia.Share("erro", "Período de referência inválido. Use o formato AAAA-MM.");
+                return RedirectToAction(nameof(Index));
+            }
+
+            var vendedor = await _context.Usuarios.FindAsync(vendedorId);
+
             if (vendedor == null)
             {
                 Inertia.Share("erro", "Vendedor não encontrado.");
                 return RedirectToAction(nameof(Index));
             }
 
-            var fechamentoExistente = await _context.FechamentosComissao
-                .FirstOrDefaultAsync(f => f.VendedorId == vendedorId && f.PeriodoReferencia == periodo);
-
-            if (fechamentoExistente != null && fechamentoExistente.Status != "ABERTO")
+            if (!vendedor.ComissaoAtiva)
             {
-                Inertia.Share("erro", "O período selecionado já está encerrado ou pago para este vendedor.");
+                Inertia.Share("erro", "A comissão desta vendedora está desativada.");
                 return RedirectToAction(nameof(Index));
             }
 
-            // Garante que comissões de OSs entregues no mês usem a taxa individual da vendedora
-            var comissoesDoMes = await _context.Comissoes
-                .Where(c => c.VendedorId == vendedorId && c.PeriodoReferencia == periodo && c.Status == "PENDENTE")
+            var fechamentoExistente = await _context.FechamentosComissao
+                .FirstOrDefaultAsync(f =>
+                    f.VendedorId == vendedorId &&
+                    f.PeriodoReferencia == periodo);
+
+            if (fechamentoExistente != null && fechamentoExistente.Status == "PAGO")
+            {
+                Inertia.Share("erro", "Este período já foi pago e não pode ser alterado.");
+                return RedirectToAction(nameof(Index));
+            }
+
+            if (fechamentoExistente != null && fechamentoExistente.Status == "FECHADO")
+            {
+                Inertia.Share("erro", "Este período já está fechado e aguarda confirmação de pagamento.");
+                return RedirectToAction(nameof(Index));
+            }
+
+            var comissoesPendentes = await _context.Comissoes
+                .Where(c =>
+                    c.VendedorId == vendedorId &&
+                    c.PeriodoReferencia == periodo &&
+                    c.Status == "PENDENTE")
                 .ToListAsync();
 
-            if (!comissoesDoMes.Any())
+            if (!comissoesPendentes.Any())
             {
-                Inertia.Share("erro", "Nenhuma comissão pendente localizada para este vendedor no período informado.");
+                Inertia.Share("erro", "Nenhuma comissão pendente foi localizada para esse período.");
                 return RedirectToAction(nameof(Index));
             }
 
-            decimal totalVendasBrutas = comissoesDoMes.Sum(c => c.ValorBase);
-            decimal totalComissaoDevida = comissoesDoMes.Sum(c => c.ValorComissao);
-            int quantidadeOs = comissoesDoMes.Count;
+            decimal totalVendasLiquidas = comissoesPendentes.Sum(c => c.ValorBase);
+            decimal totalComissaoDevida = comissoesPendentes.Sum(c => c.ValorComissao);
+            int quantidadeOs = comissoesPendentes
+                .Select(c => c.OrdemServicoId)
+                .Distinct()
+                .Count();
+
+            DateTime dataFechamento = DateTime.UtcNow;
+            Guid? fechadoPorId = ObterUsuarioLogadoId();
+
+            foreach (var comissao in comissoesPendentes)
+            {
+                comissao.Status = "FECHADO";
+
+                comissao.Observacoes = string.IsNullOrWhiteSpace(comissao.Observacoes)
+                    ? $"Comissão incluída no fechamento do período {periodo}."
+                    : $"{comissao.Observacoes} Comissão incluída no fechamento do período {periodo}.";
+            }
 
             if (fechamentoExistente == null)
             {
-                var novoFechamento = new FechamentoComissao
+                fechamentoExistente = new FechamentoComissao
                 {
                     Id = Guid.NewGuid(),
                     VendedorId = vendedorId,
-                    PeriodoReferencia = periodo,
-                    TotalVendasBrutas = totalVendasBrutas,
+                    PeriodoReferencia = periodo!,
+                    TotalVendasBrutas = totalVendasLiquidas,
                     TotalComissao = totalComissaoDevida,
                     QtdOs = quantidadeOs,
                     Status = "FECHADO",
-                    DataFechamento = DateTime.UtcNow
+                    DataFechamento = dataFechamento,
+                    FechadoPorId = fechadoPorId
                 };
-                _context.FechamentosComissao.Add(novoFechamento);
+
+                _context.FechamentosComissao.Add(fechamentoExistente);
             }
             else
             {
-                fechamentoExistente.TotalVendasBrutas = totalVendasBrutas;
+                fechamentoExistente.TotalVendasBrutas = totalVendasLiquidas;
                 fechamentoExistente.TotalComissao = totalComissaoDevida;
                 fechamentoExistente.QtdOs = quantidadeOs;
                 fechamentoExistente.Status = "FECHADO";
-                fechamentoExistente.DataFechamento = DateTime.UtcNow;
+                fechamentoExistente.DataFechamento = dataFechamento;
+                fechamentoExistente.DataPagamento = null;
+                fechamentoExistente.FechadoPorId = fechadoPorId;
             }
 
             await _context.SaveChangesAsync();
+
+            Inertia.Share("sucesso", "Fechamento mensal realizado com sucesso.");
+
             return RedirectToAction(nameof(Index));
         }
 
-        // 5. Realiza a baixa financeira e liquida o pagamento das comissões (POST)
         [HttpPost("/admin/comissoes/pagar/{id:guid}")]
         public async Task<IActionResult> PagarVendedor(Guid id)
         {
-            var fechamento = await _context.FechamentosComissao.FindAsync(id);
-            if (fechamento == null) return NotFound();
+            var fechamento = await _context.FechamentosComissao
+                .FirstOrDefaultAsync(f => f.Id == id);
+
+            if (fechamento == null)
+            {
+                Inertia.Share("erro", "Fechamento não localizado.");
+                return RedirectToAction(nameof(Index));
+            }
 
             if (fechamento.Status == "PAGO")
             {
+                Inertia.Share("erro", "Este fechamento já foi pago.");
+                return RedirectToAction(nameof(Index));
+            }
+
+            if (fechamento.Status != "FECHADO")
+            {
+                Inertia.Share("erro", "Apenas fechamentos com status FECHADO podem ser pagos.");
                 return RedirectToAction(nameof(Index));
             }
 
             var comissoesVinculadas = await _context.Comissoes
-                .Where(c => c.VendedorId == fechamento.VendedorId && 
-                            c.PeriodoReferencia == fechamento.PeriodoReferencia && 
-                            c.Status == "PENDENTE")
+                .Where(c =>
+                    c.VendedorId == fechamento.VendedorId &&
+                    c.PeriodoReferencia == fechamento.PeriodoReferencia &&
+                    c.Status == "FECHADO")
                 .ToListAsync();
+
+            if (!comissoesVinculadas.Any())
+            {
+                Inertia.Share("erro", "Não existem comissões fechadas disponíveis para pagamento.");
+                return RedirectToAction(nameof(Index));
+            }
+
+            DateTime dataPagamento = DateTime.UtcNow;
 
             foreach (var comissao in comissoesVinculadas)
             {
                 comissao.Status = "PAGO";
-                comissao.DataPagamento = DateTime.UtcNow;
+                comissao.DataPagamento = dataPagamento;
+
+                comissao.Observacoes = string.IsNullOrWhiteSpace(comissao.Observacoes)
+                    ? $"Comissão paga em {dataPagamento:dd/MM/yyyy HH:mm} UTC."
+                    : $"{comissao.Observacoes} Comissão paga em {dataPagamento:dd/MM/yyyy HH:mm} UTC.";
             }
 
             fechamento.Status = "PAGO";
-            fechamento.DataPagamento = DateTime.UtcNow;
+            fechamento.DataPagamento = dataPagamento;
 
             await _context.SaveChangesAsync();
+
+            Inertia.Share("sucesso", "Pagamento de comissão confirmado com sucesso.");
+
             return RedirectToAction(nameof(Index));
+        }
+
+        private Guid? ObterUsuarioLogadoId()
+        {
+            string? usuarioIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+
+            return Guid.TryParse(usuarioIdClaim, out Guid usuarioId)
+                ? usuarioId
+                : null;
+        }
+
+        private static bool PeriodoValido(string? periodo)
+        {
+            if (string.IsNullOrWhiteSpace(periodo) || periodo.Length != 7)
+            {
+                return false;
+            }
+
+            string[] partes = periodo.Split('-');
+
+            if (partes.Length != 2 ||
+                !int.TryParse(partes[0], out int ano) ||
+                !int.TryParse(partes[1], out int mes))
+            {
+                return false;
+            }
+
+            return ano >= 2000 && mes >= 1 && mes <= 12;
         }
     }
 
