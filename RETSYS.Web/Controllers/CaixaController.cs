@@ -2,9 +2,12 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using InertiaCore;
 using RETSYS.Infrastructure.Data;
+using RETSYS.Domain.Entities;
 using System;
 using System.Linq;
 using System.Threading.Tasks;
+using System.Security.Claims;
+using System.Collections.Generic;
 
 namespace RETSYS.Web.Controllers
 {
@@ -32,7 +35,7 @@ namespace RETSYS.Web.Controllers
                     p.Valor,
                     p.DataVencimento,
                     p.DataPagamento,
-                    ClienteNome = os.Cliente.Nome,
+                    ClienteNome = os.Cliente != null ? os.Cliente.Nome : "Não informado",
                     NumeroOS = os.NumeroOS
                 }))
                 .OrderBy(p => p.DataPagamento != null) // Pendentes primeiro
@@ -42,14 +45,11 @@ namespace RETSYS.Web.Controllers
             // Ativa a flag para o Vue saber que o gateway está ativo
             Inertia.Share("PixHabilitadoNestaLoja", true);
 
-            // Se o seu Vue disparou o método solicitarPixProducao pedindo um QR Code real
             if (gerarPixParaId.HasValue)
             {
-                // CORRIGIDO: alterado de gerarPixParaId.value para gerarPixParaId.Value
                 var parcelaAlvo = parcelas.FirstOrDefault(p => p.Id == gerarPixParaId.Value);
                 if (parcelaAlvo != null && parcelaAlvo.DataPagamento == null)
                 {
-                    // Resposta estruturada exigida pelo terminal de checkout do seu front
                     Inertia.Share("DadosPixAtivo", new
                     {
                         qrCodeImagemUrl = $"https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=retsys_mock_pix_emv_{parcelaAlvo.Id}",
@@ -78,7 +78,7 @@ namespace RETSYS.Web.Controllers
             return RedirectToAction(nameof(Index));
         }
 
-        // 3. Endpoint de Polling Consumido pelo método iniciarMonitoramentoPix do seu Vue (GET)
+        // 3. Endpoint de Polling Consumido pelo método iniciarMonitoramentoPix do Vue (GET)
         [HttpGet("/caixa/status/{id:guid}")]
         public async Task<IActionResult> ObterStatusPix(Guid id)
         {
@@ -91,8 +91,246 @@ namespace RETSYS.Web.Controllers
                 return NotFound();
             }
 
-            // Retorna se a parcela já foi liquidada
             return Json(new { pago = parcela.DataPagamento != null });
+        }
+
+        // =========================================================================
+        // 4. MÓDULO FECHAMENTO DO GERENTE (SEÇÃO 4 DO PDF)
+        // =========================================================================
+        [HttpGet("/caixa/fechamento")]
+        public async Task<IActionResult> Fechamento(
+            [FromQuery] DateTime? dataInicio,
+            [FromQuery] DateTime? dataFim,
+            [FromQuery] string? tipoPeriodo)
+        {
+            var perfilClaim = User.FindFirst(ClaimTypes.Role)?.Value ?? "VENDEDOR";
+            bool isAdminOuGerente = string.Equals(perfilClaim, "ADMIN", StringComparison.OrdinalIgnoreCase) ||
+                                    string.Equals(perfilClaim, "GERENTE", StringComparison.OrdinalIgnoreCase);
+
+            if (!isAdminOuGerente)
+            {
+                return StatusCode(StatusCodes.Status403Forbidden, new { mensagem = "Acesso exclusivo para administradores e gerentes." });
+            }
+
+            DateTime hoje = DateTime.UtcNow.Date;
+            DateTime inicio = dataInicio?.Date ?? hoje;
+            DateTime fim = dataFim?.Date.AddDays(1).AddTicks(-1) ?? hoje.AddDays(1).AddTicks(-1);
+
+            // Ajuste por atalhos de período (dia, semana, mês)
+            if (!string.IsNullOrEmpty(tipoPeriodo))
+            {
+                switch (tipoPeriodo.ToLower())
+                {
+                    case "hoje":
+                    case "dia":
+                        inicio = hoje;
+                        fim = hoje.AddDays(1).AddTicks(-1);
+                        break;
+                    case "semana":
+                        inicio = hoje.AddDays(-(int)hoje.DayOfWeek);
+                        fim = inicio.AddDays(7).AddTicks(-1);
+                        break;
+                    case "mes":
+                        inicio = new DateTime(hoje.Year, hoje.Month, 1, 0, 0, 0, DateTimeKind.Utc);
+                        fim = inicio.AddMonths(1).AddTicks(-1);
+                        break;
+                }
+            }
+
+            // Consulta base de OS no período
+            var ordensPeriodo = await _context.OrdensServico
+                .Include(os => os.Cliente)
+                .Include(os => os.Vendedor)
+                .Include(os => os.Financeiro)
+                    .ThenInclude(f => f!.ConferidoPor)
+                .Include(os => os.Receita)
+                .Where(os => os.Ativo && os.DataEntrada >= inicio && os.DataEntrada <= fim)
+                .ToListAsync();
+
+            // OSs Válidas (Exclui Canceladas dos totais)
+            var ordensValidas = ordensPeriodo
+                .Where(os => os.Status != "CANCELADO" && os.Status != "CANCELADA")
+                .ToList();
+
+            // OSs Canceladas (Sessão separada para auditoria)
+            var ordensCanceladas = ordensPeriodo
+                .Where(os => os.Status == "CANCELADO" || os.Status == "CANCELADA")
+                .Select(os => new
+                {
+                    os.Id,
+                    os.NumeroOS,
+                    os.DataEntrada,
+                    ClienteNome = os.Cliente != null ? os.Cliente.Nome : "Não informado",
+                    VendedorNome = os.Vendedor != null ? os.Vendedor.Nome : "Não informado",
+                    ValorTotalLiquido = os.Financeiro != null ? os.Financeiro.ValorTotalLiquido : 0m
+                })
+                .ToList();
+
+            // 1. Totais Gerais
+            decimal totalVendidoLiquido = ordensValidas.Sum(os => os.Financeiro?.ValorTotalLiquido ?? 0m);
+            decimal totalEntradasRecebidas = ordensValidas.Sum(os => os.Financeiro?.ValorEntrada ?? 0m);
+            decimal totalRetiradasRecebidas = ordensValidas.Sum(os => os.Financeiro?.ValorRecebidoRetirada ?? 0m);
+            decimal totalRecebidoCaixa = totalEntradasRecebidas + totalRetiradasRecebidas;
+            decimal totalAReceberRestante = ordensValidas.Sum(os => os.Financeiro?.ValorRestante ?? 0m);
+            decimal totalDescontosReais = ordensValidas.Sum(os => os.Financeiro?.DescontoReais ?? 0m);
+            int qtdOS = ordensValidas.Count;
+            decimal ticketMedio = qtdOS > 0 ? Math.Round(totalVendidoLiquido / qtdOS, 2) : 0m;
+
+            // 2. Quebra por Forma de Pagamento (Entrada + Retirada)
+            var formasPagamento = new[] { "DINHEIRO", "PIX", "CARTAO_CREDITO", "CARTAO_DEBITO", "BOLETO" };
+            var resumoFormasPagamento = formasPagamento.Select(forma =>
+            {
+                decimal valorEntradasForma = ordensValidas
+                    .Where(os => os.Financeiro != null && string.Equals(os.Financeiro.FormaPagamento, forma, StringComparison.OrdinalIgnoreCase))
+                    .Sum(os => os.Financeiro?.ValorEntrada ?? os.Financeiro?.ValorTotalLiquido ?? 0m);
+
+                decimal valorRetiradasForma = ordensValidas
+                    .Where(os => os.Financeiro != null && string.Equals(os.Financeiro.FormaPagamentoRetirada, forma, StringComparison.OrdinalIgnoreCase))
+                    .Sum(os => os.Financeiro?.ValorRecebidoRetirada ?? 0m);
+
+                int qtdVendas = ordensValidas.Count(os => os.Financeiro != null && (
+                    string.Equals(os.Financeiro.FormaPagamento, forma, StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(os.Financeiro.FormaPagamentoRetirada, forma, StringComparison.OrdinalIgnoreCase)
+                ));
+
+                return new
+                {
+                    Forma = forma,
+                    Total = valorEntradasForma + valorRetiradasForma,
+                    QtdVendas = qtdVendas
+                };
+            }).ToList();
+
+            // 3. Quebra por Tipo de Venda
+            var oculosCompleto = ordensValidas.Where(os => (os.Financeiro?.ValorArmacao > 0) && (os.Financeiro?.ValorLente > 0)).ToList();
+            var somenteArmacao = ordensValidas.Where(os => (os.Financeiro?.ValorArmacao > 0) && (os.Financeiro?.ValorLente == 0)).ToList();
+            var somenteLente = ordensValidas.Where(os => (os.Financeiro?.ValorArmacao == 0) && (os.Financeiro?.ValorLente > 0)).ToList();
+
+            var resumoTiposVenda = new[]
+            {
+                new { Tipo = "Óculos Completo", Qtd = oculosCompleto.Count, Total = oculosCompleto.Sum(os => os.Financeiro?.ValorTotalLiquido ?? 0m) },
+                new { Tipo = "Somente Armação", Qtd = somenteArmacao.Count, Total = somenteArmacao.Sum(os => os.Financeiro?.ValorTotalLiquido ?? 0m) },
+                new { Tipo = "Somente Lente", Qtd = somenteLente.Count, Total = somenteLente.Sum(os => os.Financeiro?.ValorTotalLiquido ?? 0m) }
+            };
+
+            // 4. Quebra por Vendedora (incluindo comissões geradas)
+            var comissoesPeriodo = await _context.Comissoes
+                .Where(c => c.DataGeracao >= inicio && c.DataGeracao <= fim && c.Status != "CANCELADO")
+                .ToListAsync();
+
+            var resumoVendedores = ordensValidas
+                .GroupBy(os => os.Vendedor != null ? os.Vendedor.Nome : "Não informado")
+                .Select(g =>
+                {
+                    Guid? vId = g.FirstOrDefault()?.VendedorId;
+                    decimal totalVendasVendedor = g.Sum(os => os.Financeiro?.ValorTotalLiquido ?? 0m);
+                    decimal totalDescontoVendedor = g.Sum(os => os.Financeiro?.DescontoReais ?? 0m);
+                    decimal comissaoGerada = comissoesPeriodo.Where(c => c.VendedorId == vId).Sum(c => c.ValorComissao);
+
+                    return new
+                    {
+                        VendedorNome = g.Key,
+                        QtdOS = g.Count(),
+                        TotalVendido = totalVendasVendedor,
+                        TotalDesconto = totalDescontoVendedor,
+                        ComissaoGerada = comissaoGerada
+                    };
+                })
+                .OrderByDescending(v => v.TotalVendido)
+                .ToList();
+
+            // 5. Tabela Detalhada com Status de Conferência
+            var listaVendas = ordensValidas
+                .Select(os => new
+                {
+                    os.Id,
+                    os.NumeroOS,
+                    os.DataEntrada,
+                    ClienteNome = os.Cliente != null ? os.Cliente.Nome : "Não informado",
+                    VendedorNome = os.Vendedor != null ? os.Vendedor.Nome : "Não informado",
+                    ValorBruto = os.Financeiro?.ValorTotalBruto ?? 0m,
+                    DescontoReais = os.Financeiro?.DescontoReais ?? 0m,
+                    DescontoPercentual = os.Financeiro?.DescontoPercentual ?? 0m,
+                    ValorLiquido = os.Financeiro?.ValorTotalLiquido ?? 0m,
+                    ValorEntrada = os.Financeiro?.ValorEntrada ?? 0m,
+                    ValorRestante = os.Financeiro?.ValorRestante ?? 0m,
+                    FormaPagamento = os.Financeiro?.FormaPagamento ?? "DINHEIRO",
+                    os.Status,
+                    PagamentoConferido = os.Financeiro?.PagamentoConferido ?? false,
+                    ConferidoPorNome = os.Financeiro?.ConferidoPor != null ? os.Financeiro.ConferidoPor.Nome : null,
+                    DataConferencia = os.Financeiro?.DataConferencia
+                })
+                .OrderByDescending(os => os.DataEntrada)
+                .ToList();
+
+            decimal totalConferido = listaVendas.Where(v => v.PagamentoConferido).Sum(v => v.ValorLiquido);
+            decimal totalPendenteConferencia = listaVendas.Where(v => !v.PagamentoConferido).Sum(v => v.ValorLiquido);
+
+            return Inertia.Render("Admin/Fechamento/Index", new
+            {
+                DataInicio = inicio.ToString("yyyy-MM-dd"),
+                DataFim = fim.ToString("yyyy-MM-dd"),
+                TipoPeriodo = tipoPeriodo ?? "hoje",
+                
+                Totais = new
+                {
+                    TotalVendidoLiquido = totalVendidoLiquido,
+                    TotalRecebidoCaixa = totalRecebidoCaixa,
+                    TotalEntradasRecebidas = totalEntradasRecebidas,
+                    TotalRetiradasRecebidas = totalRetiradasRecebidas,
+                    TotalAReceberRestante = totalAReceberRestante,
+                    TotalDescontosReais = totalDescontosReais,
+                    QtdOS = qtdOS,
+                    TicketMedio = ticketMedio,
+                    TotalConferido = totalConferido,
+                    TotalPendenteConferencia = totalPendenteConferencia
+                },
+
+                ResumoFormasPagamento = resumoFormasPagamento,
+                ResumoTiposVenda = resumoTiposVenda,
+                ResumoVendedores = resumoVendedores,
+                ListaVendas = listaVendas,
+                OrdensCanceladas = ordensCanceladas
+            });
+        }
+
+        // --- SEÇÃO 4.3: ALTERAR STATUS DE CONFERÊNCIA DO PAGAMENTO (APENAS ADMIN) ---
+        [HttpPost("/caixa/conferir-pagamento/{osId:guid}")]
+        public async Task<IActionResult> ConferirPagamento(Guid osId)
+        {
+            var perfilClaim = User.FindFirst(ClaimTypes.Role)?.Value ?? "VENDEDOR";
+            bool isAdminOuGerente = string.Equals(perfilClaim, "ADMIN", StringComparison.OrdinalIgnoreCase) ||
+                                    string.Equals(perfilClaim, "GERENTE", StringComparison.OrdinalIgnoreCase);
+
+            if (!isAdminOuGerente)
+            {
+                return StatusCode(StatusCodes.Status403Forbidden, new { mensagem = "Apenas gerentes ou administradores podem conferir pagamentos." });
+            }
+
+            var financeiro = await _context.OsFinanceiros.FirstOrDefaultAsync(f => f.OsId == osId);
+            if (financeiro == null)
+            {
+                return NotFound();
+            }
+
+            var usuarioIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            Guid.TryParse(usuarioIdClaim, out Guid usuarioLogadoId);
+
+            financeiro.PagamentoConferido = !financeiro.PagamentoConferido;
+
+            if (financeiro.PagamentoConferido)
+            {
+                financeiro.ConferidoPorId = usuarioLogadoId != Guid.Empty ? usuarioLogadoId : null;
+                financeiro.DataConferencia = DateTime.UtcNow;
+            }
+            else
+            {
+                financeiro.ConferidoPorId = null;
+                financeiro.DataConferencia = null;
+            }
+
+            await _context.SaveChangesAsync();
+            return RedirectToAction(nameof(Fechamento));
         }
     }
 }

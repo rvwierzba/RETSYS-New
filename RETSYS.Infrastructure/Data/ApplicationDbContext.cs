@@ -143,7 +143,7 @@ namespace RETSYS.Infrastructure.Data
             {
                 b.ToTable("ordens_servico");
                 b.HasKey(os => os.Id);
-                b.Property(os => os.NumeroOS).IsRequired().HasMaxLength(20);
+                b.Property(os => os.NumeroOS).IsRequired().HasMaxLength(50);
                 b.Property(os => os.MedicoNome).HasMaxLength(100);
                 b.Property(os => os.MedicoCrm).HasMaxLength(20);
                 b.Property(os => os.Status).HasMaxLength(50).IsRequired();
@@ -161,6 +161,13 @@ namespace RETSYS.Infrastructure.Data
                 b.HasOne(os => os.Vendedor)
                  .WithMany()
                  .HasForeignKey(os => os.VendedorId)
+                 .OnDelete(DeleteBehavior.Restrict);
+
+                // FK Mapeamento LentePedida (Seção 3.2 do PDF)
+                b.HasOne(os => os.PedidoLentePor)
+                 .WithMany()
+                 .HasForeignKey(os => os.PedidoLentePorId)
+                 .IsRequired(false)
                  .OnDelete(DeleteBehavior.Restrict);
             });
 
@@ -217,9 +224,14 @@ namespace RETSYS.Infrastructure.Data
                 b.Property(f => f.ValorTotalLiquido).HasPrecision(10, 2);
                 b.Property(f => f.FormaPagamento).HasMaxLength(50).IsRequired();
                 b.Property(f => f.ValorEntrada).HasPrecision(10, 2);
+                b.Property(f => f.ValorRestante).HasPrecision(10, 2);
                 b.Property(f => f.ValorArmacao).HasPrecision(10, 2).IsRequired();
                 b.Property(f => f.ValorLente).HasPrecision(10, 2).IsRequired();
                 b.Property(f => f.Parcelas).IsRequired(false);
+
+                // Quitação e Conferência do Gerente
+                b.Property(f => f.ValorRecebidoRetirada).HasPrecision(10, 2);
+                b.Property(f => f.FormaPagamentoRetirada).HasMaxLength(50);
 
                 b.HasOne(f => f.OrdemServico)
                  .WithOne(os => os.Financeiro)
@@ -235,6 +247,18 @@ namespace RETSYS.Infrastructure.Data
                 b.HasOne(f => f.LentePreco)
                  .WithMany()
                  .HasForeignKey(f => f.LentePrecoId)
+                 .IsRequired(false)
+                 .OnDelete(DeleteBehavior.Restrict);
+
+                b.HasOne(f => f.ConferidoPor)
+                 .WithMany()
+                 .HasForeignKey(f => f.ConferidoPorId)
+                 .IsRequired(false)
+                 .OnDelete(DeleteBehavior.Restrict);
+
+                b.HasOne(f => f.QuitacaoRegistradaPor)
+                 .WithMany()
+                 .HasForeignKey(f => f.QuitacaoRegistradaPorId)
                  .IsRequired(false)
                  .OnDelete(DeleteBehavior.Restrict);
             });

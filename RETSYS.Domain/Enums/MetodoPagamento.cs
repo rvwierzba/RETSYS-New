@@ -1,9 +1,11 @@
-﻿namespace RETSYS.Domain.Enums;
-
-public enum MetodoPagamento
+﻿namespace RETSYS.Domain.Enums
 {
-    Dinheiro,
-    CartaoCredito,
-    CartaoDebito,
-    PIX     
+    public enum MetodoPagamento
+    {
+        DINHEIRO,
+        PIX,
+        CARTAO_CREDITO,
+        CARTAO_DEBITO,
+        BOLETO
+    }
 }

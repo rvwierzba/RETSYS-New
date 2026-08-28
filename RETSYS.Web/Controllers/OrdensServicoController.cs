@@ -41,6 +41,7 @@ namespace RETSYS.Web.Controllers
                 .Include(os => os.Receita)
                 .Include(os => os.Financeiro)
                 .Include(os => os.Parcelas)
+                .Include(os => os.PedidoLentePor)
                 .Where(os => os.Ativo);
 
             if (string.Equals(perfilClaim, "VENDEDOR", StringComparison.OrdinalIgnoreCase) &&
@@ -109,6 +110,11 @@ namespace RETSYS.Web.Controllers
                     os.Observacoes,
                     os.IsRetroativa,
 
+                    // Controle de Lentes Pedidas (Seção 3.2)
+                    os.LentePedida,
+                    os.DataPedidoLente,
+                    PedidoLentePorNome = os.PedidoLentePor != null ? os.PedidoLentePor.Nome : null,
+
                     VendedorNome = os.Vendedor != null
                         ? os.Vendedor.Nome
                         : "Não informado",
@@ -151,7 +157,12 @@ namespace RETSYS.Web.Controllers
                             os.Financeiro.ValorTotalLiquido,
                             os.Financeiro.FormaPagamento,
                             os.Financeiro.Parcelas,
-                            os.Financeiro.ValorEntrada
+                            os.Financeiro.ValorEntrada,
+                            os.Financeiro.ValorRestante,
+                            os.Financeiro.PagamentoConferido,
+                            os.Financeiro.ValorRecebidoRetirada,
+                            os.Financeiro.FormaPagamentoRetirada,
+                            os.Financeiro.DataQuitacao
                         }
                         : null,
 
@@ -220,7 +231,7 @@ namespace RETSYS.Web.Controllers
             });
         }
 
-        // 2. Tela de cadastro de nova OS.
+        // 2. Tela de cadastro de nova OS (Gera e sugere o próximo número sequencial).
         [HttpGet("/ordens/nova")]
         public async Task<IActionResult> Criar()
         {
@@ -281,8 +292,11 @@ namespace RETSYS.Web.Controllers
                 })
                 .ToListAsync();
 
+            string proximoNumeroOS = await GerarProximoNumeroOsAsync();
+
             return Inertia.Render("OrdensServico/Create", new
             {
+                ProximoNumeroOS = proximoNumeroOS,
                 Vendedores = vendedores,
                 Armacoes = armacoes,
                 Lentes = lentes
@@ -332,7 +346,7 @@ namespace RETSYS.Web.Controllers
             });
         }
 
-        // 4. Criação de nova OS, baixa de estoque e geração automática de comissão.
+        // 4. Criação de nova OS (Numeração Editável, Validação de Desconto e Entrada Parcial).
         [HttpPost("/ordens")]
         public async Task<IActionResult> Store(
             [FromForm] IFormCollection formCollection,
@@ -375,6 +389,29 @@ namespace RETSYS.Web.Controllers
                     });
                 }
 
+                // --- SEÇÃO 2: NUMERAÇÃO DA OS EDITÁVEL ---
+                string numeroOsDigitado = formCollection.ContainsKey("numeroOS")
+                    ? formCollection["numeroOS"].ToString().Trim()
+                    : "";
+
+                if (string.IsNullOrWhiteSpace(numeroOsDigitado))
+                {
+                    numeroOsDigitado = await GerarProximoNumeroOsAsync();
+                }
+                else
+                {
+                    bool jaExiste = await _context.OrdensServico
+                        .AnyAsync(os => os.NumeroOS == numeroOsDigitado && os.Ativo);
+
+                    if (jaExiste)
+                    {
+                        return BadRequest(new
+                        {
+                            mensagem = "Já existe uma OS com este número."
+                        });
+                    }
+                }
+
                 string cpfInformado = new string(
                     formCollection["cpf"].ToString().Where(char.IsDigit).ToArray()
                 );
@@ -405,59 +442,26 @@ namespace RETSYS.Web.Controllers
                 }
 
                 cliente.Nome = formCollection["nome"].ToString();
-                cliente.Telefone = formCollection.ContainsKey("telefone")
-                    ? formCollection["telefone"].ToString()
-                    : "";
-
-                cliente.Logradouro = formCollection.ContainsKey("logradouro")
-                    ? formCollection["logradouro"].ToString()
-                    : "";
-
-                cliente.Numero = formCollection.ContainsKey("numero")
-                    ? formCollection["numero"].ToString()
-                    : "";
-
-                cliente.Bairro = formCollection.ContainsKey("bairro")
-                    ? formCollection["bairro"].ToString()
-                    : "";
-
-                cliente.Cidade = formCollection.ContainsKey("cidade")
-                    ? formCollection["cidade"].ToString()
-                    : "";
-
-                cliente.Estado = formCollection.ContainsKey("estado")
-                    ? formCollection["estado"].ToString()
-                    : "";
-
-                cliente.Cep = formCollection.ContainsKey("cep")
-                    ? formCollection["cep"].ToString()
-                    : "";
-
-                cliente.Complemento = formCollection.ContainsKey("complemento")
-                    ? formCollection["complemento"].ToString()
-                    : null;
-
-                cliente.Convenio = formCollection.ContainsKey("convenio")
-                    ? formCollection["convenio"].ToString()
-                    : null;
-
-                cliente.Email = formCollection.ContainsKey("email")
-                    ? formCollection["email"].ToString()
-                    : null;
+                cliente.Telefone = formCollection.ContainsKey("telefone") ? formCollection["telefone"].ToString() : "";
+                cliente.Logradouro = formCollection.ContainsKey("logradouro") ? formCollection["logradouro"].ToString() : "";
+                cliente.Numero = formCollection.ContainsKey("numero") ? formCollection["numero"].ToString() : "";
+                cliente.Bairro = formCollection.ContainsKey("bairro") ? formCollection["bairro"].ToString() : "";
+                cliente.Cidade = formCollection.ContainsKey("cidade") ? formCollection["cidade"].ToString() : "";
+                cliente.Estado = formCollection.ContainsKey("estado") ? formCollection["estado"].ToString() : "";
+                cliente.Cep = formCollection.ContainsKey("cep") ? formCollection["cep"].ToString() : "";
+                cliente.Complemento = formCollection.ContainsKey("complemento") ? formCollection["complemento"].ToString() : null;
+                cliente.Convenio = formCollection.ContainsKey("convenio") ? formCollection["convenio"].ToString() : null;
+                cliente.Email = formCollection.ContainsKey("email") ? formCollection["email"].ToString() : null;
 
                 if (formCollection.ContainsKey("dataNascimento") &&
                     DateTime.TryParse(formCollection["dataNascimento"].ToString(), out var dataNascimento))
                 {
-                    cliente.DataNascimento = DateTime.SpecifyKind(
-                        dataNascimento,
-                        DateTimeKind.Utc
-                    );
+                    cliente.DataNascimento = DateTime.SpecifyKind(dataNascimento, DateTimeKind.Utc);
                 }
 
                 cliente.UpdatedAt = DateTime.UtcNow;
 
                 Guid? armacaoId = null;
-
                 if (formCollection.ContainsKey("armacaoId") &&
                     Guid.TryParse(formCollection["armacaoId"].ToString(), out Guid armGuid))
                 {
@@ -465,7 +469,6 @@ namespace RETSYS.Web.Controllers
                 }
 
                 Guid? lentePrecoId = null;
-
                 if (formCollection.ContainsKey("lenteId") &&
                     Guid.TryParse(formCollection["lenteId"].ToString(), out Guid lenteGuid))
                 {
@@ -497,7 +500,7 @@ namespace RETSYS.Web.Controllers
                     ? descontoInformado
                     : 0m;
 
-                if (descontoReais < 0 || descontoReais > totalBruto)
+                if (descontoReais < 0 || (totalBruto > 0 && descontoReais > totalBruto))
                 {
                     return BadRequest(new
                     {
@@ -505,23 +508,59 @@ namespace RETSYS.Web.Controllers
                     });
                 }
 
-                decimal descontoPercentual = totalBruto > 0
-                    ? Math.Round((descontoReais / totalBruto) * 100, 2)
+                // --- SEÇÃO 1: CORREÇÃO NO CÁLCULO E VALIDAÇÃO DO DESCONTO ---
+                decimal descontoPercentual = 0m;
+                if (totalBruto > 0)
+                {
+                    descontoPercentual = Math.Round((descontoReais / totalBruto) * 100m, 2);
+
+                    if (!ehAdminOuGerente && vendedor.LimiteDesconto > 0 && descontoPercentual > vendedor.LimiteDesconto)
+                    {
+                        return BadRequest(new
+                        {
+                            mensagem = $"Desconto de {descontoPercentual}% acima do limite autorizado ({vendedor.LimiteDesconto}%). Solicite aprovação do administrador."
+                        });
+                    }
+                }
+
+                decimal valorTotalLiquido = Math.Max(0, totalBruto - descontoReais);
+
+                // --- SEÇÃO 5: VALOR DE ENTRADA E SALDO RESTANTE ---
+                decimal valorEntrada = formCollection.ContainsKey("valorEntrada") &&
+                                       decimal.TryParse(formCollection["valorEntrada"].ToString(), out var entVal)
+                    ? entVal
                     : 0m;
 
-                if (!ehAdminOuGerente && descontoPercentual > vendedor.LimiteDesconto)
+                if (valorEntrada < 0)
                 {
                     return BadRequest(new
                     {
-                        mensagem = "Desconto acima do limite autorizado. Solicite aprovação do administrador."
+                        mensagem = "O valor de entrada não pode ser negativo."
                     });
                 }
 
-                decimal valorTotalLiquido = totalBruto - descontoReais;
+                if (valorEntrada > valorTotalLiquido)
+                {
+                    return BadRequest(new
+                    {
+                        mensagem = "O valor de entrada não pode ser maior que o valor total líquido da OS."
+                    });
+                }
 
+                decimal valorRestante = valorTotalLiquido - valorEntrada;
+
+                // --- SEÇÃO 4.5: FORMA DE PAGAMENTO (SEM CONVENIO) ---
                 string formaPagamento = formCollection.ContainsKey("formaPagamento")
-                    ? formCollection["formaPagamento"].ToString()
+                    ? formCollection["formaPagamento"].ToString().ToUpper()
                     : "DINHEIRO";
+
+                if (formaPagamento == "CONVENIO")
+                {
+                    return BadRequest(new
+                    {
+                        mensagem = "Convênio não é uma forma de pagamento válida. Escolha Dinheiro, PIX, Cartão ou Boleto."
+                    });
+                }
 
                 int? parcelasFinais = null;
                 int loopParcelas = 1;
@@ -587,6 +626,7 @@ namespace RETSYS.Web.Controllers
                 var novaOS = new OrdemServico
                 {
                     Id = Guid.NewGuid(),
+                    NumeroOS = numeroOsDigitado,
                     ClienteId = cliente.Id,
                     VendedorId = vendedor.Id,
                     DataEntrada = DateTime.UtcNow,
@@ -600,22 +640,12 @@ namespace RETSYS.Web.Controllers
 
                     Status = "EM_ABERTO",
 
-                    MedicoNome = formCollection.ContainsKey("medicoNome")
-                        ? formCollection["medicoNome"].ToString()
-                        : null,
+                    MedicoNome = formCollection.ContainsKey("medicoNome") ? formCollection["medicoNome"].ToString() : null,
+                    MedicoCrm = formCollection.ContainsKey("medicoCrm") ? formCollection["medicoCrm"].ToString() : null,
+                    MedicoTipo = formCollection.ContainsKey("medicoTipo") ? formCollection["medicoTipo"].ToString() : "NAO_ESPECIFICADO",
+                    Observacoes = formCollection.ContainsKey("observacoes") ? formCollection["observacoes"].ToString() : null,
 
-                    MedicoCrm = formCollection.ContainsKey("medicoCrm")
-                        ? formCollection["medicoCrm"].ToString()
-                        : null,
-
-                    MedicoTipo = formCollection.ContainsKey("medicoTipo")
-                        ? formCollection["medicoTipo"].ToString()
-                        : "NAO_ESPECIFICADO",
-
-                    Observacoes = formCollection.ContainsKey("observacoes")
-                        ? formCollection["observacoes"].ToString()
-                        : null,
-
+                    LentePedida = false,
                     IsRetroativa = false,
                     Ativo = true
                 };
@@ -640,16 +670,10 @@ namespace RETSYS.Web.Controllers
                             Directory.CreateDirectory(pastaUploads);
                         }
 
-                        var nomeArquivo = Guid.NewGuid() +
-                                          Path.GetExtension(arquivoFoto.FileName);
-
+                        var nomeArquivo = Guid.NewGuid() + Path.GetExtension(arquivoFoto.FileName);
                         var caminhoCompleto = Path.Combine(pastaUploads, nomeArquivo);
 
-                        await using var stream = new FileStream(
-                            caminhoCompleto,
-                            FileMode.Create
-                        );
-
+                        await using var stream = new FileStream(caminhoCompleto, FileMode.Create);
                         await arquivoFoto.CopyToAsync(stream);
 
                         caminhoFotoAnexa = "/uploads/receitas/" + nomeArquivo;
@@ -663,81 +687,37 @@ namespace RETSYS.Web.Controllers
                 int.TryParse(formCollection["odEixo"].ToString(), out var odEixo);
                 int.TryParse(formCollection["oeEixo"].ToString(), out var oeEixo);
 
-                decimal odCilindrico = rawOdCilindrico > 0
-                    ? -Math.Abs(rawOdCilindrico)
-                    : rawOdCilindrico;
-
-                decimal oeCilindrico = rawOeCilindrico > 0
-                    ? -Math.Abs(rawOeCilindrico)
-                    : rawOeCilindrico;
+                decimal odCilindrico = rawOdCilindrico > 0 ? -Math.Abs(rawOdCilindrico) : rawOdCilindrico;
+                decimal oeCilindrico = rawOeCilindrico > 0 ? -Math.Abs(rawOeCilindrico) : rawOeCilindrico;
 
                 int odEixoValidado = Math.Clamp(odEixo, 0, 180);
                 int oeEixoValidado = Math.Clamp(oeEixo, 0, 180);
 
-                decimal? adicao = decimal.TryParse(
-                    formCollection["adicao"].ToString(),
-                    out var adicaoInformada)
+                decimal? adicao = decimal.TryParse(formCollection["adicao"].ToString(), out var adicaoInformada)
                     ? adicaoInformada
                     : null;
 
                 decimal.TryParse(formCollection["dnpOd"].ToString(), out var dnpOd);
                 decimal.TryParse(formCollection["dnpOe"].ToString(), out var dnpOe);
 
-                decimal? alturaOd = decimal.TryParse(
-                    formCollection["alturaMontagemOd"].ToString(),
-                    out var alturaOdInformada)
+                decimal? alturaOd = decimal.TryParse(formCollection["alturaMontagemOd"].ToString(), out var alturaOdInformada)
                     ? alturaOdInformada
-                    : decimal.TryParse(
-                        formCollection["alturaMontagem"].ToString(),
-                        out var alturaGeral)
+                    : decimal.TryParse(formCollection["alturaMontagem"].ToString(), out var alturaGeral)
                         ? alturaGeral
                         : null;
 
-                decimal? alturaOe = decimal.TryParse(
-                    formCollection["alturaMontagemOe"].ToString(),
-                    out var alturaOeInformada)
+                decimal? alturaOe = decimal.TryParse(formCollection["alturaMontagemOe"].ToString(), out var alturaOeInformada)
                     ? alturaOeInformada
-                    : decimal.TryParse(
-                        formCollection["alturaMontagem"].ToString(),
-                        out var alturaGeralOe)
+                    : decimal.TryParse(formCollection["alturaMontagem"].ToString(), out var alturaGeralOe)
                         ? alturaGeralOe
                         : null;
 
-                decimal? aro = decimal.TryParse(
-                    formCollection["aro"].ToString(),
-                    out var valorAro)
-                    ? Math.Clamp(valorAro, 0m, 80m)
-                    : null;
-
-                decimal? dm = decimal.TryParse(
-                    formCollection["dm"].ToString(),
-                    out var valorDm)
-                    ? Math.Clamp(valorDm, 0m, 80m)
-                    : null;
-
-                decimal? vert = decimal.TryParse(
-                    formCollection["vert"].ToString(),
-                    out var valorVert)
-                    ? Math.Clamp(valorVert, 0m, 80m)
-                    : null;
-
-                decimal? po = decimal.TryParse(
-                    formCollection["po"].ToString(),
-                    out var valorPo)
-                    ? Math.Clamp(valorPo, 0m, 25m)
-                    : null;
-
-                decimal? coOd = decimal.TryParse(
-                    formCollection["coOd"].ToString(),
-                    out var valorCoOd)
-                    ? Math.Clamp(valorCoOd, 0m, 80m)
-                    : null;
-
-                decimal? coOe = decimal.TryParse(
-                    formCollection["coOe"].ToString(),
-                    out var valorCoOe)
-                    ? Math.Clamp(valorCoOe, 0m, 80m)
-                    : null;
+                decimal? aro = decimal.TryParse(formCollection["aro"].ToString(), out var valorAro) ? Math.Clamp(valorAro, 0m, 80m) : null;
+                decimal? dm = decimal.TryParse(formCollection["dm"].ToString(), out var valorDm) ? Math.Clamp(valorDm, 0m, 80m) : null;
+                decimal? vert = decimal.TryParse(formCollection["vert"].ToString(), out var valorVert) ? Math.Clamp(valorVert, 0m, 80m) : null;
+                decimal? po = decimal.TryParse(formCollection["po"].ToString(), out var valorPo) ? Math.Clamp(valorPo, 0m, 25m) : null;
+                decimal? coOd = decimal.TryParse(formCollection["coOd"].ToString(), out var valorCoOd) ? Math.Clamp(valorCoOd, 0m, 80m) : null;
+                decimal? coOe = decimal.TryParse(formCollection["coOe"].ToString(), out var valorCoOe) ? Math.Clamp(valorCoOe, 0m, 80m) : null;
 
                 string observacaoReceita = formCollection.ContainsKey("obsReceita")
                     ? formCollection["obsReceita"].ToString()
@@ -745,8 +725,7 @@ namespace RETSYS.Web.Controllers
 
                 if (!string.IsNullOrEmpty(caminhoFotoAnexa))
                 {
-                    observacaoReceita =
-                        $"[Anexo da Receita: {caminhoFotoAnexa}] {observacaoReceita}";
+                    observacaoReceita = $"[Anexo da Receita: {caminhoFotoAnexa}] {observacaoReceita}";
                 }
 
                 novaOS.Receita = new OsReceita
@@ -785,12 +764,8 @@ namespace RETSYS.Web.Controllers
                     ValorTotalLiquido = valorTotalLiquido,
                     FormaPagamento = formaPagamento,
                     Parcelas = parcelasFinais,
-
-                    ValorEntrada = decimal.TryParse(
-                        formCollection["valorEntrada"].ToString(),
-                        out var valorEntrada)
-                        ? valorEntrada
-                        : null
+                    ValorEntrada = valorEntrada,
+                    ValorRestante = valorRestante
                 };
 
                 decimal valorParcela = Math.Round(
@@ -845,8 +820,7 @@ namespace RETSYS.Web.Controllers
                         DataGeracao = DateTime.UtcNow,
                         PeriodoReferencia = novaOS.DataEntrada.ToString("yyyy-MM"),
 
-                        Observacoes =
-                            $"Comissão gerada automaticamente na emissão da OS {novaOS.NumeroOS}."
+                        Observacoes = $"Comissão gerada automaticamente na emissão da OS {novaOS.NumeroOS}."
                     });
                 }
 
@@ -867,7 +841,113 @@ namespace RETSYS.Web.Controllers
             }
         }
 
-        // 5. Alteração de status, estoque e estorno de comissão.
+        // --- SEÇÃO 3.2: MARCAR LENTE COMO PEDIDA ---
+        [HttpPost("/ordens/marcar-lente-pedida/{id:guid}")]
+        public async Task<IActionResult> MarcarLentePedida(Guid id)
+        {
+            var ordem = await _context.OrdensServico
+                .Include(os => os.Financeiro)
+                .FirstOrDefaultAsync(os => os.Id == id && os.Ativo);
+
+            if (ordem == null)
+            {
+                return NotFound();
+            }
+
+            bool temLente = (ordem.Financeiro != null && ordem.Financeiro.ValorLente > 0) ||
+                            !string.IsNullOrEmpty(ordem.LenteDescricaoManual);
+
+            if (!temLente)
+            {
+                return BadRequest(new
+                {
+                    mensagem = "Esta Ordem de Serviço não possui lentes associadas."
+                });
+            }
+
+            var usuarioIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            Guid.TryParse(usuarioIdClaim, out Guid usuarioLogadoId);
+
+            ordem.LentePedida = true;
+            ordem.DataPedidoLente = DateTime.UtcNow;
+            ordem.PedidoLentePorId = usuarioLogadoId != Guid.Empty ? usuarioLogadoId : null;
+
+            await _context.SaveChangesAsync();
+            return RedirectToAction(nameof(Index));
+        }
+
+        // --- SEÇÃO 3.1 E 6: MARCAR COMO ENTREGUE E QUITAR SALDO NA RETIRADA ---
+        [HttpPost("/ordens/quitar-e-entregar/{id:guid}")]
+        public async Task<IActionResult> QuitarEEntregar(Guid id, [FromForm] IFormCollection form)
+        {
+            var ordem = await _context.OrdensServico
+                .Include(os => os.Financeiro)
+                .FirstOrDefaultAsync(os => os.Id == id && os.Ativo);
+
+            if (ordem == null)
+            {
+                return NotFound();
+            }
+
+            if (ordem.Status == "CANCELADO" || ordem.Status == "CANCELADA")
+            {
+                return BadRequest(new
+                {
+                    mensagem = "Não é possível entregar uma OS que foi cancelada."
+                });
+            }
+
+            var usuarioIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            Guid.TryParse(usuarioIdClaim, out Guid usuarioLogadoId);
+
+            string opcaoQuitacao = form["opcaoQuitacao"].ToString().Trim(); // "JA_PAGO" ou "PAGO_RETIRADA"
+
+            if (ordem.Financeiro != null)
+            {
+                if (opcaoQuitacao == "PAGO_RETIRADA")
+                {
+                    string formaRetirada = form["formaPagamentoRetirada"].ToString().ToUpper();
+
+                    if (string.IsNullOrWhiteSpace(formaRetirada) || formaRetirada == "CONVENIO")
+                    {
+                        return BadRequest(new
+                        {
+                            mensagem = "Selecione uma forma de pagamento válida para a retirada."
+                        });
+                    }
+
+                    int? parcelasRetirada = null;
+
+                    if (formaRetirada == "CARTAO_CREDITO" &&
+                        int.TryParse(form["parcelasRetirada"].ToString(), out int pRet))
+                    {
+                        parcelasRetirada = pRet;
+                    }
+
+                    ordem.Financeiro.ValorRecebidoRetirada = ordem.Financeiro.ValorRestante;
+                    ordem.Financeiro.FormaPagamentoRetirada = formaRetirada;
+                    ordem.Financeiro.ParcelasRetirada = parcelasRetirada;
+                }
+                else // JA_PAGO
+                {
+                    ordem.Financeiro.ValorRecebidoRetirada = 0m;
+                    ordem.Financeiro.FormaPagamentoRetirada = null;
+                    ordem.Financeiro.ParcelasRetirada = null;
+                }
+
+                ordem.Financeiro.ValorRestante = 0m;
+                ordem.Financeiro.DataQuitacao = DateTime.UtcNow;
+                ordem.Financeiro.QuitacaoRegistradaPorId = usuarioLogadoId != Guid.Empty ? usuarioLogadoId : null;
+            }
+
+            ordem.Status = "ENTREGUE";
+            ordem.DataEntregaReal = DateTime.UtcNow;
+
+            await _context.SaveChangesAsync();
+            return RedirectToAction(nameof(Index));
+        }
+
+        // 5. Alteração de status padrão.
         [HttpPost("/ordens/alterar-status/{id:guid}")]
         public async Task<IActionResult> AlterarStatus(
             Guid id,
@@ -997,6 +1077,33 @@ namespace RETSYS.Web.Controllers
             return RedirectToAction(nameof(Index));
         }
 
+        private async Task<string> GerarProximoNumeroOsAsync()
+        {
+            var anoAtual = DateTime.UtcNow.Year;
+            var prefixo = $"OS-{anoAtual}-";
+
+            var ultimasOS = await _context.OrdensServico
+                .Where(os => os.NumeroOS.StartsWith(prefixo))
+                .Select(os => os.NumeroOS)
+                .ToListAsync();
+
+            int maiorSequencia = 0;
+
+            foreach (var num in ultimasOS)
+            {
+                var partes = num.Split('-');
+                if (partes.Length == 3 && int.TryParse(partes[2], out int seq))
+                {
+                    if (seq > maiorSequencia)
+                    {
+                        maiorSequencia = seq;
+                    }
+                }
+            }
+
+            return $"{prefixo}{(maiorSequencia + 1):D5}";
+        }
+
         private async Task<bool> OrdemPossuiComissaoPagaAsync(Guid ordemServicoId)
         {
             return await _context.Comissoes.AnyAsync(c =>
@@ -1056,8 +1163,6 @@ namespace RETSYS.Web.Controllers
                     continue;
                 }
 
-                // Exclui explicitamente as comissões que estão sendo estornadas.
-                // Isso evita que elas entrem no total do fechamento antes do SaveChangesAsync().
                 var comissoesAindaFechadas = await _context.Comissoes
                     .Where(c =>
                         c.VendedorId == fechamento.VendedorId &&
@@ -1098,9 +1203,7 @@ namespace RETSYS.Web.Controllers
             try
             {
                 using var memoryStream = new MemoryStream();
-
                 await imagemReceita.CopyToAsync(memoryStream);
-
                 string base64Imagem = Convert.ToBase64String(memoryStream.ToArray());
 
                 var payloadOllama = new
@@ -1137,7 +1240,6 @@ namespace RETSYS.Web.Controllers
                 }
 
                 string jsonString = await respostaOllama.Content.ReadAsStringAsync();
-
                 using var documentoJson = JsonDocument.Parse(jsonString);
 
                 if (documentoJson.RootElement.TryGetProperty("response", out var elementoResposta))
@@ -1180,7 +1282,6 @@ namespace RETSYS.Web.Controllers
             }
 
             await using var stream = foto.OpenReadStream();
-
             var resultado = await servicoIa.ProcessarFotoReceitaAsync(stream);
 
             if (resultado == null)

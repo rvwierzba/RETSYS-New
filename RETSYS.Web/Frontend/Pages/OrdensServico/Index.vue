@@ -6,7 +6,7 @@
       <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
         <div>
           <h1 class="text-2xl font-black text-slate-950 font-mono tracking-tight">Painel de Ordens de Serviço</h1>
-          <p class="text-xs text-slate-500 mt-1">Consulte receitas, especificações de lentes, gerencie a esteira comercial e aplique filtros de faturamento.</p>
+          <p class="text-xs text-slate-500 mt-1">Consulte receitas, acompanhe o pedido de lentes, entregue produtos com quitação de saldo e gerencie a esteira comercial.</p>
         </div>
         <button 
           @click="irParaNovaOrdem"
@@ -88,9 +88,9 @@
               <tr class="border-b border-slate-100 text-slate-400 text-xs font-bold uppercase tracking-wider">
                 <th class="pb-3">Nº Documento / Data</th>
                 <th class="pb-3">Cliente / Paciente</th>
-                <th class="pb-3">Atendente / Vendedora</th>
+                <th class="pb-3">Lentes / Laboratório</th>
                 <th class="pb-3 text-center">Status</th>
-                <th class="pb-3 text-right">Valor Total</th>
+                <th class="pb-3 text-right">Valor / Saldo</th>
                 <th class="pb-3 text-center">Ações</th>
               </tr>
             </thead>
@@ -104,12 +104,29 @@
                     {{ formatarData(os.dataVenda || os.DataVenda || os.dataEntrada || os.DataEntrada) }}
                   </p>
                 </td>
-                <td class="py-4 font-semibold text-slate-800">
-                  {{ os.clienteNome || os.ClienteNome }}
+                <td class="py-4">
+                  <p class="font-semibold text-slate-800">{{ os.clienteNome || os.ClienteNome }}</p>
+                  <p class="text-[11px] text-slate-400">Atendente: {{ os.vendedorNome || os.VendedorNome || 'Não atribuído' }}</p>
                 </td>
-                <td class="py-4 text-slate-600 text-xs font-medium">
-                  {{ os.vendedorNome || os.VendedorNome || 'Não atribuído' }}
+
+                <!-- SEÇÃO 3.2: CONTROLE VISUAL DE LENTES PEDIDAS NA TABELA -->
+                <td class="py-4">
+                  <div v-if="temLente(os)" class="space-y-1">
+                    <div v-if="os.lentePedida || os.LentePedida" class="flex items-center gap-1 text-[11px] font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-lg border border-emerald-200 w-fit">
+                      <span>✓ Lente Pedida</span>
+                      <span class="text-[9px] text-emerald-600 font-normal">({{ formatarData(os.dataPedidoLente || os.DataPedidoLente) }})</span>
+                    </div>
+                    <button 
+                      v-else-if="os.status !== 'CANCELADO' && os.status !== 'CANCELADA'"
+                      @click="marcarLentePedida(os.id || os.Id)"
+                      class="bg-amber-100 hover:bg-amber-200 text-amber-800 text-[11px] font-bold px-2.5 py-1 rounded-lg transition border border-amber-300 flex items-center gap-1 shadow-sm"
+                    >
+                      <span>📦 Marcar Lente Pedida</span>
+                    </button>
+                  </div>
+                  <span v-else class="text-xs text-slate-300 font-mono">-- (Sem Lente)</span>
                 </td>
+
                 <td class="py-4 text-center">
                   <span 
                     :class="[
@@ -118,35 +135,52 @@
                       os.status === 'PRONTO' ? 'bg-blue-50 text-blue-700 border-blue-200' :
                       'bg-amber-50 text-amber-700 border-amber-200'
                     ]"
-                    class="px-2.5 py-0.5 rounded-full text-[11px] font-bold border"
+                    class="px-2.5 py-0.5 rounded-full text-[11px] font-bold border block w-fit mx-auto"
                   >
                     {{ (os.status === 'CANCELADO' || os.status === 'CANCELADA') ? 'CANCELADA' : (os.status || 'EM ABERTO') }}
                   </span>
                 </td>
-                <td class="py-4 text-right font-black font-mono text-slate-950">
-                  {{ formatarMoeda(os.valorTotal ?? os.ValorTotal) }}
+
+                <td class="py-4 text-right font-mono">
+                  <p class="font-black text-slate-950 text-xs">{{ formatarMoeda(os.valorTotal ?? os.ValorTotal) }}</p>
+                  <!-- SEÇÃO 5: Saldo Restante -->
+                  <p v-if="obterValorRestante(os) > 0" class="text-[10px] font-bold text-rose-600 mt-0.5">
+                    A Pagar: {{ formatarMoeda(obterValorRestante(os)) }}
+                  </p>
+                  <p v-else-if="os.status !== 'CANCELADO' && os.status !== 'CANCELADA'" class="text-[10px] font-bold text-emerald-600 mt-0.5">
+                    ✓ Quitado
+                  </p>
                 </td>
-                <td class="py-4 text-center flex items-center justify-center gap-2">
-                  <!-- Botão para abrir modal de detalhes completos da OS -->
+
+                <td class="py-4 text-center flex items-center justify-center gap-1.5 flex-wrap">
+                  <!-- Ver detalhes da OS -->
                   <button 
                     @click="abrirPranchetaClinica(os)"
-                    class="bg-slate-950 hover:bg-slate-800 text-white text-xs font-bold px-3 py-1.5 rounded-lg transition shadow-sm font-mono flex items-center gap-1"
+                    class="bg-slate-950 hover:bg-slate-800 text-white text-xs font-bold px-2.5 py-1.5 rounded-lg transition shadow-sm font-mono flex items-center gap-1"
+                    title="Visualizar OS Completa"
                   >
-                    <span>👁️</span> Ver Receita / OS
+                    <span>👁️</span> OS
                   </button>
 
-                  <!-- Botões de Ação / Cancelamento de OS -->
+                  <!-- SEÇÃO 3.1 & 6: MARCAR COMO ENTREGUE / QUITAR SALDO -->
+                  <button 
+                    v-if="os.status !== 'ENTREGUE' && os.status !== 'CANCELADO' && os.status !== 'CANCELADA'"
+                    @click="abrirModalEntrega(os)"
+                    class="bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-bold px-2.5 py-1.5 rounded-lg transition shadow-sm font-mono flex items-center gap-1"
+                    title="Marcar OS como Entregue"
+                  >
+                    <span>🚚</span> Entregar
+                  </button>
+
+                  <!-- Cancelar OS -->
                   <button 
                     v-if="os.status !== 'CANCELADO' && os.status !== 'CANCELADA'"
                     @click="cancelarOS(os.id || os.Id, os.numeroOS || os.NumeroOS)"
-                    class="bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-xs font-bold px-3 py-1.5 rounded-lg transition shadow-sm font-mono flex items-center gap-1"
+                    class="bg-rose-50 hover:bg-rose-100 text-rose-700 border border-rose-200 text-xs font-bold px-2 py-1.5 rounded-lg transition shadow-sm font-mono"
                     title="Cancelar Ordem de Serviço"
                   >
-                    <span>🚫</span> Cancelar OS
+                    🚫
                   </button>
-                  <span v-else class="text-xs font-bold font-mono text-rose-500 bg-rose-50/50 px-2 py-1 rounded border border-rose-100">
-                    Cancelada
-                  </span>
                 </td>
               </tr>
             </tbody>
@@ -194,9 +228,35 @@
             <div>
               <span class="text-[10px] font-bold uppercase text-slate-400 tracking-wider block mb-1">Dados da Emissão</span>
               <p class="text-slate-700 font-semibold">Data Entrada: {{ formatarData(osSelecionada.dataEntrada || osSelecionada.DataEntrada) }}</p>
-              <p class="text-slate-700 font-semibold">Data Entrega: {{ formatarData(osSelecionada.dataPrevistaEntrega || osSelecionada.DataPrevistaEntrega) }}</p>
+              <p class="text-slate-700 font-semibold">Data Entrega Prevista: {{ formatarData(osSelecionada.dataPrevistaEntrega || osSelecionada.DataPrevistaEntrega) }}</p>
+              <p v-if="osSelecionada.dataEntregaReal || osSelecionada.DataEntregaReal" class="text-emerald-700 font-bold">
+                Data Entrega Real: {{ formatarData(osSelecionada.dataEntregaReal || osSelecionada.DataEntregaReal) }}
+              </p>
               <p class="text-slate-700 font-semibold">Vendedora: {{ osSelecionada.vendedorNome || osSelecionada.VendedorNome || 'Não informado' }}</p>
             </div>
+          </div>
+
+          <!-- SEÇÃO 3.2: Status de Pedido de Lentes na Modal -->
+          <div v-if="temLente(osSelecionada)" class="p-3 rounded-2xl border flex items-center justify-between text-xs font-mono" :class="osSelecionada.lentePedida || osSelecionada.LentePedida ? 'bg-emerald-50 border-emerald-200 text-emerald-900' : 'bg-amber-50 border-amber-200 text-amber-900'">
+            <div class="flex items-center gap-2">
+              <span class="text-base">{{ osSelecionada.lentePedida || osSelecionada.LentePedida ? '📦' : '⏳' }}</span>
+              <div>
+                <p class="font-bold">
+                  {{ osSelecionada.lentePedida || osSelecionada.LentePedida ? 'Lentes Pedidas ao Laboratório' : 'Aguardando Pedido de Lentes' }}
+                </p>
+                <p v-if="osSelecionada.lentePedida || osSelecionada.LentePedida" class="text-[10px] text-emerald-700">
+                  Data: {{ formatarData(osSelecionada.dataPedidoLente || osSelecionada.DataPedidoLente) }} 
+                  <span v-if="osSelecionada.pedidoLentePorNome || osSelecionada.PedidoLentePorNome">| Por: {{ osSelecionada.pedidoLentePorNome || osSelecionada.PedidoLentePorNome }}</span>
+                </p>
+              </div>
+            </div>
+            <button 
+              v-if="!(osSelecionada.lentePedida || osSelecionada.LentePedida) && osSelecionada.status !== 'CANCELADO' && osSelecionada.status !== 'CANCELADA'"
+              @click="marcarLentePedida(osSelecionada.id || osSelecionada.Id)"
+              class="bg-amber-600 hover:bg-amber-700 text-white font-bold px-3 py-1.5 rounded-xl transition text-xs shadow-sm"
+            >
+              Marcar Lente Pedida
+            </button>
           </div>
 
           <!-- Bloco 2: Receita Médica / Grau Clínico -->
@@ -221,7 +281,6 @@
                   </tr>
                 </thead>
                 <tbody class="font-mono">
-                  <!-- OD -->
                   <tr class="border-b border-slate-100">
                     <td class="py-2.5 font-black text-slate-800">OD</td>
                     <td class="py-2.5 font-bold text-slate-900">{{ formatarGrau(receitaObj.odEsferico) }}</td>
@@ -230,7 +289,6 @@
                     <td class="py-2.5 text-slate-700">{{ receitaObj.dnpOd || '--' }} mm</td>
                     <td class="py-2.5 font-bold text-indigo-700">{{ receitaObj.alturaMontagemOd || receitaObj.alturaMontagem || '--' }} mm</td>
                   </tr>
-                  <!-- OE -->
                   <tr>
                     <td class="py-2.5 font-black text-slate-800">OE</td>
                     <td class="py-2.5 font-bold text-slate-900">{{ formatarGrau(receitaObj.oeEsferico) }}</td>
@@ -266,7 +324,7 @@
           <div v-if="osSelecionada.financeiro || osSelecionada.Financeiro" class="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-3 text-xs">
             <span class="text-[10px] font-bold uppercase text-slate-400 tracking-wider block">Resumo Financeiro & Condições</span>
             
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-3 font-mono">
+            <div class="grid grid-cols-2 md:grid-cols-5 gap-3 font-mono">
               <div>
                 <span class="text-[10px] text-slate-400 block">Total Bruto</span>
                 <span class="font-bold text-slate-700">{{ formatarMoeda(financeiroObj.valorTotalBruto) }}</span>
@@ -276,12 +334,18 @@
                 <span class="font-bold text-amber-700">{{ formatarMoeda(financeiroObj.descontoReais) }}</span>
               </div>
               <div>
-                <span class="text-[10px] text-slate-400 block">Forma Pagamento</span>
-                <span class="font-bold text-slate-800">{{ financeiroObj.formaPagamento }}</span>
+                <span class="text-[10px] text-slate-400 block">Total Líquido</span>
+                <span class="font-black text-slate-900">{{ formatarMoeda(financeiroObj.valorTotalLiquido || osSelecionada.valorTotal) }}</span>
               </div>
               <div>
-                <span class="text-[10px] text-slate-400 block">Total Líquido</span>
-                <span class="font-black text-teal-700 text-sm">{{ formatarMoeda(financeiroObj.valorTotalLiquido || osSelecionada.valorTotal) }}</span>
+                <span class="text-[10px] text-slate-400 block">Entrada Pago</span>
+                <span class="font-bold text-teal-700">{{ formatarMoeda(financeiroObj.valorEntrada) }}</span>
+              </div>
+              <div>
+                <span class="text-[10px] text-slate-400 block">Saldo Restante</span>
+                <span :class="obterValorRestante(osSelecionada) > 0 ? 'text-rose-700 font-black' : 'text-emerald-700 font-bold'">
+                  {{ obterValorRestante(osSelecionada) > 0 ? formatarMoeda(obterValorRestante(osSelecionada)) : 'R$ 0,00 - Quitado' }}
+                </span>
               </div>
             </div>
 
@@ -298,7 +362,14 @@
             </div>
           </div>
 
-          <div class="flex justify-end border-t border-slate-100 pt-4">
+          <div class="flex justify-end gap-2 border-t border-slate-100 pt-4">
+            <button 
+              v-if="osSelecionada.status !== 'ENTREGUE' && osSelecionada.status !== 'CANCELADO' && osSelecionada.status !== 'CANCELADA'"
+              @click="abrirModalEntrega(osSelecionada)"
+              class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-2.5 px-6 rounded-xl text-xs uppercase transition shadow-sm"
+            >
+              🚚 Entregar e Quitar OS
+            </button>
             <button 
               @click="osSelecionada = null" 
               class="bg-slate-950 hover:bg-slate-800 text-white font-bold py-2.5 px-6 rounded-xl text-xs uppercase transition shadow-sm"
@@ -307,6 +378,85 @@
             </button>
           </div>
 
+        </div>
+      </div>
+
+      <!-- SEÇÃO 6: MODAL DE QUITAÇÃO DE SALDO E CONFIRMAÇÃO DE ENTREGA -->
+      <div v-if="modalEntregaAberta && osParaEntrega" class="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-md w-full p-6 space-y-5">
+          <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+            <div>
+              <span class="text-[10px] font-mono font-bold bg-emerald-100 text-emerald-800 px-2 py-0.5 rounded-full uppercase">Entrega de Óculos</span>
+              <h3 class="text-base font-black text-slate-950 font-mono mt-1">OS {{ osParaEntrega.numeroOS || osParaEntrega.NumeroOS }}</h3>
+            </div>
+            <button @click="modalEntregaAberta = false" class="text-slate-400 hover:text-slate-800 font-bold">✕</button>
+          </div>
+
+          <!-- Caso haja saldo a receber na retirada -->
+          <div v-if="obterValorRestante(osParaEntrega) > 0" class="space-y-4">
+            <div class="p-3 bg-rose-50 border border-rose-200 rounded-xl text-xs text-rose-900 font-mono">
+              <span>Existe um saldo pendente de <b>{{ formatarMoeda(obterValorRestante(osParaEntrega)) }}</b> para esta OS.</span>
+            </div>
+
+            <div class="space-y-3 text-xs">
+              <label class="block font-bold uppercase text-slate-400 tracking-wider">Como fica o saldo na entrega? *</label>
+              
+              <div class="grid grid-cols-2 gap-2">
+                <button 
+                  type="button"
+                  @click="formEntrega.opcaoQuitacao = 'PAGO_RETIRADA'"
+                  :class="formEntrega.opcaoQuitacao === 'PAGO_RETIRADA' ? 'bg-teal-600 text-white font-bold border-teal-700' : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'"
+                  class="p-3 rounded-xl border text-center transition"
+                >
+                  💳 Pago na Retirada
+                </button>
+                <button 
+                  type="button"
+                  @click="formEntrega.opcaoQuitacao = 'JA_PAGO'"
+                  :class="formEntrega.opcaoQuitacao === 'JA_PAGO' ? 'bg-slate-900 text-white font-bold border-slate-950' : 'bg-slate-50 text-slate-700 border-slate-200 hover:bg-slate-100'"
+                  class="p-3 rounded-xl border text-center transition"
+                >
+                  ✓ Já Pago Antes
+                </button>
+              </div>
+
+              <!-- Se selecionado 'Pago na retirada', exibe forma de pagamento -->
+              <div v-if="formEntrega.opcaoQuitacao === 'PAGO_RETIRADA'" class="space-y-3 pt-2">
+                <div>
+                  <label class="block font-bold uppercase text-slate-400 tracking-wider mb-1">Forma de Pagamento da Retirada *</label>
+                  <select v-model="formEntrega.formaPagamentoRetirada" class="w-full rounded-xl border-slate-200 text-xs font-bold text-slate-800 bg-slate-50 focus:border-teal-500">
+                    <option value="DINHEIRO">Dinheiro</option>
+                    <option value="PIX">Pix</option>
+                    <option value="CARTAO_CREDITO">Cartão de Crédito</option>
+                    <option value="CARTAO_DEBITO">Cartão de Débito</option>
+                    <option value="BOLETO">Boleto</option>
+                  </select>
+                </div>
+
+                <div v-if="formEntrega.formaPagamentoRetirada === 'CARTAO_CREDITO'">
+                  <label class="block font-bold uppercase text-slate-400 tracking-wider mb-1">Parcelas Cartão *</label>
+                  <select v-model.number="formEntrega.parcelasRetirada" class="w-full rounded-xl border-slate-200 text-xs font-bold text-slate-800 bg-slate-50 focus:border-teal-500">
+                    <option value="1">1x à Vista</option>
+                    <option v-for="n in [2,3,4,5,6,7,8,9,10,11,12]" :key="n" :value="n">{{ n }}x</option>
+                  </select>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Caso a venda já esteja quitada -->
+          <div v-else class="p-4 bg-emerald-50 border border-emerald-200 text-emerald-900 rounded-xl text-xs space-y-1">
+            <p class="font-bold">✓ Ordem de Serviço totalmente quitada!</p>
+            <p class="text-[11px] text-emerald-700">Ao confirmar, o status passará para ENTREGUE e a data de entrega real será salva hoje.</p>
+          </div>
+
+          <div class="flex justify-end gap-2 pt-3 border-t border-slate-100">
+            <button type="button" @click="modalEntregaAberta = false" class="px-4 py-2 rounded-xl text-slate-600 font-bold hover:bg-slate-100 text-xs">Cancelar</button>
+            <button @click="confirmarEntregaEQuitacao" :disabled="processandoEntrega" class="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold transition text-xs shadow-sm">
+              <span v-if="processandoEntrega">Gravando...</span>
+              <span v-else>Confirmar Entrega</span>
+            </button>
+          </div>
         </div>
       </div>
 
@@ -328,7 +478,16 @@ const props = defineProps({
 })
 
 const osSelecionada = ref(null)
+const modalEntregaAberta = ref(false)
+const osParaEntrega = ref(null)
+const processandoEntrega = ref(false)
 const vendedorSelecionado = ref(props.VendedorFiltro ?? props.vendedorFiltro ?? '')
+
+const formEntrega = ref({
+  opcaoQuitacao: 'PAGO_RETIRADA',
+  formaPagamentoRetirada: 'DINHEIRO',
+  parcelasRetirada: 1
+})
 
 const filtroAtivoComp = computed(() => props.FiltroAtivo ?? props.filtroAtivo ?? 'total')
 const totalExibido = computed(() => props.TotalFiltroAtivo ?? props.totalFiltroAtivo ?? 0)
@@ -355,7 +514,69 @@ const abrirPranchetaClinica = (ordem) => {
   osSelecionada.value = { ...ordem } 
 }
 
-// Subsituição de Exclusão por Cancelamento Auditável
+const temLente = (os) => {
+  const fin = os?.financeiro || os?.Financeiro
+  return (fin && Number(fin.valorLente || fin.ValorLente || 0) > 0) || Boolean(os?.lenteDescricaoManual || os?.LenteDescricaoManual)
+}
+
+const obterValorRestante = (os) => {
+  const fin = os?.financeiro || os?.Financeiro
+  if (!fin) return 0
+  if (fin.valorRestante !== undefined && fin.valorRestante !== null) return Number(fin.valorRestante)
+  if (fin.ValorRestante !== undefined && fin.ValorRestante !== null) return Number(fin.ValorRestante)
+  const liq = Number(fin.valorTotalLiquido || fin.ValorTotalLiquido || os?.valorTotal || os?.ValorTotal || 0)
+  const ent = Number(fin.valorEntrada || fin.ValorEntrada || 0)
+  return Math.max(0, liq - ent)
+}
+
+// SEÇÃO 3.2: MARCAR LENTE COMO PEDIDA
+const marcarLentePedida = (id) => {
+  if (!id) return
+  if (confirm('Confirmar que as lentes desta OS foram encomendadas ao laboratório?')) {
+    router.post(`/ordens/marcar-lente-pedida/${id}`, {}, {
+      preserveScroll: true,
+      onSuccess: () => {
+        alert('📦 Lente marcada como pedida!')
+        if (osSelecionada.value && (osSelecionada.value.id || osSelecionada.value.Id) === id) {
+          osSelecionada.value.lentePedida = true
+          osSelecionada.value.dataPedidoLente = new Date().toISOString()
+        }
+      }
+    })
+  }
+}
+
+// SEÇÃO 3.1 & 6: QUITAÇÃO E ENTREGA
+const abrirModalEntrega = (os) => {
+  osParaEntrega.value = os
+  formEntrega.value = {
+    opcaoQuitacao: 'PAGO_RETIRADA',
+    formaPagamentoRetirada: 'DINHEIRO',
+    parcelasRetirada: 1
+  }
+  modalEntregaAberta.value = true
+}
+
+const confirmarEntregaEQuitacao = () => {
+  if (!osParaEntrega.value) return
+  const id = osParaEntrega.value.id || osParaEntrega.value.Id
+  processandoEntrega.value = true
+
+  router.post(`/ordens/quitar-e-entregar/${id}`, formEntrega.value, {
+    preserveScroll: true,
+    onSuccess: () => {
+      processandoEntrega.value = false
+      modalEntregaAberta.value = false
+      osSelecionada.value = null
+      alert('🚚 Ordem de Serviço entregue com sucesso!')
+    },
+    onError: () => {
+      processandoEntrega.value = false
+    }
+  })
+}
+
+// SUBISTITUIÇÃO DE EXCLUSÃO POR CANCELAMENTO AUDITÁVEL
 const cancelarOS = (id, numero) => {
   if (confirm(`Deseja realmente CANCELAR a OS ${numero}? O estoque da armação será estornado e a venda será desconsiderada dos relatórios e comissões.`)) {
     router.post(`/ordens/cancelar/${id}`, {}, {

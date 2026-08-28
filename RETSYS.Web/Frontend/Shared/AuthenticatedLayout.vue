@@ -7,7 +7,6 @@
       <nav class="flex items-center space-x-6 text-sm font-medium">
         <!-- Divisão integrada com a nova logo WO e a marca RETSYS -->
         <div class="flex items-center gap-3 mr-4">
-          <!-- Corrigido com :src dinâmico para ignorar a compilação do Vite -->
           <img 
             :src="'/img/logo-wo.png'" 
             alt="WO Logo" 
@@ -20,13 +19,18 @@
         
         <Link href="/dashboard" class="hover:text-teal-400 transition">Dashboard</Link>
         <Link href="/ordens" class="hover:text-teal-400 transition">Ordens de Serviço</Link>
+        <Link href="/caixa" class="hover:text-teal-400 transition">Caixa</Link>
         <Link href="/clientes" class="hover:text-teal-400 transition">Clientes</Link>
         <Link href="/estoque" class="hover:text-teal-400 transition">Armações</Link>
         <Link href="/marcas" class="hover:text-teal-400 transition">Marcas</Link>
         <Link href="/lentes" class="hover:text-teal-400 transition">Lentes</Link>
 
-        <template v-if="perfil === 'Admin'">
-          <Link href="/equipe" class="text-indigo-400 hover:text-indigo-300 transition pl-2 border-l border-slate-800">
+        <!-- Acesso exclusivo do Gerente / Admin aos relatórios de Fechamento -->
+        <template v-if="perfil === 'Admin' || perfil === 'Gerente'">
+          <Link href="/caixa/fechamento" class="text-indigo-400 hover:text-indigo-300 transition pl-2 border-l border-slate-800 font-bold">
+            • Fechamento
+          </Link>
+          <Link href="/equipe" class="text-indigo-400 hover:text-indigo-300 transition">
             • Gerenciar Equipe
           </Link>
           <Link href="/configuracoes" class="text-indigo-400 hover:text-indigo-300 transition">
@@ -86,7 +90,7 @@
     </main>
 
     <!-- Rodapé Geral do Painel com Autoria WO -->
-    <footer class="py-6 border-t border-slate-200 bg-white mt-auto">
+    <footer class="py-6 border-t border-slate-200 bg-white mt-auto no-print">
       <div class="max-w-6xl mx-auto px-6 flex flex-col sm:flex-row items-center justify-between gap-4 text-xs text-slate-400 font-medium">
         <p>© {{ new Date().getFullYear() }} RETSYS. Todos os direitos reservados.</p>
         <p class="flex items-center gap-1.5">
@@ -97,7 +101,7 @@
     </footer>
 
     <!-- Widget de Spotify -->
-    <div class="fixed bottom-4 right-4 z-40 hidden md:block">
+    <div class="fixed bottom-4 right-4 z-40 hidden md:block no-print">
       <SpotifyPlayer />
     </div>
 
@@ -114,7 +118,6 @@ const menuAberto = ref(false)
 const tempoConectado = ref('00:00:00')
 let cronometro = null
 
-// Captura defensiva dos dados injetados globais via middleware do ASP.NET Core
 const authData = computed(() => page.props.auth || {})
 const perfil = computed(() => authData.value.usuarioPerfil || 'Vendedor')
 const nomeUsuario = computed(() => authData.value.usuarioNome || 'Colaborador')
@@ -123,7 +126,6 @@ const fotoPerfil = computed(() => authData.value.usuarioFoto || null)
 onMounted(() => {
   const tempoInicio = Date.now()
   
-  // Cronómetro progressivo de tempo de ligação ativa
   cronometro = setInterval(() => {
     const totalSegundos = Math.floor((Date.now() - tempoInicio) / 1000)
     const horas = String(Math.floor(totalSegundos / 3600)).padStart(2, '0')

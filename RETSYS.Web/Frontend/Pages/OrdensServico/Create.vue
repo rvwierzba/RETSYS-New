@@ -14,7 +14,7 @@
       <!-- Aviso de Rascunho Restaurado -->
       <div v-if="rascunhoRestaurado" class="p-3 bg-teal-50 border border-teal-200 text-teal-800 rounded-xl text-xs font-semibold flex items-center justify-between no-print animate-fadeIn">
         <span>💾 Rascunho não finalizado recuperado automaticamente! Seus dados digitados foram preservados.</span>
-        <button @click="limparRascunhoManual" class="text-[10px] uppercase font-bold text-teal-900 underline hover:text-teal-950">
+        <button type="button" @click="limparRascunhoManual" class="text-[10px] uppercase font-bold text-teal-900 underline hover:text-teal-950">
           Descartar Rascunho
         </button>
       </div>
@@ -35,11 +35,26 @@
           <!-- 1. Identificação do Cliente (CRM) -->
           <div class="bg-slate-50 p-6 rounded-2xl border border-slate-200 space-y-4">
             <h3 class="text-sm font-black text-slate-700 uppercase tracking-wider flex items-center gap-2">
-              <span class="w-2 h-2 rounded-full bg-slate-950"></span> 1. Identificação do Cliente (CRM)
+              <span class="w-2 h-2 rounded-full bg-slate-950"></span> 1. Identificação do Cliente & Documento
             </h3>
 
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-end">
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+              <!-- SEÇÃO 2: NUMERAÇÃO DA OS EDITÁVEL -->
               <div>
+                <label class="block text-[11px] font-bold uppercase text-teal-800 tracking-wider mb-1.5">
+                  Número da OS (Editável) *
+                </label>
+                <input
+                  v-model="form.numeroOS"
+                  type="text"
+                  placeholder="Ex: OS-2026-00001"
+                  @keydown.enter.prevent
+                  class="w-full rounded-xl border-teal-300 text-sm font-mono font-bold text-teal-950 bg-white focus:border-teal-500 focus:ring-teal-500"
+                  required
+                />
+              </div>
+
+              <div class="md:col-span-3">
                 <label class="block text-[11px] font-bold uppercase text-slate-400 tracking-wider mb-1.5">CPF do Cliente *</label>
                 <div class="flex gap-2">
                   <input
@@ -57,8 +72,10 @@
                   </button>
                 </div>
               </div>
+            </div>
 
-              <div class="md:col-span-2">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+              <div class="md:col-span-3">
                 <label class="block text-[11px] font-bold uppercase text-slate-400 tracking-wider mb-1.5">Nome Completo *</label>
                 <input v-model="form.nome" type="text" placeholder="Nome do Paciente" @keydown.enter.prevent class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500" required />
               </div>
@@ -76,7 +93,7 @@
 
             <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div>
-                <label class="block text-[11px] font-bold uppercase text-teal-700 tracking-wider mb-1.5">Emissão da OS (Hoje) 🔒</label>
+                <label class="block text-[11px] font-bold uppercase text-slate-400 tracking-wider mb-1.5">Emissão da OS (Hoje) 🔒</label>
                 <input
                   :value="dataEmissaoHoje"
                   type="date"
@@ -419,26 +436,28 @@
             </div>
           </div>
 
-          <!-- Resumo Financeiro -->
+          <!-- Resumo Financeiro, Desconto, Entrada Parcial e Saldo (Seções 1, 4.5 e 5) -->
           <div class="p-5 bg-amber-50/40 rounded-2xl border border-amber-200/60 space-y-4">
             <h4 class="font-bold text-amber-950 uppercase tracking-wider text-[10px]">Resumo do Pedido & Condições de Pagamento</h4>
 
-            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
+              <!-- SEÇÃO 4.5: FORMA DE PAGAMENTO (SEM CONVENIO, COM BOLETO) -->
               <div>
                 <label class="block font-bold text-amber-900 uppercase mb-1.5">Forma Pagamento *</label>
 
-                <select v-model="form.formaPagamento" @keydown.enter.prevent class="w-full rounded-xl border-amber-200 text-xs bg-white">
+                <select v-model="form.formaPagamento" @keydown.enter.prevent class="w-full rounded-xl border-amber-200 text-xs bg-white font-bold">
                   <option value="DINHEIRO">Dinheiro</option>
                   <option value="PIX">Pix</option>
                   <option value="CARTAO_CREDITO">Cartão de Crédito</option>
                   <option value="CARTAO_DEBITO">Cartão de Débito</option>
+                  <option value="BOLETO">Boleto</option>
                 </select>
               </div>
 
               <div v-if="form.formaPagamento === 'CARTAO_CREDITO'">
                 <label class="block font-bold text-amber-900 uppercase mb-1.5">Parcelas *</label>
 
-                <select v-model.number="qtdParcelas" @keydown.enter.prevent class="w-full rounded-xl border-amber-200 text-xs bg-white">
+                <select v-model.number="qtdParcelas" @keydown.enter.prevent class="w-full rounded-xl border-amber-200 text-xs bg-white font-bold">
                   <option value="1">1x à Vista</option>
                   <option v-for="n in [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]" :key="n" :value="n">
                     {{ n }}x
@@ -446,6 +465,7 @@
                 </select>
               </div>
 
+              <!-- SEÇÃO 1: DESCONTO -->
               <div>
                 <label class="block font-bold text-amber-900 uppercase mb-1.5">Desconto (R$)</label>
 
@@ -465,12 +485,45 @@
                 </div>
               </div>
 
+              <!-- SEÇÃO 5: VALOR DE ENTRADA -->
               <div>
-                <label class="block font-bold text-teal-950 uppercase mb-1.5">Total Líquido do Pedido</label>
+                <label class="block font-bold text-teal-900 uppercase mb-1.5">Valor de Entrada (R$)</label>
 
-                <div class="text-base font-black font-mono text-teal-700 bg-teal-50 px-3 py-2 rounded-xl border border-teal-100 text-center">
+                <input
+                  :value="valorEntradaFormatado"
+                  @input="tratarInputValorEntrada"
+                  @keydown.enter.prevent
+                  type="text"
+                  placeholder="R$ 0,00"
+                  class="w-full rounded-xl border-teal-200 text-xs bg-white font-mono font-bold text-teal-900 focus:border-teal-500"
+                />
+              </div>
+
+              <!-- TOTAL LÍQUIDO E SALDO RESTANTE -->
+              <div>
+                <label class="block font-bold text-teal-950 uppercase mb-1.5">Total Líquido</label>
+
+                <div class="text-sm font-black font-mono text-teal-700 bg-teal-50 px-3 py-2 rounded-xl border border-teal-100 text-center">
                   {{ formatarMoeda(form.valorTotalLiquido) }}
                 </div>
+              </div>
+            </div>
+
+            <!-- EXIBIÇÃO DO SALDO RESTANTE -->
+            <div class="p-3 bg-white rounded-xl border border-amber-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 font-mono text-xs">
+              <div class="flex items-center gap-2">
+                <span class="text-slate-500">Bruto: <b>{{ formatarMoeda(form.valorTotalBruto) }}</b></span>
+                <span class="text-slate-300">|</span>
+                <span class="text-amber-700">Desconto: <b>{{ formatarMoeda(form.descontoReais) }}</b></span>
+                <span class="text-slate-300">|</span>
+                <span class="text-teal-700">Entrada: <b>{{ formatarMoeda(form.valorEntrada) }}</b></span>
+              </div>
+
+              <div class="text-right">
+                <span class="text-slate-500 uppercase text-[10px] font-sans font-bold block sm:inline mr-1">Saldo a Pagar na Retirada:</span>
+                <b :class="[form.valorRestante > 0 ? 'text-rose-600 font-black text-sm' : 'text-emerald-600 font-bold']">
+                  {{ form.valorRestante > 0 ? formatarMoeda(form.valorRestante) : 'R$ 0,00 - Quitado' }}
+                </b>
               </div>
             </div>
           </div>
@@ -488,7 +541,7 @@
         </form>
       </div>
 
-      <!-- TELA DE SUCESSO -->
+      <!-- TELA DE SUCESSO E IMPRESSÃO (SEÇÃO 7: GUIA DO CLIENTE) -->
       <div class="bg-white rounded-3xl border border-slate-200 shadow-xl overflow-hidden p-8 space-y-6 no-print text-center" v-else>
         <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-teal-100 text-teal-600 text-3xl">✓</div>
 
@@ -500,6 +553,11 @@
           <button @click="imprimirDocumento('completa')" class="w-full bg-slate-950 hover:bg-slate-800 text-white font-bold py-3.5 px-6 rounded-xl text-xs uppercase tracking-wider transition shadow-md flex items-center justify-center gap-2">
             🖨️ Imprimir OS Completa (A4)
           </button>
+
+          <!-- SEÇÃO 7: BOTÃO DE IMPRESSÃO DA GUIA DO CLIENTE -->
+          <button @click="imprimirDocumento('guia')" class="w-full bg-teal-600 hover:bg-teal-700 text-white font-bold py-3.5 px-6 rounded-xl text-xs uppercase tracking-wider transition shadow-md flex items-center justify-center gap-2">
+            📄 Imprimir Guia do Cliente (A4)
+          </button>
         </div>
 
         <div class="pt-6">
@@ -508,6 +566,53 @@
           </button>
         </div>
       </div>
+
+      <!-- TEMPLATE IMPRESSO - GUIA DO CLIENTE (SEÇÃO 7 DO PDF) -->
+      <div v-if="exibirFaturaSucesso && tipoComprovanteImpressao === 'guia'" class="only-print p-8 space-y-6 text-slate-900 font-sans">
+        <div class="border-b-2 border-slate-950 pb-4 text-center">
+          <h1 class="text-2xl font-black uppercase tracking-wider">RETSYS ÓTICA</h1>
+          <p class="text-sm font-bold uppercase text-slate-600">Guia de Retirada do Cliente</p>
+        </div>
+
+        <div class="grid grid-cols-2 gap-4 text-xs font-mono border-b pb-4">
+          <div>
+            <p><b>OS N°:</b> {{ osFaturadaResponse.numeroOS }}</p>
+            <p><b>Cliente:</b> {{ form.nome }}</p>
+            <p><b>CPF:</b> {{ form.cpf }}</p>
+          </div>
+          <div class="text-right">
+            <p><b>Data de Emissão:</b> {{ formatarDataBR(dataEmissaoHoje) }}</p>
+            <p><b>Previsão de Retirada:</b> {{ formatarDataBR(form.dataPrevistaEntrega) }}</p>
+          </div>
+        </div>
+
+        <div class="bg-slate-50 p-6 rounded-xl border border-slate-300 space-y-3 font-mono">
+          <div class="flex justify-between text-sm">
+            <span>Valor Total da Compra:</span>
+            <b>{{ formatarMoeda(form.valorTotalLiquido) }}</b>
+          </div>
+          <div class="flex justify-between text-sm text-teal-800">
+            <span>Total Pago (Entrada):</span>
+            <b>{{ formatarMoeda(form.valorEntrada) }}</b>
+          </div>
+          <div class="flex justify-between text-base border-t border-slate-300 pt-2 font-black">
+            <span>Saldo a Pagar na Retirada:</span>
+            <span :class="[form.valorRestante > 0 ? 'text-rose-700' : 'text-emerald-700']">
+              {{ form.valorRestante > 0 ? formatarMoeda(form.valorRestante) : 'R$ 0,00 - Quitado' }}
+            </span>
+          </div>
+        </div>
+
+        <div class="pt-16 grid grid-cols-2 gap-12 text-center text-xs font-mono">
+          <div class="border-t border-slate-950 pt-2">
+            Assinatura do Cliente
+          </div>
+          <div class="border-t border-slate-950 pt-2">
+            Carimbo / Assinatura da Loja
+          </div>
+        </div>
+      </div>
+
     </div>
   </AuthenticatedLayout>
 </template>
@@ -519,6 +624,7 @@ import axios from 'axios'
 import AuthenticatedLayout from '../../Shared/AuthenticatedLayout.vue'
 
 const props = defineProps({
+  ProximoNumeroOS: String,
   Vendedores: Array,
   vendedores: Array,
   Armacoes: Array,
@@ -547,6 +653,7 @@ const fotoAnexaArquivo = ref(null)
 const rascunhoRestaurado = ref(false)
 
 const form = useForm({
+  numeroOS: props.ProximoNumeroOS || '',
   cpf: '',
   nome: '',
   telefone: '',
@@ -593,7 +700,8 @@ const form = useForm({
   descontoReais: 0,
   descontoPercentual: 0,
   valorTotalLiquido: 0,
-  valorEntrada: null,
+  valorEntrada: 0,
+  valorRestante: 0,
   formaPagamento: 'DINHEIRO'
 })
 
@@ -609,9 +717,16 @@ const formatarMoeda = (valor) => {
   })
 }
 
-const valorLenteFormatado = computed(() => formatarMoeda(form.valorLente))
+const formatarDataBR = (dataRaw) => {
+  if (!dataRaw) return '--/--/----'
+  const partes = dataRaw.split('-')
+  if (partes.length === 3) return `${partes[2]}/${partes[1]}/${partes[0]}`
+  return new Date(dataRaw).toLocaleDateString('pt-BR')
+}
 
+const valorLenteFormatado = computed(() => formatarMoeda(form.valorLente))
 const descontoReaisFormatado = computed(() => formatarMoeda(form.descontoReais))
+const valorEntradaFormatado = computed(() => formatarMoeda(form.valorEntrada))
 
 const tratarInputValorLente = (event) => {
   const digitos = event.target.value.replace(/\D/g, '')
@@ -633,7 +748,21 @@ const tratarInputDescontoReais = (event) => {
   recalcularTotaisGenericos()
 }
 
+const tratarInputValorEntrada = (event) => {
+  const digitos = event.target.value.replace(/\D/g, '')
+
+  form.valorEntrada = digitos
+    ? parseFloat(digitos) / 100
+    : 0
+
+  recalcularTotaisGenericos()
+}
+
 onMounted(() => {
+  if (props.ProximoNumeroOS && !form.numeroOS) {
+    form.numeroOS = props.ProximoNumeroOS
+  }
+
   const dadosSalvos = localStorage.getItem(CHAVE_RASCUNHO)
 
   if (dadosSalvos) {
@@ -672,6 +801,7 @@ watch(() => form.formaPagamento, (novaForma) => {
 const limparRascunhoManual = () => {
   localStorage.removeItem(CHAVE_RASCUNHO)
   form.reset()
+  if (props.ProximoNumeroOS) form.numeroOS = props.ProximoNumeroOS
   rascunhoRestaurado.value = false
 }
 
@@ -808,6 +938,7 @@ const processarSnapshotProdutos = () => {
   recalcularTotaisGenericos()
 }
 
+// --- SEÇÕES 1 E 5: CADEIA DE CÁLCULO REATIVA (BRUTO -> DESCONTO -> LÍQUIDO -> ENTRADA -> RESTANTE) ---
 const recalcularTotaisGenericos = () => {
   const valorArmacao = Math.max(0, converterParaNumeroSeguro(form.valorArmacao))
   const valorLente = Math.max(0, converterParaNumeroSeguro(form.valorLente))
@@ -822,7 +953,8 @@ const recalcularTotaisGenericos = () => {
     form.descontoReais = 0
     form.descontoPercentual = 0
     form.valorTotalLiquido = 0
-
+    form.valorEntrada = 0
+    form.valorRestante = 0
     return
   }
 
@@ -830,16 +962,24 @@ const recalcularTotaisGenericos = () => {
     descontoReais = valorTotalBruto
   }
 
+  const valorTotalLiquido = Number((valorTotalBruto - descontoReais).toFixed(2))
+
+  let valorEntrada = Math.max(0, converterParaNumeroSeguro(form.valorEntrada))
+
+  if (valorEntrada > valorTotalLiquido) {
+    valorEntrada = valorTotalLiquido
+  }
+
+  const valorRestante = Number((valorTotalLiquido - valorEntrada).toFixed(2))
+
   form.valorArmacao = valorArmacao
   form.valorLente = valorLente
   form.valorTotalBruto = valorTotalBruto
   form.descontoReais = descontoReais
-  form.descontoPercentual = Number(
-    ((descontoReais / valorTotalBruto) * 100).toFixed(2)
-  )
-  form.valorTotalLiquido = Number(
-    (valorTotalBruto - descontoReais).toFixed(2)
-  )
+  form.descontoPercentual = Number(((descontoReais / valorTotalBruto) * 100).toFixed(2))
+  form.valorTotalLiquido = valorTotalLiquido
+  form.valorEntrada = valorEntrada
+  form.valorRestante = valorRestante
 }
 
 const consultarCpfNoBanco = async () => {
@@ -978,7 +1118,7 @@ const salvarOrdemServico = async () => {
     localStorage.removeItem(CHAVE_RASCUNHO)
 
     osFaturadaResponse.value = {
-      numeroOS: data.numeroOS || 'OS-FINALIZADA'
+      numeroOS: data.numeroOS || form.numeroOS || 'OS-FINALIZADA'
     }
 
     exibirFaturaSucesso.value = true
@@ -994,10 +1134,28 @@ const salvarOrdemServico = async () => {
 
 const imprimirDocumento = (tipo) => {
   tipoComprovanteImpressao.value = tipo
-  window.print()
+  setTimeout(() => {
+    window.print()
+  }, 100)
 }
 
 const voltarAoPainel = () => {
   router.get('/ordens')
 }
 </script>
+
+<style>
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  .only-print {
+    display: block !important;
+  }
+}
+@media screen {
+  .only-print {
+    display: none !important;
+  }
+}
+</style>

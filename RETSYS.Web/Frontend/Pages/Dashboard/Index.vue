@@ -9,7 +9,7 @@
             {{ eAdmin ? 'Painel de Performance Administrativo' : 'Meu Painel de Performance' }}
           </h1>
           <p class="text-xs text-slate-500 mt-1">
-            {{ eAdmin ? 'Acompanhamento integrado de metas de filiais, faturamentos, estoque e desempenho.' : 'Acompanhe seus atendimentos, faturamentos diários e estimativa de comissões.' }}
+            {{ eAdmin ? 'Acompanhamento integrado de metas de filiais, faturamentos, estoque, lentes pendentes e desempenho.' : 'Acompanhe seus atendimentos, faturamentos diários, lentes pendentes e estimativa de comissões.' }}
           </p>
         </div>
         
@@ -18,13 +18,15 @@
             <option v-for="(nome, index) in meses" :key="index + 1" :value="index + 1">{{ nome }}</option>
           </select>
           <select v-model="filtros.ano" @change="atualizarDashboard" class="rounded-xl border-slate-200 text-xs font-bold text-slate-700 focus:border-teal-500 focus:ring-teal-500" required>
-            <option v-for="a in [2024, 2025, 2026, 2027]" :key="a" :value="a">{{ a }}</option>
+            <option v-for="a in [2024, 2025, 2026, 2027, 2028]" :key="a" :value="a">{{ a }}</option>
           </select>
         </div>
       </div>
 
-      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+      <!-- CARDS DE RESUMO DO TOPO (INCLUI CARD SEÇÃO 3.3: LENTES NÃO PEDIDAS) -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-4">
         
+        <!-- 1. OS Emitidas Hoje -->
         <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
           <div>
             <span class="text-[10px] font-bold uppercase text-slate-400 tracking-wider">OS Emitidas Hoje</span>
@@ -35,6 +37,7 @@
           <div class="w-10 h-10 rounded-xl bg-teal-50 text-teal-600 flex items-center justify-center text-sm font-bold">✓</div>
         </div>
 
+        <!-- 2. Faturado Hoje -->
         <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
           <div>
             <span class="text-[10px] font-bold uppercase text-slate-400 tracking-wider">Faturado Hoje</span>
@@ -45,6 +48,35 @@
           <div class="w-10 h-10 rounded-xl bg-teal-50 text-teal-600 flex items-center justify-center text-sm font-bold">$</div>
         </div>
 
+        <!-- 3. SEÇÃO 3.3: CARD LENTES NÃO PEDIDAS (NOVO) -->
+        <div 
+          @click="irParaLentesNaoPedidas"
+          :class="[
+            kpisHoje.lentesNaoPedidas > 0 
+              ? 'bg-rose-50/70 border-rose-300 ring-2 ring-rose-100 cursor-pointer hover:bg-rose-100/80' 
+              : 'bg-white border-slate-200'
+          ]"
+          class="p-5 rounded-2xl border shadow-sm flex items-center justify-between transition duration-200"
+          title="Clique para ver Ordens de Serviço com lentes pendentes de pedido ao laboratório"
+        >
+          <div>
+            <div class="flex items-center gap-1.5">
+              <span class="text-[10px] font-bold uppercase tracking-wider" :class="kpisHoje.lentesNaoPedidas > 0 ? 'text-rose-900' : 'text-slate-400'">Lentes Não Pedidas</span>
+              <span v-if="kpisHoje.lentesNaoPedidas > 0" class="w-2 h-2 rounded-full bg-rose-600 animate-ping"></span>
+            </div>
+            <p class="text-2xl font-black mt-1 font-mono" :class="kpisHoje.lentesNaoPedidas > 0 ? 'text-rose-700 font-black' : 'text-slate-900'">
+              {{ kpisHoje.lentesNaoPedidas }}
+            </p>
+            <span class="text-[9px] block mt-0.5 font-bold" :class="kpisHoje.lentesNaoPedidasCriticas > 0 ? 'text-rose-800 font-black underline' : 'text-slate-400'">
+              {{ kpisHoje.lentesNaoPedidasCriticas > 0 ? `⚠️ ${kpisHoje.lentesNaoPedidasCriticas} há +1 dia` : 'Pendentes ao laboratório' }}
+            </span>
+          </div>
+          <div class="w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold" :class="kpisHoje.lentesNaoPedidas > 0 ? 'bg-rose-100 text-rose-800' : 'bg-slate-100 text-slate-700'">
+            📦
+          </div>
+        </div>
+
+        <!-- 4. Minha Comissão -->
         <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between ring-2 ring-offset-0" :class="[eAdmin ? 'ring-indigo-100' : 'ring-teal-100']">
           <div>
             <span class="text-[10px] font-bold uppercase text-slate-400 tracking-wider">Minha Comissão</span>
@@ -58,6 +90,7 @@
           <div class="w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold" :class="[eAdmin ? 'bg-indigo-50 text-indigo-600' : 'bg-teal-50 text-teal-600']">💰</div>
         </div>
 
+        <!-- 5. Aguardando Retirada -->
         <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
           <div>
             <span class="text-[10px] font-bold uppercase text-slate-400 tracking-wider">Aguardando Retirada</span>
@@ -65,9 +98,10 @@
               {{ kpisHoje.osProntas }} <span class="text-xs text-slate-400 font-normal">OS</span>
             </p>
           </div>
-          <div class="w-10 h-10 rounded-xl bg-slate-50 text-slate-600 flex items-center justify-center text-sm font-bold">📦</div>
+          <div class="w-10 h-10 rounded-xl bg-slate-50 text-slate-600 flex items-center justify-center text-sm font-bold">👓</div>
         </div>
 
+        <!-- 6. Entregas Vencidas -->
         <div 
           :class="[kpisHoje.osVencidas > 0 ? 'bg-red-50/60 border-red-200 ring-2 ring-red-100' : 'bg-white border-slate-200']"
           class="p-5 rounded-2xl border shadow-sm flex items-center justify-between transition duration-200"
@@ -82,6 +116,7 @@
           <div class="w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold" :class="[kpisHoje.osVencidas > 0 ? 'bg-red-100 text-red-700' : 'bg-slate-100 text-slate-700']">🛑</div>
         </div>
 
+        <!-- 7. Retiradas Atrasadas -->
         <div 
           :class="[kpisHoje.osAtrasadas > 0 ? 'bg-amber-50/60 border-amber-200' : 'bg-white border-slate-200']"
           class="p-5 rounded-2xl border shadow-sm flex items-center justify-between transition duration-200"
@@ -330,23 +365,18 @@ import AuthenticatedLayout from '../../Shared/AuthenticatedLayout.vue'
 const page = usePage()
 
 const props = defineProps({
-  // Controle de Permissões e Perfil
   PerfilUsuario: String, perfilUsuario: String,
   IsAdmin: Boolean, isAdmin: Boolean,
   
-  // KPIs Diários do Topo (Contrato do Backend Atualizado 05/07)
   ResumoHoje: Object, resumoHoje: Object,
-  MinhaComissaoMes: Number, minhaComissaoMes: Number, // Injetado reativamente conforme Seção 1
+  MinhaComissaoMes: Number, minhaComissaoMes: Number,
   
-  // Dados Gráficos e Histórico Central
   FaturamentoGrafico: Array, faturamentoGrafico: Array,
   UltimasOS: Array, ultimasOS: Array,
 
-  // Alertas
   AlertasEstoque: Array, alertasEstoque: Array,
   AlertasEntregasVencidas: Array, alertasEntregasVencidas: Array,
 
-  // Metas Administrativas de apoio
   MesFiltro: Number, mesFiltro: Number,
   AnoFiltro: Number, anoFiltro: Number,
   TotalFaturadoMensal: Number, totalFaturadoMensal: Number,
@@ -355,15 +385,13 @@ const props = defineProps({
   FaturamentoPorLoja: Array, faturamentoPorLoja: Array
 })
 
-// Definição de filtros reativos para Inertia
 const filtros = reactive({
   mes: props.MesFiltro ?? props.mesFiltro ?? new Date().getMonth() + 1,
   ano: props.AnoFiltro ?? props.anoFiltro ?? new Date().getFullYear()
 })
 
-// Mapeamentos Defensivos dos payloads (Mapeia chaves exatas do DashboardController)
 const eAdmin = computed(() => props.IsAdmin ?? props.isAdmin ?? (props.PerfilUsuario ?? props.perfilUsuario ?? '').toLowerCase() === 'admin')
-const kpisHoje = computed(() => props.ResumoHoje ?? props.resumoHoje ?? { osHoje: 0, faturadoHoje: 0, osProntas: 0, osVencidas: 0, osAtrasadas: 0 })
+const kpisHoje = computed(() => props.ResumoHoje ?? props.resumoHoje ?? { osHoje: 0, faturadoHoje: 0, osProntas: 0, osVencidas: 0, osAtrasadas: 0, lentesNaoPedidas: 0, lentesNaoPedidasCriticas: 0 })
 const comissaoMes = computed(() => props.MinhaComissaoMes ?? props.minhaComissaoMes ?? 0)
 
 const graficoDados = computed(() => props.FaturamentoGrafico ?? props.faturamentoGrafico ?? [])
@@ -378,10 +406,12 @@ const meses = [
   'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
 ]
 
-const anos = [2025, 2026, 2027, 2028]
-
 const atualizarDashboard = () => {
   router.get('/dashboard', { mes: filtros.mes, ano: filtros.ano }, { preserveState: true })
+}
+
+const irParaLentesNaoPedidas = () => {
+  router.get('/ordens', { filtroComposicao: 'lente' })
 }
 
 const formatMoeda = (valor) => {
@@ -389,9 +419,6 @@ const formatMoeda = (valor) => {
   return Number(valor).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
-// =========================================================================
-// MOTOR DE CÁLCULO DO GRÁFICO SVG INTEGRADO PARA MÁXIMA PORTABILIDADE
-// =========================================================================
 const chartPoints = computed(() => {
   const dados = graficoDados.value
   if (dados.length === 0) return []

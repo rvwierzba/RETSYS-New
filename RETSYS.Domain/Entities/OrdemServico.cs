@@ -6,7 +6,7 @@ namespace RETSYS.Domain.Entities
     public class OrdemServico
     {
         public Guid Id { get; set; } = Guid.NewGuid();
-        public string NumeroOS { get; set; } = string.Empty; // Gerado auto (Ex: OS-2026-00001)
+        public string NumeroOS { get; set; } = string.Empty; // Gerado auto ou editável no balcão
         
         public Guid ClienteId { get; set; }
         public Cliente Cliente { get; set; } = null!;
@@ -33,6 +33,14 @@ namespace RETSYS.Domain.Entities
         
         // Relacionamento 1:Muitos com as parcelas financeiras
         public ICollection<ParcelaPagamento> Parcelas { get; set; } = new List<ParcelaPagamento>();
+
+        // =========================================================================
+        // CONTROLE DE LENTES PEDIDAS (SEÇÃO 3.2 DO PDF)
+        // =========================================================================
+        public bool LentePedida { get; set; } = false;
+        public DateTime? DataPedidoLente { get; set; }
+        public Guid? PedidoLentePorId { get; set; }
+        public virtual Usuario? PedidoLentePor { get; set; }
 
         // =========================================================================
         // NOVOS CAMPOS PARA SUPORTE A ORDENS RETROATIVAS / HISTÓRICAS
