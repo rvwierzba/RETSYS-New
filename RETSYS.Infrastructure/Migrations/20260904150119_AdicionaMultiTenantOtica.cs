@@ -31,6 +31,14 @@ namespace RETSYS.Infrastructure.Migrations
                     table.PrimaryKey("PK_oticas", x => x.Id);
                 });
 
+            // Garante que a Ótica Padrão (Guid zero) exista antes de criar a FK,
+            // pois usuarios/marcas/lentes/armacoes/configuracoes_loja recebem esse valor default.
+            migrationBuilder.Sql(@"
+                INSERT INTO oticas (""Id"", ""Nome"", ""CriadoEm"")
+                VALUES ('00000000-0000-0000-0000-000000000000', 'Ótica Padrão', NOW())
+                ON CONFLICT (""Id"") DO NOTHING;
+            ");
+
             migrationBuilder.CreateIndex(
                 name: "IX_usuarios_OticaId",
                 table: "usuarios",
