@@ -6,12 +6,11 @@ using RETSYS.Domain.Entities;
 using System;
 using System.Linq;
 using System.Threading.Tasks;
+using System.Security.Claims;
 
 namespace RETSYS.Web.Controllers
 {
-    [ApiController]
-    [Route("api/lentes")]
-    public class LentesController : ControllerBase
+    public class LentesController : TenantController
     {
         private readonly ApplicationDbContext _context;
 
@@ -37,18 +36,18 @@ namespace RETSYS.Web.Controllers
 
             var precos = await _context.LentesTabelaPrecos
                 .Include(p => p.Lente)
-                .Where(p => p.Ativo && p.Lente.OticaId == oticaId)
-                .OrderBy(p => p.Lente.Laboratorio)
+                .Where(p => p.Ativo && p.Lente != null && p.Lente.OticaId == oticaId)
+                .OrderBy(p => p.Lente!.Laboratorio)
                 .ToListAsync();
 
             var tratamentosSugeridos = await _context.LentesTabelaPrecos
-                .Where(lp => lp.Ativo && !string.IsNullOrEmpty(lp.Tratamento) && lp.Lente.OticaId == oticaId)
+                .Where(lp => lp.Ativo && !string.IsNullOrEmpty(lp.Tratamento) && lp.Lente != null && lp.Lente.OticaId == oticaId)
                 .Select(lp => lp.Tratamento)
                 .Distinct()
                 .OrderBy(t => t)
                 .ToListAsync();
 
-            var isAdmin = EhAdministrador();
+            bool isAdmin = EhAdministrador();
 
             return Inertia.Render("Lentes/Index", new
             {
@@ -65,7 +64,7 @@ namespace RETSYS.Web.Controllers
                     p.LenteId,
                     Lente = new
                     {
-                        Laboratorio = p.Lente.Laboratorio,
+                        Laboratorio = p.Lente!.Laboratorio,
                         Tipo = p.Lente.Tipo
                     },
                     p.Tipo,
@@ -83,7 +82,7 @@ namespace RETSYS.Web.Controllers
         // 1. ENDPOINTS DE CONSULTA
         // =========================================================================
 
-        [HttpGet("calcular-preco")]
+        [HttpGet("/api/lentes/calcular-preco")]
         public async Task<IActionResult> CalcularPreco(
             [FromQuery] Guid lenteId,
             [FromQuery] string tipo,
@@ -141,13 +140,13 @@ namespace RETSYS.Web.Controllers
             }
         }
 
-        [HttpGet("tratamentos")]
+        [HttpGet("/api/lentes/tratamentos")]
         public async Task<IActionResult> ListarTratamentos()
         {
             var oticaId = ObterOticaId();
 
             var tratamentos = await _context.LentesTabelaPrecos
-                .Where(lp => lp.Ativo && !string.IsNullOrEmpty(lp.Tratamento) && lp.Lente.OticaId == oticaId)
+                .Where(lp => lp.Ativo && !string.IsNullOrEmpty(lp.Tratamento) && lp.Lente != null && lp.Lente.OticaId == oticaId)
                 .Select(lp => lp.Tratamento)
                 .Distinct()
                 .OrderBy(t => t)
@@ -156,13 +155,13 @@ namespace RETSYS.Web.Controllers
             return Ok(tratamentos);
         }
 
-        [HttpGet("{lenteId:guid}/opcoes-matriz")]
+        [HttpGet("/api/lentes/{lenteId:guid}/opcoes-matriz")]
         public async Task<IActionResult> ObterOpcoesMatriz(Guid lenteId)
         {
             var oticaId = ObterOticaId();
 
             var opcoes = await _context.LentesTabelaPrecos
-                .Where(lp => lp.LenteId == lenteId && lp.Ativo && lp.Lente.OticaId == oticaId)
+                .Where(lp => lp.LenteId == lenteId && lp.Ativo && lp.Lente != null && lp.Lente.OticaId == oticaId)
                 .Select(lp => new { lp.Tipo, lp.IndiceRefracao, lp.Tratamento })
                 .Distinct()
                 .ToListAsync();
@@ -171,7 +170,7 @@ namespace RETSYS.Web.Controllers
         }
 
         // =========================================================================
-        // 2. ENDPOINTS DE ESCRITA (CADASTRO DE LENTE BASE COMPATÍVEL COM INERTIA)
+        // 2. ENDPOINTS DE ESCRITA (CADASTRO DE LENTE BASE)
         // =========================================================================
 
         [HttpPost("/lentes")]
@@ -179,20 +178,27 @@ namespace RETSYS.Web.Controllers
         {
             if (!EhAdministrador())
             {
-                return Forbid();
+                return StatusCode(StatusCodes.Status403Forbidden, new { mensagem = "Apenas administradores podem cadastrar lentes base." });
             }
 
             try
             {
                 if (input == null || string.IsNullOrWhiteSpace(input.Laboratorio) || string.IsNullOrWhiteSpace(input.Tipo))
                 {
-                    return BadRequest("Laboratório e Tipo de Bloco são campos obrigatórios.");
+                    return BadRequest(new { mensagem = "Laboratório e Tipo de Bloco são campos obrigatórios." });
+                }
+
+                var oticaId = ObterOticaId();
+
+                if (oticaId == Guid.Empty)
+                {
+                    return BadRequest(new { mensagem = "Não foi possível identificar a ótica do usuário logado. Faça login novamente." });
                 }
 
                 var novaLente = new Lente
                 {
                     Id = Guid.NewGuid(),
-                    OticaId = ObterOticaId(),
+                    OticaId = oticaId,
                     CodigoSku = $"LNT-{Guid.NewGuid().ToString()[..8].ToUpper()}",
                     Laboratorio = input.Laboratorio.Trim(),
                     Tipo = input.Tipo.Trim(),
@@ -205,11 +211,11 @@ namespace RETSYS.Web.Controllers
                 _context.Lentes.Add(novaLente);
                 await _context.SaveChangesAsync();
 
-                return RedirecionarSeguro();
+                return RedirectToAction(nameof(Index));
             }
             catch (Exception ex)
             {
-                return StatusCode(500, $"Erro interno ao salvar lente base: {ex.Message}");
+                return StatusCode(500, new { mensagem = "Erro interno ao salvar lente base.", erro = ex.Message });
             }
         }
 
@@ -222,14 +228,14 @@ namespace RETSYS.Web.Controllers
         {
             if (!EhAdministrador())
             {
-                return Forbid();
+                return StatusCode(StatusCodes.Status403Forbidden, new { mensagem = "Apenas administradores podem cadastrar preços na matriz." });
             }
 
             try
             {
                 if (input == null || input.LenteId == Guid.Empty || string.IsNullOrWhiteSpace(input.Tipo))
                 {
-                    return BadRequest("Lente base e Tipo são campos obrigatórios.");
+                    return BadRequest(new { mensagem = "Lente base e Tipo são campos obrigatórios." });
                 }
 
                 var oticaId = ObterOticaId();
@@ -237,7 +243,7 @@ namespace RETSYS.Web.Controllers
                 var lenteExiste = await _context.Lentes.AnyAsync(l => l.Id == input.LenteId && l.OticaId == oticaId);
                 if (!lenteExiste)
                 {
-                    return NotFound("Lente base não encontrada no catálogo.");
+                    return NotFound(new { mensagem = "Lente base não encontrada no catálogo desta ótica." });
                 }
 
                 var novoPreco = new LentePreco
@@ -255,11 +261,11 @@ namespace RETSYS.Web.Controllers
                 _context.LentesTabelaPrecos.Add(novoPreco);
                 await _context.SaveChangesAsync();
 
-                return RedirecionarSeguro();
+                return RedirectToAction(nameof(Index));
             }
             catch (Exception ex)
             {
-                return StatusCode(500, $"Erro interno ao salvar preço na matriz: {ex.Message}");
+                return StatusCode(500, new { mensagem = "Erro interno ao salvar preço na matriz.", erro = ex.Message });
             }
         }
 
@@ -268,7 +274,7 @@ namespace RETSYS.Web.Controllers
         {
             if (!EhAdministrador())
             {
-                return Forbid();
+                return StatusCode(StatusCodes.Status403Forbidden, new { mensagem = "Apenas administradores podem remover preços da matriz." });
             }
 
             try
@@ -277,50 +283,33 @@ namespace RETSYS.Web.Controllers
 
                 var preco = await _context.LentesTabelaPrecos
                     .Include(p => p.Lente)
-                    .FirstOrDefaultAsync(p => p.Id == id && p.Lente.OticaId == oticaId);
+                    .FirstOrDefaultAsync(p => p.Id == id && p.Lente != null && p.Lente.OticaId == oticaId);
 
                 if (preco == null)
                 {
-                    return NotFound("Preço não encontrado na matriz.");
+                    return NotFound(new { mensagem = "Preço não encontrado na matriz." });
                 }
 
                 _context.LentesTabelaPrecos.Remove(preco);
                 await _context.SaveChangesAsync();
 
-                return RedirecionarSeguro();
+                return RedirectToAction(nameof(Index));
             }
             catch (Exception ex)
             {
-                return StatusCode(500, $"Erro interno ao remover preço da matriz: {ex.Message}");
+                return StatusCode(500, new { mensagem = "Erro interno ao remover preço da matriz.", erro = ex.Message });
             }
         }
 
         // =========================================================================
-        // AUXILIARES
+        // AUXILIAR — MESMO PADRÃO USADO EM OrdensServicoController E CaixaController
         // =========================================================================
 
         private bool EhAdministrador()
         {
-            return User.IsInRole("Admin")
-                || User.IsInRole("Administrador")
-                || User.IsInRole("admin")
-                || User.IsInRole("administrador");
-        }
-
-        private Guid ObterOticaId()
-        {
-            var claim = User.FindFirst("OticaId")?.Value;
-            return Guid.TryParse(claim, out var oticaId) ? oticaId : Guid.Empty;
-        }
-
-        private IActionResult RedirecionarSeguro()
-        {
-            var referer = Request.Headers["Referer"].ToString();
-            if (string.IsNullOrWhiteSpace(referer))
-            {
-                return Redirect("/lentes");
-            }
-            return Redirect(referer);
+            var perfilClaim = User.FindFirst(ClaimTypes.Role)?.Value ?? "";
+            return string.Equals(perfilClaim, "ADMIN", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(perfilClaim, "GERENTE", StringComparison.OrdinalIgnoreCase);
         }
     }
 

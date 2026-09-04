@@ -411,7 +411,7 @@ const atualizarDashboard = () => {
 }
 
 const irParaLentesNaoPedidas = () => {
-  router.get('/ordens', { filtroComposicao: 'lente' })
+  router.get('/ordens', { filtroComposicao: 'pendente' })
 }
 
 const formatMoeda = (valor) => {

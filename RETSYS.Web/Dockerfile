@@ -38,6 +38,19 @@ RUN dotnet publish "RETSYS.Web.csproj" -c Release -o /app/publish /p:UseAppHost=
 # =========================================================
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS final
 WORKDIR /app
+
+# Dependências nativas do Tesseract OCR (liblept/libgomp) + idiomas PT/EN
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libleptonica-dev \
+    libgomp1 \
+    wget \
+    && mkdir -p /app/tessdata \
+    && wget -q -O /app/tessdata/por.traineddata https://github.com/tesseract-ocr/tessdata/raw/main/por.traineddata \
+    && wget -q -O /app/tessdata/eng.traineddata https://github.com/tesseract-ocr/tessdata/raw/main/eng.traineddata \
+    && apt-get clean && rm -rf /var/lib/apt/lists/*
+
+ENV TESSDATA_PREFIX=/app/tessdata
+
 COPY --from=backend-builder /app/publish .
 
 # 🛡️ GARANTIA ABSOLUTA: Copia a pasta pública do front direto para o runtime final

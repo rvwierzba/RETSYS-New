@@ -26,10 +26,11 @@ namespace RETSYS.Web.Controllers
             _context = context;
         }
 
-        // 1. Listagem de OSs com suporte a filtro por vendedora, status e composição.
+        // 1. Listagem de OSs com suporte a filtro por vendedora, status, composição e lente pendente.
         [HttpGet("/ordens")]
         public async Task<IActionResult> Index(
             [FromQuery] string? filtroComposicao,
+            [FromQuery] string? filtroLentePedida,
             [FromQuery] Guid? vendedorId)
         {
             var oticaId = ObterOticaId();
@@ -72,6 +73,17 @@ namespace RETSYS.Web.Controllers
 
                 _ => query
             };
+
+            // --- SEÇÃO 3.3: FILTRO DE LENTES NÃO PEDIDAS (VINDO DO CARD DO DASHBOARD) ---
+            if (filtroLentePedida == "pendente")
+            {
+                query = query.Where(os =>
+                    !os.LentePedida &&
+                    os.Status != "CANCELADO" &&
+                    os.Status != "CANCELADA" &&
+                    ((os.Financeiro != null && os.Financeiro.ValorLente > 0) ||
+                     !string.IsNullOrEmpty(os.LenteDescricaoManual)));
+            }
 
             var queryValidasFaturamento = query.Where(os =>
                 os.Status != "CANCELADO" &&
@@ -227,6 +239,7 @@ namespace RETSYS.Web.Controllers
                 Ordens = ordens,
                 Vendedores = vendedores,
                 FiltroAtivo = filtroComposicao ?? "total",
+                FiltroLentePedida = filtroLentePedida ?? "",
                 VendedorFiltro = vendedorId,
                 TotalFiltroAtivo = totalFiltroAtivo
             });
