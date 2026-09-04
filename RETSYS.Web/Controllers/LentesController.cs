@@ -211,7 +211,7 @@ namespace RETSYS.Web.Controllers
                 _context.Lentes.Add(novaLente);
                 await _context.SaveChangesAsync();
 
-                return RedirectToAction(nameof(Index));
+                return await Index();
             }
             catch (Exception ex)
             {
@@ -261,7 +261,7 @@ namespace RETSYS.Web.Controllers
                 _context.LentesTabelaPrecos.Add(novoPreco);
                 await _context.SaveChangesAsync();
 
-                return RedirectToAction(nameof(Index));
+                return await Index();
             }
             catch (Exception ex)
             {
@@ -293,7 +293,7 @@ namespace RETSYS.Web.Controllers
                 _context.LentesTabelaPrecos.Remove(preco);
                 await _context.SaveChangesAsync();
 
-                return RedirectToAction(nameof(Index));
+                return await Index();
             }
             catch (Exception ex)
             {
