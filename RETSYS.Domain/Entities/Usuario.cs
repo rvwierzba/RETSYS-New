@@ -8,6 +8,10 @@ namespace RETSYS.Domain.Entities
         // Chave primária baseada em UUID (Guid)
         public Guid Id { get; set; } = Guid.NewGuid();
 
+        // Vínculo obrigatório com a Ótica (Tenant) a qual este usuário pertence
+        public Guid OticaId { get; set; }
+        public Otica? Otica { get; set; }
+
         public string Nome { get; set; } = string.Empty;
 
         public string Email { get; set; } = string.Empty;

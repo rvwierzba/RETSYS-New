@@ -27,25 +27,28 @@ namespace RETSYS.Web.Controllers
         [HttpGet("/lentes")]
         public async Task<IActionResult> Index()
         {
+            var oticaId = ObterOticaId();
+
             var lentes = await _context.Lentes
+                .Where(l => l.OticaId == oticaId)
                 .OrderBy(l => l.Laboratorio)
                 .ThenBy(l => l.Tipo)
                 .ToListAsync();
 
             var precos = await _context.LentesTabelaPrecos
                 .Include(p => p.Lente)
-                .Where(p => p.Ativo)
+                .Where(p => p.Ativo && p.Lente.OticaId == oticaId)
                 .OrderBy(p => p.Lente.Laboratorio)
                 .ToListAsync();
 
             var tratamentosSugeridos = await _context.LentesTabelaPrecos
-                .Where(lp => lp.Ativo && !string.IsNullOrEmpty(lp.Tratamento))
+                .Where(lp => lp.Ativo && !string.IsNullOrEmpty(lp.Tratamento) && lp.Lente.OticaId == oticaId)
                 .Select(lp => lp.Tratamento)
                 .Distinct()
                 .OrderBy(t => t)
                 .ToListAsync();
 
-            var isAdmin = User.IsInRole("Admin"); // ajuste o nome da Role se necessário
+            var isAdmin = EhAdministrador();
 
             return Inertia.Render("Lentes/Index", new
             {
@@ -89,7 +92,11 @@ namespace RETSYS.Web.Controllers
         {
             try
             {
-                var lente = await _context.Lentes.FindAsync(lenteId);
+                var oticaId = ObterOticaId();
+
+                var lente = await _context.Lentes
+                    .FirstOrDefaultAsync(l => l.Id == lenteId && l.OticaId == oticaId);
+
                 if (lente == null)
                 {
                     return NotFound(new { mensagem = "Lente não cadastrada no sistema." });
@@ -137,8 +144,10 @@ namespace RETSYS.Web.Controllers
         [HttpGet("tratamentos")]
         public async Task<IActionResult> ListarTratamentos()
         {
+            var oticaId = ObterOticaId();
+
             var tratamentos = await _context.LentesTabelaPrecos
-                .Where(lp => lp.Ativo && !string.IsNullOrEmpty(lp.Tratamento))
+                .Where(lp => lp.Ativo && !string.IsNullOrEmpty(lp.Tratamento) && lp.Lente.OticaId == oticaId)
                 .Select(lp => lp.Tratamento)
                 .Distinct()
                 .OrderBy(t => t)
@@ -150,8 +159,10 @@ namespace RETSYS.Web.Controllers
         [HttpGet("{lenteId:guid}/opcoes-matriz")]
         public async Task<IActionResult> ObterOpcoesMatriz(Guid lenteId)
         {
+            var oticaId = ObterOticaId();
+
             var opcoes = await _context.LentesTabelaPrecos
-                .Where(lp => lp.LenteId == lenteId && lp.Ativo)
+                .Where(lp => lp.LenteId == lenteId && lp.Ativo && lp.Lente.OticaId == oticaId)
                 .Select(lp => new { lp.Tipo, lp.IndiceRefracao, lp.Tratamento })
                 .Distinct()
                 .ToListAsync();
@@ -166,6 +177,11 @@ namespace RETSYS.Web.Controllers
         [HttpPost("/lentes")]
         public async Task<IActionResult> CriarLenteBase([FromBody] NovaLenteInput input)
         {
+            if (!EhAdministrador())
+            {
+                return Forbid();
+            }
+
             try
             {
                 if (input == null || string.IsNullOrWhiteSpace(input.Laboratorio) || string.IsNullOrWhiteSpace(input.Tipo))
@@ -176,6 +192,7 @@ namespace RETSYS.Web.Controllers
                 var novaLente = new Lente
                 {
                     Id = Guid.NewGuid(),
+                    OticaId = ObterOticaId(),
                     CodigoSku = $"LNT-{Guid.NewGuid().ToString()[..8].ToUpper()}",
                     Laboratorio = input.Laboratorio.Trim(),
                     Tipo = input.Tipo.Trim(),
@@ -203,6 +220,11 @@ namespace RETSYS.Web.Controllers
         [HttpPost("/lentes/precos")]
         public async Task<IActionResult> CriarPreco([FromBody] NovoLentePrecoInput input)
         {
+            if (!EhAdministrador())
+            {
+                return Forbid();
+            }
+
             try
             {
                 if (input == null || input.LenteId == Guid.Empty || string.IsNullOrWhiteSpace(input.Tipo))
@@ -210,7 +232,9 @@ namespace RETSYS.Web.Controllers
                     return BadRequest("Lente base e Tipo são campos obrigatórios.");
                 }
 
-                var lenteExiste = await _context.Lentes.AnyAsync(l => l.Id == input.LenteId);
+                var oticaId = ObterOticaId();
+
+                var lenteExiste = await _context.Lentes.AnyAsync(l => l.Id == input.LenteId && l.OticaId == oticaId);
                 if (!lenteExiste)
                 {
                     return NotFound("Lente base não encontrada no catálogo.");
@@ -242,9 +266,19 @@ namespace RETSYS.Web.Controllers
         [HttpDelete("/lentes/precos/{id:guid}")]
         public async Task<IActionResult> RemoverPreco(Guid id)
         {
+            if (!EhAdministrador())
+            {
+                return Forbid();
+            }
+
             try
             {
-                var preco = await _context.LentesTabelaPrecos.FindAsync(id);
+                var oticaId = ObterOticaId();
+
+                var preco = await _context.LentesTabelaPrecos
+                    .Include(p => p.Lente)
+                    .FirstOrDefaultAsync(p => p.Id == id && p.Lente.OticaId == oticaId);
+
                 if (preco == null)
                 {
                     return NotFound("Preço não encontrado na matriz.");
@@ -264,6 +298,20 @@ namespace RETSYS.Web.Controllers
         // =========================================================================
         // AUXILIARES
         // =========================================================================
+
+        private bool EhAdministrador()
+        {
+            return User.IsInRole("Admin")
+                || User.IsInRole("Administrador")
+                || User.IsInRole("admin")
+                || User.IsInRole("administrador");
+        }
+
+        private Guid ObterOticaId()
+        {
+            var claim = User.FindFirst("OticaId")?.Value;
+            return Guid.TryParse(claim, out var oticaId) ? oticaId : Guid.Empty;
+        }
 
         private IActionResult RedirecionarSeguro()
         {

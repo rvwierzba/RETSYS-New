@@ -17,7 +17,7 @@ using RETSYS.Domain.Interfaces;
 
 namespace RETSYS.Web.Controllers
 {
-    public class OrdensServicoController : Controller
+    public class OrdensServicoController : TenantController
     {
         private readonly ApplicationDbContext _context;
 
@@ -32,6 +32,7 @@ namespace RETSYS.Web.Controllers
             [FromQuery] string? filtroComposicao,
             [FromQuery] Guid? vendedorId)
         {
+            var oticaId = ObterOticaId();
             var usuarioIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             var perfilClaim = User.FindFirst(ClaimTypes.Role)?.Value ?? "VENDEDOR";
 
@@ -42,7 +43,7 @@ namespace RETSYS.Web.Controllers
                 .Include(os => os.Financeiro)
                 .Include(os => os.Parcelas)
                 .Include(os => os.PedidoLentePor)
-                .Where(os => os.Ativo);
+                .Where(os => os.Ativo && os.OticaId == oticaId);
 
             if (string.Equals(perfilClaim, "VENDEDOR", StringComparison.OrdinalIgnoreCase) &&
                 Guid.TryParse(usuarioIdClaim, out Guid vendedorLogadoId))
@@ -212,7 +213,7 @@ namespace RETSYS.Web.Controllers
                 .ToListAsync();
 
             var vendedores = await _context.Usuarios
-                .Where(u => u.Ativo)
+                .Where(u => u.Ativo && u.OticaId == oticaId)
                 .OrderBy(u => u.Nome)
                 .Select(u => new
                 {
@@ -235,10 +236,11 @@ namespace RETSYS.Web.Controllers
         [HttpGet("/ordens/nova")]
         public async Task<IActionResult> Criar()
         {
+            var oticaId = ObterOticaId();
             var usuarioIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
 
             IQueryable<Usuario> queryVendedores = _context.Usuarios
-                .Where(u => u.Ativo);
+                .Where(u => u.Ativo && u.OticaId == oticaId);
 
             if (Guid.TryParse(usuarioIdClaim, out Guid usuarioLogadoId))
             {
@@ -263,7 +265,7 @@ namespace RETSYS.Web.Controllers
 
             var armacoes = await _context.Armacoes
                 .Include(a => a.Marca)
-                .Where(a => a.QuantidadeEstoque > 0 && a.Ativo)
+                .Where(a => a.OticaId == oticaId && a.QuantidadeEstoque > 0 && a.Ativo)
                 .Select(a => new
                 {
                     a.Id,
@@ -280,7 +282,7 @@ namespace RETSYS.Web.Controllers
 
             var lentes = await _context.LentesTabelaPrecos
                 .Include(lp => lp.Lente)
-                .Where(lp => lp.Ativo && lp.Lente != null && lp.Lente.Ativo)
+                .Where(lp => lp.Ativo && lp.Lente != null && lp.Lente.Ativo && lp.Lente.OticaId == oticaId)
                 .Select(lp => new
                 {
                     lp.Id,
@@ -292,7 +294,7 @@ namespace RETSYS.Web.Controllers
                 })
                 .ToListAsync();
 
-            string proximoNumeroOS = await GerarProximoNumeroOsAsync();
+            string proximoNumeroOS = await GerarProximoNumeroOsAsync(oticaId);
 
             return Inertia.Render("OrdensServico/Create", new
             {
@@ -307,6 +309,7 @@ namespace RETSYS.Web.Controllers
         [HttpGet("/api/clientes/buscar-cpf/{cpf}")]
         public async Task<IActionResult> BuscarPorCpf(string cpf)
         {
+            var oticaId = ObterOticaId();
             var cleanCpf = new string(cpf.Where(char.IsDigit).ToArray());
 
             if (string.IsNullOrEmpty(cleanCpf))
@@ -319,6 +322,7 @@ namespace RETSYS.Web.Controllers
 
             var cliente = await _context.Clientes
                 .FirstOrDefaultAsync(c =>
+                    c.OticaId == oticaId &&
                     c.CPF != null &&
                     c.CPF.Replace(".", "").Replace("-", "") == cleanCpf);
 
@@ -354,6 +358,7 @@ namespace RETSYS.Web.Controllers
         {
             try
             {
+                var oticaId = ObterOticaId();
                 var perfilClaim = User.FindFirst(ClaimTypes.Role)?.Value ?? "VENDEDOR";
                 var usuarioIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
 
@@ -365,7 +370,8 @@ namespace RETSYS.Web.Controllers
                     });
                 }
 
-                var vendedor = await _context.Usuarios.FindAsync(vendedorId);
+                var vendedor = await _context.Usuarios
+                    .FirstOrDefaultAsync(u => u.Id == vendedorId && u.OticaId == oticaId);
 
                 if (vendedor == null || !vendedor.Ativo)
                 {
@@ -389,19 +395,19 @@ namespace RETSYS.Web.Controllers
                     });
                 }
 
-                // --- SEÇÃO 2: NUMERAÇÃO DA OS EDITÁVEL ---
+                // --- SEÇÃO 2: NUMERAÇÃO DA OS EDITÁVEL (por Ótica) ---
                 string numeroOsDigitado = formCollection.ContainsKey("numeroOS")
                     ? formCollection["numeroOS"].ToString().Trim()
                     : "";
 
                 if (string.IsNullOrWhiteSpace(numeroOsDigitado))
                 {
-                    numeroOsDigitado = await GerarProximoNumeroOsAsync();
+                    numeroOsDigitado = await GerarProximoNumeroOsAsync(oticaId);
                 }
                 else
                 {
                     bool jaExiste = await _context.OrdensServico
-                        .AnyAsync(os => os.NumeroOS == numeroOsDigitado && os.Ativo);
+                        .AnyAsync(os => os.NumeroOS == numeroOsDigitado && os.OticaId == oticaId && os.Ativo);
 
                     if (jaExiste)
                     {
@@ -426,6 +432,7 @@ namespace RETSYS.Web.Controllers
 
                 var cliente = await _context.Clientes
                     .FirstOrDefaultAsync(c =>
+                        c.OticaId == oticaId &&
                         c.CPF != null &&
                         c.CPF.Replace(".", "").Replace("-", "") == cpfInformado);
 
@@ -434,6 +441,7 @@ namespace RETSYS.Web.Controllers
                     cliente = new Cliente
                     {
                         Id = Guid.NewGuid(),
+                        OticaId = oticaId,
                         CPF = cpfInformado,
                         CreatedAt = DateTime.UtcNow
                     };
@@ -586,6 +594,7 @@ namespace RETSYS.Web.Controllers
                     armacaoSelecionada = await _context.Armacoes
                         .FirstOrDefaultAsync(a =>
                             a.Id == armacaoId.Value &&
+                            a.OticaId == oticaId &&
                             a.Ativo);
 
                     if (armacaoSelecionada == null)
@@ -612,7 +621,8 @@ namespace RETSYS.Web.Controllers
                             lp.Id == lentePrecoId.Value &&
                             lp.Ativo &&
                             lp.Lente != null &&
-                            lp.Lente.Ativo);
+                            lp.Lente.Ativo &&
+                            lp.Lente.OticaId == oticaId);
 
                     if (!lenteExiste)
                     {
@@ -626,6 +636,7 @@ namespace RETSYS.Web.Controllers
                 var novaOS = new OrdemServico
                 {
                     Id = Guid.NewGuid(),
+                    OticaId = oticaId,
                     NumeroOS = numeroOsDigitado,
                     ClienteId = cliente.Id,
                     VendedorId = vendedor.Id,
@@ -845,9 +856,11 @@ namespace RETSYS.Web.Controllers
         [HttpPost("/ordens/marcar-lente-pedida/{id:guid}")]
         public async Task<IActionResult> MarcarLentePedida(Guid id)
         {
+            var oticaId = ObterOticaId();
+
             var ordem = await _context.OrdensServico
                 .Include(os => os.Financeiro)
-                .FirstOrDefaultAsync(os => os.Id == id && os.Ativo);
+                .FirstOrDefaultAsync(os => os.Id == id && os.OticaId == oticaId && os.Ativo);
 
             if (ordem == null)
             {
@@ -880,9 +893,11 @@ namespace RETSYS.Web.Controllers
         [HttpPost("/ordens/quitar-e-entregar/{id:guid}")]
         public async Task<IActionResult> QuitarEEntregar(Guid id, [FromForm] IFormCollection form)
         {
+            var oticaId = ObterOticaId();
+
             var ordem = await _context.OrdensServico
                 .Include(os => os.Financeiro)
-                .FirstOrDefaultAsync(os => os.Id == id && os.Ativo);
+                .FirstOrDefaultAsync(os => os.Id == id && os.OticaId == oticaId && os.Ativo);
 
             if (ordem == null)
             {
@@ -953,9 +968,11 @@ namespace RETSYS.Web.Controllers
             Guid id,
             [FromQuery] string novoStatus)
         {
+            var oticaId = ObterOticaId();
+
             var ordem = await _context.OrdensServico
                 .Include(os => os.Financeiro)
-                .FirstOrDefaultAsync(os => os.Id == id);
+                .FirstOrDefaultAsync(os => os.Id == id && os.OticaId == oticaId);
 
             if (ordem == null)
             {
@@ -996,7 +1013,7 @@ namespace RETSYS.Web.Controllers
                 ordem.Financeiro?.ArmacaoId != null)
             {
                 var armacao = await _context.Armacoes
-                    .FindAsync(ordem.Financeiro.ArmacaoId);
+                    .FirstOrDefaultAsync(a => a.Id == ordem.Financeiro.ArmacaoId && a.OticaId == oticaId);
 
                 if (armacao != null)
                 {
@@ -1030,9 +1047,11 @@ namespace RETSYS.Web.Controllers
         [HttpPost("/ordens/excluir/{id:guid}")]
         public async Task<IActionResult> Cancelar(Guid id)
         {
+            var oticaId = ObterOticaId();
+
             var ordem = await _context.OrdensServico
                 .Include(os => os.Financeiro)
-                .FirstOrDefaultAsync(os => os.Id == id);
+                .FirstOrDefaultAsync(os => os.Id == id && os.OticaId == oticaId);
 
             if (ordem == null)
             {
@@ -1058,7 +1077,7 @@ namespace RETSYS.Web.Controllers
                 ordem.Financeiro?.ArmacaoId != null)
             {
                 var armacao = await _context.Armacoes
-                    .FindAsync(ordem.Financeiro.ArmacaoId);
+                    .FirstOrDefaultAsync(a => a.Id == ordem.Financeiro.ArmacaoId && a.OticaId == oticaId);
 
                 if (armacao != null)
                 {
@@ -1077,13 +1096,13 @@ namespace RETSYS.Web.Controllers
             return RedirectToAction(nameof(Index));
         }
 
-        private async Task<string> GerarProximoNumeroOsAsync()
+        private async Task<string> GerarProximoNumeroOsAsync(Guid oticaId)
         {
             var anoAtual = DateTime.UtcNow.Year;
             var prefixo = $"OS-{anoAtual}-";
 
             var ultimasOS = await _context.OrdensServico
-                .Where(os => os.NumeroOS.StartsWith(prefixo))
+                .Where(os => os.OticaId == oticaId && os.NumeroOS.StartsWith(prefixo))
                 .Select(os => os.NumeroOS)
                 .ToListAsync();
 

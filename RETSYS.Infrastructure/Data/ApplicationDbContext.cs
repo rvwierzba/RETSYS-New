@@ -9,6 +9,7 @@ namespace RETSYS.Infrastructure.Data
         {
         }
 
+        public DbSet<Otica> Oticas => Set<Otica>();
         public DbSet<Usuario> Usuarios => Set<Usuario>();
         public DbSet<Marca> Marcas => Set<Marca>();
         public DbSet<Armacao> Armacoes => Set<Armacao>();
@@ -29,6 +30,14 @@ namespace RETSYS.Infrastructure.Data
         {
             base.OnModelCreating(modelBuilder);
 
+            // OTICAS (Tenant)
+            modelBuilder.Entity<Otica>(b =>
+            {
+                b.ToTable("oticas");
+                b.HasKey(o => o.Id);
+                b.Property(o => o.Nome).IsRequired().HasMaxLength(150);
+            });
+
             // USUARIOS
             modelBuilder.Entity<Usuario>(b =>
             {
@@ -43,6 +52,11 @@ namespace RETSYS.Infrastructure.Data
                 b.Property(u => u.MetaMensal).HasPrecision(18, 2);
                 b.Property(u => u.PercentualComissao).HasPrecision(5, 2);
                 b.HasIndex(u => u.Email).IsUnique();
+
+                b.HasOne(u => u.Otica)
+                 .WithMany(o => o.Usuarios)
+                 .HasForeignKey(u => u.OticaId)
+                 .OnDelete(DeleteBehavior.Restrict);
             });
 
             // MARCAS
@@ -52,6 +66,11 @@ namespace RETSYS.Infrastructure.Data
                 b.HasKey(m => m.Id);
                 b.Property(m => m.Nome).IsRequired().HasMaxLength(100);
                 b.Property(m => m.Descricao).HasMaxLength(250);
+
+                b.HasOne(m => m.Otica)
+                 .WithMany()
+                 .HasForeignKey(m => m.OticaId)
+                 .OnDelete(DeleteBehavior.Restrict);
             });
 
             // ARMACOES
@@ -72,6 +91,11 @@ namespace RETSYS.Infrastructure.Data
                  .WithMany(m => m.Armacoes)
                  .HasForeignKey(a => a.MarcaId)
                  .OnDelete(DeleteBehavior.Restrict);
+
+                b.HasOne(a => a.Otica)
+                 .WithMany()
+                 .HasForeignKey(a => a.OticaId)
+                 .OnDelete(DeleteBehavior.Restrict);
             });
 
             // LENTES (catálogo base, sem preço/estoque)
@@ -89,6 +113,11 @@ namespace RETSYS.Infrastructure.Data
                  .WithOne(lp => lp.Lente)
                  .HasForeignKey(lp => lp.LenteId)
                  .OnDelete(DeleteBehavior.Cascade);
+
+                b.HasOne(l => l.Otica)
+                 .WithMany()
+                 .HasForeignKey(l => l.OticaId)
+                 .OnDelete(DeleteBehavior.Restrict);
             });
 
             // LENTE_PRECO (variações: índice + tratamento (texto livre) + preço)
@@ -135,7 +164,13 @@ namespace RETSYS.Infrastructure.Data
                 b.Property(c => c.UltimaDnpOe).HasPrecision(4, 1);
                 b.Property(c => c.UltimaAlturaMontagem).HasPrecision(4, 1);
 
-                b.HasIndex(c => c.CPF).IsUnique();
+                b.HasOne(c => c.Otica)
+                 .WithMany()
+                 .HasForeignKey(c => c.OticaId)
+                 .OnDelete(DeleteBehavior.Restrict);
+
+                // CPF único POR ÓTICA (não mais globalmente único)
+                b.HasIndex(c => new { c.OticaId, c.CPF }).IsUnique();
             });
 
             // ORDENS_SERVICO
@@ -153,6 +188,11 @@ namespace RETSYS.Infrastructure.Data
                 b.Property(os => os.ArmacaoModeloManual).HasMaxLength(150);
                 b.Property(os => os.LenteDescricaoManual).HasMaxLength(200);
 
+                b.HasOne(os => os.Otica)
+                 .WithMany()
+                 .HasForeignKey(os => os.OticaId)
+                 .OnDelete(DeleteBehavior.Restrict);
+
                 b.HasOne(os => os.Cliente)
                  .WithMany(c => c.OrdensServico)
                  .HasForeignKey(os => os.ClienteId)
@@ -169,6 +209,9 @@ namespace RETSYS.Infrastructure.Data
                  .HasForeignKey(os => os.PedidoLentePorId)
                  .IsRequired(false)
                  .OnDelete(DeleteBehavior.Restrict);
+
+                // NumeroOS único POR ÓTICA (trava de duplicidade no balcão)
+                b.HasIndex(os => new { os.OticaId, os.NumeroOS }).IsUnique();
             });
 
             // OS_RECEITA (1:1)
@@ -284,7 +327,15 @@ namespace RETSYS.Infrastructure.Data
                 b.ToTable("configuracoes_loja");
                 b.HasKey(c => c.Id);
                 b.Property(c => c.NomeLoja).HasMaxLength(100).IsRequired();
+                b.Property(c => c.Cnpj).HasMaxLength(20);
                 b.Property(c => c.PixApiKey).HasMaxLength(500);
+
+                b.HasOne(c => c.Otica)
+                 .WithMany()
+                 .HasForeignKey(c => c.OticaId)
+                 .OnDelete(DeleteBehavior.Restrict);
+
+                b.HasIndex(c => c.OticaId).IsUnique();
             });
 
             // MÓDULO DE COMISSIONAMENTO

@@ -8,7 +8,7 @@ using RETSYS.Infrastructure.Data;
 namespace RETSYS.Web.Controllers;
 
 [Authorize]
-public class ArmacoesController : Controller
+public class ArmacoesController : TenantController
 {
     private readonly ApplicationDbContext _context;
 
@@ -22,9 +22,12 @@ public class ArmacoesController : Controller
     [HttpGet("/armacoes")]
     public async Task<IActionResult> Index()
     {
+        var oticaId = ObterOticaId();
+
         var armacoes = await _context.Armacoes
             .Include(a => a.Marca)
             .AsNoTracking()
+            .Where(a => a.OticaId == oticaId)
             .OrderByDescending(a => a.CriadoEm)
             .Select(a => new
             {
@@ -47,7 +50,7 @@ public class ArmacoesController : Controller
             .ToListAsync();
 
         var marcas = await _context.Marcas
-            .Where(m => m.Ativo)
+            .Where(m => m.Ativo && m.OticaId == oticaId)
             .AsNoTracking()
             .OrderBy(m => m.Nome)
             .Select(m => new { m.Id, m.Nome })
@@ -60,14 +63,23 @@ public class ArmacoesController : Controller
     [HttpPost("/armacoes")]
     public async Task<IActionResult> Store([FromBody] DtoNovaArmacao model)
     {
+        var oticaId = ObterOticaId();
+
         if (string.IsNullOrWhiteSpace(model.Codigo) || string.IsNullOrWhiteSpace(model.Modelo) || model.MarcaId == Guid.Empty)
         {
             Inertia.Share("erro", "Preencha os campos obrigatórios (Código SKU, Modelo e Marca).");
             return RedirectToAction(nameof(Index));
         }
 
+        var marcaValida = await _context.Marcas.AnyAsync(m => m.Id == model.MarcaId && m.OticaId == oticaId);
+        if (!marcaValida)
+        {
+            Inertia.Share("erro", "A marca selecionada não foi localizada.");
+            return RedirectToAction(nameof(Index));
+        }
+
         var codigoExiste = await _context.Armacoes
-            .AnyAsync(a => a.CodigoSku.ToLower() == model.Codigo.Trim().ToLower());
+            .AnyAsync(a => a.OticaId == oticaId && a.CodigoSku.ToLower() == model.Codigo.Trim().ToLower());
 
         if (codigoExiste)
         {
@@ -78,6 +90,7 @@ public class ArmacoesController : Controller
         var novaArmacao = new Armacao
         {
             Id = Guid.NewGuid(),
+            OticaId = oticaId,
             CodigoSku = model.Codigo.Trim().ToUpper(),
             MarcaId = model.MarcaId,
             ModeloReferencia = model.Modelo.Trim(),
@@ -103,14 +116,23 @@ public class ArmacoesController : Controller
     [HttpPost("/armacoes/editar/{id:guid}")]
     public async Task<IActionResult> Editar(Guid id, [FromBody] DtoEditarArmacao model)
     {
-        var armacao = await _context.Armacoes.FindAsync(id);
+        var oticaId = ObterOticaId();
+
+        var armacao = await _context.Armacoes.FirstOrDefaultAsync(a => a.Id == id && a.OticaId == oticaId);
         if (armacao == null)
         {
             return NotFound(new { message = "Armação não encontrada." });
         }
 
+        var marcaValida = await _context.Marcas.AnyAsync(m => m.Id == model.MarcaId && m.OticaId == oticaId);
+        if (!marcaValida)
+        {
+            Inertia.Share("erro", "A marca selecionada não foi localizada.");
+            return RedirectToAction(nameof(Index));
+        }
+
         var codigoExiste = await _context.Armacoes
-            .AnyAsync(a => a.CodigoSku.ToLower() == model.Codigo.Trim().ToLower() && a.Id != id);
+            .AnyAsync(a => a.OticaId == oticaId && a.CodigoSku.ToLower() == model.Codigo.Trim().ToLower() && a.Id != id);
 
         if (codigoExiste)
         {
@@ -140,7 +162,9 @@ public class ArmacoesController : Controller
     [HttpPost("/armacoes/excluir/{id:guid}")]
     public async Task<IActionResult> Excluir(Guid id)
     {
-        var armacao = await _context.Armacoes.FindAsync(id);
+        var oticaId = ObterOticaId();
+
+        var armacao = await _context.Armacoes.FirstOrDefaultAsync(a => a.Id == id && a.OticaId == oticaId);
         if (armacao != null)
         {
             _context.Armacoes.Remove(armacao);

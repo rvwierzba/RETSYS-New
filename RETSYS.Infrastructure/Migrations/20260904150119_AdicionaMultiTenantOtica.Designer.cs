@@ -2,6 +2,7 @@
 using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 using RETSYS.Infrastructure.Data;
@@ -11,9 +12,11 @@ using RETSYS.Infrastructure.Data;
 namespace RETSYS.Infrastructure.Migrations
 {
     [DbContext(typeof(ApplicationDbContext))]
-    partial class ApplicationDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260904150119_AdicionaMultiTenantOtica")]
+    partial class AdicionaMultiTenantOtica
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -62,9 +65,6 @@ namespace RETSYS.Infrastructure.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
 
-                    b.Property<Guid>("OticaId")
-                        .HasColumnType("uuid");
-
                     b.Property<decimal>("PrecoCusto")
                         .HasPrecision(18, 2)
                         .HasColumnType("numeric(18,2)");
@@ -87,8 +87,6 @@ namespace RETSYS.Infrastructure.Migrations
                     b.HasKey("Id");
 
                     b.HasIndex("MarcaId");
-
-                    b.HasIndex("OticaId");
 
                     b.ToTable("armacoes", (string)null);
                 });
@@ -325,27 +323,16 @@ namespace RETSYS.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
-                    b.Property<string>("Cnpj")
-                        .IsRequired()
-                        .HasMaxLength(20)
-                        .HasColumnType("character varying(20)");
-
                     b.Property<string>("NomeLoja")
                         .IsRequired()
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
-
-                    b.Property<Guid>("OticaId")
-                        .HasColumnType("uuid");
 
                     b.Property<string>("PixApiKey")
                         .HasMaxLength(500)
                         .HasColumnType("character varying(500)");
 
                     b.HasKey("Id");
-
-                    b.HasIndex("OticaId")
-                        .IsUnique();
 
                     b.ToTable("configuracoes_loja", (string)null);
                 });
@@ -428,9 +415,6 @@ namespace RETSYS.Infrastructure.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
 
-                    b.Property<Guid>("OticaId")
-                        .HasColumnType("uuid");
-
                     b.Property<bool>("Surfacada")
                         .HasColumnType("boolean")
                         .HasColumnName("surfacada");
@@ -441,8 +425,6 @@ namespace RETSYS.Infrastructure.Migrations
                         .HasColumnType("character varying(50)");
 
                     b.HasKey("Id");
-
-                    b.HasIndex("OticaId");
 
                     b.ToTable("lentes", (string)null);
                 });
@@ -515,12 +497,7 @@ namespace RETSYS.Infrastructure.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
 
-                    b.Property<Guid>("OticaId")
-                        .HasColumnType("uuid");
-
                     b.HasKey("Id");
-
-                    b.HasIndex("OticaId");
 
                     b.ToTable("marcas", (string)null);
                 });
@@ -919,15 +896,7 @@ namespace RETSYS.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
-                    b.HasOne("RETSYS.Domain.Entities.Otica", "Otica")
-                        .WithMany()
-                        .HasForeignKey("OticaId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
                     b.Navigation("Marca");
-
-                    b.Navigation("Otica");
                 });
 
             modelBuilder.Entity("RETSYS.Domain.Entities.Comissao", b =>
@@ -960,17 +929,6 @@ namespace RETSYS.Infrastructure.Migrations
                     b.Navigation("UpdatedBy");
                 });
 
-            modelBuilder.Entity("RETSYS.Domain.Entities.ConfiguracaoLoja", b =>
-                {
-                    b.HasOne("RETSYS.Domain.Entities.Otica", "Otica")
-                        .WithMany()
-                        .HasForeignKey("OticaId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("Otica");
-                });
-
             modelBuilder.Entity("RETSYS.Domain.Entities.FechamentoComissao", b =>
                 {
                     b.HasOne("RETSYS.Domain.Entities.Usuario", "FechadoPor")
@@ -989,17 +947,6 @@ namespace RETSYS.Infrastructure.Migrations
                     b.Navigation("Vendedor");
                 });
 
-            modelBuilder.Entity("RETSYS.Domain.Entities.Lente", b =>
-                {
-                    b.HasOne("RETSYS.Domain.Entities.Otica", "Otica")
-                        .WithMany()
-                        .HasForeignKey("OticaId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("Otica");
-                });
-
             modelBuilder.Entity("RETSYS.Domain.Entities.LentePreco", b =>
                 {
                     b.HasOne("RETSYS.Domain.Entities.Lente", "Lente")
@@ -1009,17 +956,6 @@ namespace RETSYS.Infrastructure.Migrations
                         .IsRequired();
 
                     b.Navigation("Lente");
-                });
-
-            modelBuilder.Entity("RETSYS.Domain.Entities.Marca", b =>
-                {
-                    b.HasOne("RETSYS.Domain.Entities.Otica", "Otica")
-                        .WithMany()
-                        .HasForeignKey("OticaId")
-                        .OnDelete(DeleteBehavior.Restrict)
-                        .IsRequired();
-
-                    b.Navigation("Otica");
                 });
 
             modelBuilder.Entity("RETSYS.Domain.Entities.OrdemServico", b =>

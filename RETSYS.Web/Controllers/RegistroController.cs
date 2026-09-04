@@ -28,9 +28,10 @@ namespace RETSYS.Web.Controllers
         [HttpPost("/cadastro")]
         public async Task<IActionResult> Registrar([FromBody] DtoRegistro requisicao)
         {
-            if (string.IsNullOrWhiteSpace(requisicao.Nome) || 
-                string.IsNullOrWhiteSpace(requisicao.Email) || 
-                string.IsNullOrWhiteSpace(requisicao.Senha))
+            if (string.IsNullOrWhiteSpace(requisicao.Nome) ||
+                string.IsNullOrWhiteSpace(requisicao.Email) ||
+                string.IsNullOrWhiteSpace(requisicao.Senha) ||
+                string.IsNullOrWhiteSpace(requisicao.NomeDaOtica))
             {
                 Inertia.Share("erro", "Preencha todos os campos obrigatórios.");
                 return RedirectToAction(nameof(CriarConta));
@@ -43,13 +44,24 @@ namespace RETSYS.Web.Controllers
                 return RedirectToAction(nameof(CriarConta));
             }
 
-            // Dono do estabelecimento sempre nasce como Admin
+            // Cria a Ótica (Tenant) que será o container de todos os dados desse cliente
+            var novaOtica = new Otica
+            {
+                Id = Guid.NewGuid(),
+                Nome = requisicao.NomeDaOtica.Trim(),
+                CriadoEm = DateTime.UtcNow
+            };
+
+            _context.Oticas.Add(novaOtica);
+
+            // Dono do estabelecimento sempre nasce como Admin, vinculado à Ótica recém-criada
             var novoAdmin = new Usuario
             {
                 Id = Guid.NewGuid(),
+                OticaId = novaOtica.Id,
                 Nome = requisicao.Nome,
                 Email = requisicao.Email,
-                FilialLoja = requisicao.NomeDaOtica,
+                FilialLoja = "Matriz",
                 Perfil = PerfilUsuario.Admin,
                 Ativo = true,
                 CriadoEm = DateTime.UtcNow,

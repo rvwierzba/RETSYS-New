@@ -14,7 +14,7 @@ using Microsoft.AspNetCore.Http;
 namespace RETSYS.Web.Controllers
 {
     [Authorize]
-    public class ClientesController : Controller
+    public class ClientesController : TenantController
     {
         private readonly ApplicationDbContext _context;
 
@@ -27,9 +27,12 @@ namespace RETSYS.Web.Controllers
         [HttpGet("/clientes")]
         public async Task<IActionResult> Index([FromQuery] string? busca, [FromQuery] int? mes, [FromQuery] int? ano)
         {
+            var oticaId = ObterOticaId();
+
             var query = _context.Clientes
                 .Include(c => c.OrdensServico)
                     .ThenInclude(os => os.Financeiro)
+                .Where(c => c.OticaId == oticaId)
                 .AsQueryable();
 
             // PONTO 1: Busca expansiva por Nome, CPF e Telefone
@@ -92,11 +95,13 @@ namespace RETSYS.Web.Controllers
         [HttpGet("/api/clientes/buscar-cpf/{cpf}")]
         public async Task<IActionResult> BuscarPorCpf(string cpf)
         {
+            var oticaId = ObterOticaId();
             var cpfLimpo = new string(cpf.Where(char.IsDigit).ToArray());
 
             var cliente = await _context.Clientes
                 .AsNoTracking()
-                .FirstOrDefaultAsync(c => (c.CPF != null && c.CPF == cpfLimpo) || c.CPF == cpf);
+                .FirstOrDefaultAsync(c => c.OticaId == oticaId &&
+                    ((c.CPF != null && c.CPF == cpfLimpo) || c.CPF == cpf));
 
             if (cliente == null)
             {
@@ -129,6 +134,8 @@ namespace RETSYS.Web.Controllers
                 return RedirectToAction(nameof(Index));
             }
 
+            var oticaId = ObterOticaId();
+
             // Normaliza CPF se preenchido (ou deixa nulo caso esteja em branco)
             string? cpfFinal = !string.IsNullOrWhiteSpace(model.CPF) 
                 ? new string(model.CPF.Where(char.IsDigit).ToArray()) 
@@ -137,6 +144,7 @@ namespace RETSYS.Web.Controllers
             var novoCliente = new Cliente
             {
                 Id = Guid.NewGuid(),
+                OticaId = oticaId,
                 Nome = model.Nome.Trim(),
                 CPF = cpfFinal ?? string.Empty,
                 Telefone = model.Telefone ?? string.Empty,
@@ -201,7 +209,10 @@ namespace RETSYS.Web.Controllers
         [HttpGet("/clientes/{id:guid}/historico")]
         public async Task<IActionResult> Historico(Guid id)
         {
+            var oticaId = ObterOticaId();
+
             var cliente = await _context.Clientes
+                .Where(c => c.Id == id && c.OticaId == oticaId)
                 .Select(c => new 
                 { 
                     c.Id, c.Nome, c.CPF, c.Telefone, c.Convenio, c.Email, c.Observacoes,
@@ -210,7 +221,7 @@ namespace RETSYS.Web.Controllers
                     c.UltimaOeEsferico, c.UltimaOeCilindrico, c.UltimaOeEixo,
                     c.UltimaAdicao, c.UltimaDnpOd, c.UltimaDnpOe, c.UltimaAlturaMontagem
                 })
-                .FirstOrDefaultAsync(c => c.Id == id);
+                .FirstOrDefaultAsync();
 
             if (cliente == null)
             {
@@ -220,7 +231,7 @@ namespace RETSYS.Web.Controllers
             var historicoOS = await _context.OrdensServico
                 .Include(os => os.Receita)
                 .Include(os => os.Financeiro)
-                .Where(os => os.ClienteId == id && !os.IsRetroativa)
+                .Where(os => os.ClienteId == id && os.OticaId == oticaId && !os.IsRetroativa)
                 .OrderByDescending(os => os.DataEntrada) 
                 .Select(os => new
                 {
@@ -243,7 +254,7 @@ namespace RETSYS.Web.Controllers
 
             decimal totalOsaSistema = await _context.OrdensServico
                 .Include(os => os.Financeiro)
-                .Where(os => os.ClienteId == id && os.Status == "ENTREGUE" && !os.IsRetroativa && os.Financeiro != null)
+                .Where(os => os.ClienteId == id && os.OticaId == oticaId && os.Status == "ENTREGUE" && !os.IsRetroativa && os.Financeiro != null)
                 .SumAsync(os => os.Financeiro.ValorTotalLiquido);
 
             decimal totalGastoCalculado = (cliente.ValorGasto ?? 0) + totalOsaSistema;
@@ -260,10 +271,11 @@ namespace RETSYS.Web.Controllers
         [HttpGet("/clientes/aniversariantes")]
         public async Task<IActionResult> Aniversariantes([FromQuery] int? mes)
         {
+            var oticaId = ObterOticaId();
             var mesFiltro = mes ?? DateTime.Today.Month;
 
             var aniversariantes = await _context.Clientes
-                .Where(c => c.DataNascimento.HasValue && c.DataNascimento.Value.Month == mesFiltro)
+                .Where(c => c.OticaId == oticaId && c.DataNascimento.HasValue && c.DataNascimento.Value.Month == mesFiltro)
                 .OrderBy(c => c.DataNascimento!.Value.Day)
                 .Select(c => new
                 {
@@ -287,14 +299,16 @@ namespace RETSYS.Web.Controllers
         [HttpPost("/clientes/excluir/{id:guid}")]
         public async Task<IActionResult> Excluir(Guid id)
         {
-            var possuiOs = await _context.OrdensServico.AnyAsync(o => o.ClienteId == id);
+            var oticaId = ObterOticaId();
+
+            var possuiOs = await _context.OrdensServico.AnyAsync(o => o.ClienteId == id && o.OticaId == oticaId);
             if (possuiOs)
             {
                 Inertia.Share("erro", "Não é possível excluir um cliente que já possui Ordens de Serviço registradas.");
                 return RedirectToAction(nameof(Index));
             }
 
-            var cliente = await _context.Clientes.FindAsync(id);
+            var cliente = await _context.Clientes.FirstOrDefaultAsync(c => c.Id == id && c.OticaId == oticaId);
             if (cliente != null)
             {
                 _context.Clientes.Remove(cliente);

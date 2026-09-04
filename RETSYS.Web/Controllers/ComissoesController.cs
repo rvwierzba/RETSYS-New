@@ -10,7 +10,7 @@ using System.Threading.Tasks;
 
 namespace RETSYS.Web.Controllers
 {
-    public class ComissoesController : Controller
+    public class ComissoesController : TenantController
     {
         private readonly ApplicationDbContext _context;
 
@@ -26,6 +26,7 @@ namespace RETSYS.Web.Controllers
         [HttpGet("/minhas-comissoes")]
         public async Task<IActionResult> MinhasComissoes([FromQuery] string? periodo)
         {
+            var oticaId = ObterOticaId();
             var usuarioIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
 
             if (!Guid.TryParse(usuarioIdClaim, out Guid vendedorId))
@@ -45,7 +46,7 @@ namespace RETSYS.Web.Controllers
 
             var vendedor = await _context.Usuarios
                 .AsNoTracking()
-                .FirstOrDefaultAsync(u => u.Id == vendedorId);
+                .FirstOrDefaultAsync(u => u.Id == vendedorId && u.OticaId == oticaId);
 
             if (vendedor == null)
             {
@@ -57,7 +58,8 @@ namespace RETSYS.Web.Controllers
                 .Include(c => c.OrdemServico)
                 .Where(c =>
                     c.VendedorId == vendedorId &&
-                    c.PeriodoReferencia == periodoAlvo)
+                    c.PeriodoReferencia == periodoAlvo &&
+                    c.OrdemServico.OticaId == oticaId)
                 .OrderByDescending(c => c.DataGeracao)
                 .ToListAsync();
 
@@ -119,9 +121,12 @@ namespace RETSYS.Web.Controllers
         [HttpGet("/admin/comissoes")]
         public async Task<IActionResult> Index()
         {
+            var oticaId = ObterOticaId();
+
             var fechamentos = await _context.FechamentosComissao
                 .AsNoTracking()
                 .Include(f => f.Vendedor)
+                .Where(f => f.Vendedor.OticaId == oticaId)
                 .OrderByDescending(f => f.PeriodoReferencia)
                 .ThenBy(f => f.Vendedor.Nome)
                 .Select(f => new
@@ -141,7 +146,7 @@ namespace RETSYS.Web.Controllers
 
             var vendedores = await _context.Usuarios
                 .AsNoTracking()
-                .Where(u => u.Ativo)
+                .Where(u => u.Ativo && u.OticaId == oticaId)
                 .OrderBy(u => u.Nome)
                 .Select(u => new
                 {
@@ -166,13 +171,16 @@ namespace RETSYS.Web.Controllers
             Guid vendedorId,
             [FromBody] DtoAtualizarTaxa model)
         {
+            var oticaId = ObterOticaId();
+
             if (model.PercentualComissao < 0 || model.PercentualComissao > 100)
             {
                 Inertia.Share("erro", "A taxa de comissão deve estar entre 0% e 100%.");
                 return RedirectToAction(nameof(Index));
             }
 
-            var vendedor = await _context.Usuarios.FindAsync(vendedorId);
+            var vendedor = await _context.Usuarios
+                .FirstOrDefaultAsync(u => u.Id == vendedorId && u.OticaId == oticaId);
 
             if (vendedor == null)
             {
@@ -194,6 +202,8 @@ namespace RETSYS.Web.Controllers
             [FromQuery] Guid vendedorId,
             [FromQuery] string? periodo)
         {
+            var oticaId = ObterOticaId();
+
             if (vendedorId == Guid.Empty)
             {
                 Inertia.Share("erro", "Selecione uma vendedora para realizar o fechamento.");
@@ -206,7 +216,8 @@ namespace RETSYS.Web.Controllers
                 return RedirectToAction(nameof(Index));
             }
 
-            var vendedor = await _context.Usuarios.FindAsync(vendedorId);
+            var vendedor = await _context.Usuarios
+                .FirstOrDefaultAsync(u => u.Id == vendedorId && u.OticaId == oticaId);
 
             if (vendedor == null)
             {
@@ -238,10 +249,12 @@ namespace RETSYS.Web.Controllers
             }
 
             var comissoesPendentes = await _context.Comissoes
+                .Include(c => c.OrdemServico)
                 .Where(c =>
                     c.VendedorId == vendedorId &&
                     c.PeriodoReferencia == periodo &&
-                    c.Status == "PENDENTE")
+                    c.Status == "PENDENTE" &&
+                    c.OrdemServico.OticaId == oticaId)
                 .ToListAsync();
 
             if (!comissoesPendentes.Any())
@@ -307,8 +320,11 @@ namespace RETSYS.Web.Controllers
         [HttpPost("/admin/comissoes/pagar/{id:guid}")]
         public async Task<IActionResult> PagarVendedor(Guid id)
         {
+            var oticaId = ObterOticaId();
+
             var fechamento = await _context.FechamentosComissao
-                .FirstOrDefaultAsync(f => f.Id == id);
+                .Include(f => f.Vendedor)
+                .FirstOrDefaultAsync(f => f.Id == id && f.Vendedor.OticaId == oticaId);
 
             if (fechamento == null)
             {

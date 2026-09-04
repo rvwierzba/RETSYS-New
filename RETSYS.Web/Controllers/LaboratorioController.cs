@@ -7,7 +7,7 @@ using System.Threading.Tasks;
 
 namespace RETSYS.Web.Controllers
 {
-    public class LaboratorioController : Controller
+    public class LaboratorioController : TenantController
     {
         private readonly ApplicationDbContext _context;
 
@@ -20,38 +20,42 @@ namespace RETSYS.Web.Controllers
         [HttpGet("/laboratorio")]
         public async Task<IActionResult> Index()
         {
+            var oticaId = ObterOticaId();
+
             var ordensParaMontagem = await _context.OrdensServico
                 .Include(os => os.Cliente)
                 .Include(os => os.Receita)
                 .Include(os => os.Financeiro)
-                    .ThenInclude(f => f.LentePreco) // Ajustado: Lente -> LentePreco
-                        .ThenInclude(lp => lp.Lente) // Um nível abaixo para chegar ao Tipo da lente base
-                .Where(os => os.Status == "EM_LABORATORIO")
+                    .ThenInclude(f => f!.LentePreco)
+                        .ThenInclude(lp => lp!.Lente)
+                .Where(os => os.OticaId == oticaId && os.Status == "EM_LABORATORIO")
                 .OrderBy(os => os.DataEntrada)
                 .Select(os => new
                 {
                     os.Id,
                     os.NumeroOS,
-                    TipoLente = os.Financeiro.LentePreco.Lente.Tipo, // Caminho corrigido
-                    ClienteNome = os.Cliente.Nome,
-                    
+                    TipoLente = os.Financeiro != null && os.Financeiro.LentePreco != null && os.Financeiro.LentePreco.Lente != null
+                        ? os.Financeiro.LentePreco.Lente.Tipo
+                        : "Não informado",
+                    ClienteNome = os.Cliente != null ? os.Cliente.Nome : "Não informado",
+
                     Especificacoes = new
                     {
-                        EsfericoLongeDireito = os.Receita.OdEsferico,
-                        EsfericoLongeEsquerdo = os.Receita.OeEsferico,
-                        CilindricoLongeDireito = os.Receita.OdCilindrico,
-                        CilindricoLongeEsquerdo = os.Receita.OeCilindrico,
-                        EixoLongeDireito = os.Receita.OdEixo,
-                        EixoLongeEsquerdo = os.Receita.OeEixo,
-                        
-                        EsfericoPertoDireito = os.Receita.OdEsfericoPerto,
-                        EsfericoPertoEsquerdo = os.Receita.OeEsfericoPerto,
-                        CilindricoPertoDireito = os.Receita.OdCilindricoPerto,
-                        CilindricoPertoEsquerdo = os.Receita.OeCilindricoPerto,
-                        EixoPertoDireito = os.Receita.OdEixoPerto,
-                        EixoPertoEsquerdo = os.Receita.OeEixoPerto,
-                        
-                        os.Receita.Adicao
+                        EsfericoLongeDireito = os.Receita != null ? os.Receita.OdEsferico : (decimal?)null,
+                        EsfericoLongeEsquerdo = os.Receita != null ? os.Receita.OeEsferico : (decimal?)null,
+                        CilindricoLongeDireito = os.Receita != null ? os.Receita.OdCilindrico : (decimal?)null,
+                        CilindricoLongeEsquerdo = os.Receita != null ? os.Receita.OeCilindrico : (decimal?)null,
+                        EixoLongeDireito = os.Receita != null ? os.Receita.OdEixo : (int?)null,
+                        EixoLongeEsquerdo = os.Receita != null ? os.Receita.OeEixo : (int?)null,
+
+                        EsfericoPertoDireito = os.Receita != null ? os.Receita.OdEsfericoPerto : (decimal?)null,
+                        EsfericoPertoEsquerdo = os.Receita != null ? os.Receita.OeEsfericoPerto : (decimal?)null,
+                        CilindricoPertoDireito = os.Receita != null ? os.Receita.OdCilindricoPerto : (decimal?)null,
+                        CilindricoPertoEsquerdo = os.Receita != null ? os.Receita.OeCilindricoPerto : (decimal?)null,
+                        EixoPertoDireito = os.Receita != null ? os.Receita.OdEixoPerto : (int?)null,
+                        EixoPertoEsquerdo = os.Receita != null ? os.Receita.OeEixoPerto : (int?)null,
+
+                        Adicao = os.Receita != null ? os.Receita.Adicao : (decimal?)null
                     }
                 })
                 .ToListAsync();

@@ -8,7 +8,7 @@ using RETSYS.Infrastructure.Data;
 namespace RETSYS.Web.Controllers;
 
 [Authorize]
-public class MarcasController : Controller
+public class MarcasController : TenantController
 {
     private readonly ApplicationDbContext _context;
 
@@ -21,8 +21,11 @@ public class MarcasController : Controller
     [HttpGet("/marcas")]
     public async Task<IActionResult> Index()
     {
+        var oticaId = ObterOticaId();
+
         var marcas = await _context.Marcas
             .AsNoTracking()
+            .Where(m => m.OticaId == oticaId)
             .OrderBy(m => m.Nome)
             .Select(m => new
             {
@@ -42,6 +45,8 @@ public class MarcasController : Controller
     [HttpPost("/marcas")]
     public async Task<IActionResult> Store([FromBody] DtoNovaMarca model)
     {
+        var oticaId = ObterOticaId();
+
         bool eRequisicaoAxios = Request.Headers["X-Inertia"].Count == 0 && 
                                 Request.Headers.Accept.ToString().Contains("application/json");
 
@@ -53,7 +58,7 @@ public class MarcasController : Controller
         }
 
         var nomeExiste = await _context.Marcas
-            .AnyAsync(m => m.Nome.ToLower() == model.Nome.Trim().ToLower());
+            .AnyAsync(m => m.OticaId == oticaId && m.Nome.ToLower() == model.Nome.Trim().ToLower());
 
         if (nomeExiste)
         {
@@ -65,6 +70,7 @@ public class MarcasController : Controller
         var novaMarca = new Marca
         {
             Id = Guid.NewGuid(),
+            OticaId = oticaId,
             Nome = model.Nome.Trim(),
             Descricao = model.Descricao?.Trim() ?? string.Empty,
             Ativo = true,
@@ -86,14 +92,16 @@ public class MarcasController : Controller
     [HttpPost("/marcas/editar/{id:guid}")]
     public async Task<IActionResult> Editar(Guid id, [FromBody] DtoEditarMarca model)
     {
-        var marca = await _context.Marcas.FindAsync(id);
+        var oticaId = ObterOticaId();
+
+        var marca = await _context.Marcas.FirstOrDefaultAsync(m => m.Id == id && m.OticaId == oticaId);
         if (marca == null)
         {
             return NotFound(new { message = "Marca não encontrada." });
         }
 
         var nomeExiste = await _context.Marcas
-            .AnyAsync(m => m.Nome.ToLower() == model.Nome.Trim().ToLower() && m.Id != id);
+            .AnyAsync(m => m.OticaId == oticaId && m.Nome.ToLower() == model.Nome.Trim().ToLower() && m.Id != id);
 
         if (nomeExiste)
         {
@@ -115,7 +123,9 @@ public class MarcasController : Controller
     [HttpPost("/marcas/alternar-status/{id:guid}")]
     public async Task<IActionResult> AlternarStatus(Guid id)
     {
-        var marca = await _context.Marcas.FindAsync(id);
+        var oticaId = ObterOticaId();
+
+        var marca = await _context.Marcas.FirstOrDefaultAsync(m => m.Id == id && m.OticaId == oticaId);
         if (marca != null)
         {
             marca.Ativo = !marca.Ativo;
@@ -129,6 +139,8 @@ public class MarcasController : Controller
     [HttpPost("/marcas/excluir/{id:guid}")]
     public async Task<IActionResult> Excluir(Guid id)
     {
+        var oticaId = ObterOticaId();
+
         var possuiArmacoes = await _context.Armacoes.AnyAsync(a => a.MarcaId == id);
         if (possuiArmacoes)
         {
@@ -136,7 +148,7 @@ public class MarcasController : Controller
             return RedirectToAction(nameof(Index));
         }
 
-        var marca = await _context.Marcas.FindAsync(id);
+        var marca = await _context.Marcas.FirstOrDefaultAsync(m => m.Id == id && m.OticaId == oticaId);
         if (marca != null)
         {
             _context.Marcas.Remove(marca);

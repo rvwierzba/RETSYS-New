@@ -91,9 +91,21 @@ builder.Services.AddAuthentication("Cookies")
 
 var app = builder.Build();
 
-if (!app.Environment.IsDevelopment())
+if (app.Environment.IsDevelopment())
 {
     app.UseDeveloperExceptionPage();
+}
+else
+{
+    app.UseExceptionHandler(errorApp =>
+    {
+        errorApp.Run(async context =>
+        {
+            context.Response.StatusCode = StatusCodes.Status500InternalServerError;
+            context.Response.ContentType = "text/plain; charset=utf-8";
+            await context.Response.WriteAsync("Ocorreu um erro inesperado. Nossa equipe já foi notificada. Tente novamente em alguns instantes.");
+        });
+    });
     app.UseHsts();
 }
 

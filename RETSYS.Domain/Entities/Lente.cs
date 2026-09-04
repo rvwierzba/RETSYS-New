@@ -8,6 +8,9 @@ namespace RETSYS.Domain.Entities
     {
         public Guid Id { get; set; } = Guid.NewGuid();
 
+        public Guid OticaId { get; set; }
+        public Otica? Otica { get; set; }
+
         // Código único de controle (SKU) da lente base
         public string CodigoSku { get; set; } = string.Empty;
 

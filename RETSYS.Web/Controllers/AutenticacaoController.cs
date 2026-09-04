@@ -54,7 +54,8 @@ namespace RETSYS.Web.Controllers
                 new Claim(ClaimTypes.Name, usuario.Nome),
                 new Claim(ClaimTypes.Email, usuario.Email),
                 new Claim(ClaimTypes.Role, usuario.Perfil.ToString()), // Vendedor, Gerente ou Admin
-                new Claim("Filial", usuario.FilialLoja)
+                new Claim("Filial", usuario.FilialLoja),
+                new Claim("OticaId", usuario.OticaId.ToString()) // Isolamento Multi-Tenant
             };
 
             var identidade = new ClaimsIdentity(credenciais, "Cookies");

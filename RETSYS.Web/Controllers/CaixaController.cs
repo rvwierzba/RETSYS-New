@@ -11,7 +11,7 @@ using System.Collections.Generic;
 
 namespace RETSYS.Web.Controllers
 {
-    public class CaixaController : Controller
+    public class CaixaController : TenantController
     {
         private readonly ApplicationDbContext _context;
 
@@ -24,9 +24,11 @@ namespace RETSYS.Web.Controllers
         [HttpGet("/caixa")]
         public async Task<IActionResult> Index([FromQuery] Guid? gerarPixParaId)
         {
-            // Busca as parcelas trazendo os dados da OS e do Cliente de forma otimizada
+            var oticaId = ObterOticaId();
+
             var parcelas = await _context.OrdensServico
                 .Include(os => os.Cliente)
+                .Where(os => os.OticaId == oticaId)
                 .SelectMany(os => os.Parcelas.Select(p => new
                 {
                     p.Id,
@@ -38,11 +40,10 @@ namespace RETSYS.Web.Controllers
                     ClienteNome = os.Cliente != null ? os.Cliente.Nome : "Não informado",
                     NumeroOS = os.NumeroOS
                 }))
-                .OrderBy(p => p.DataPagamento != null) // Pendentes primeiro
+                .OrderBy(p => p.DataPagamento != null)
                 .ThenBy(p => p.DataVencimento)
                 .ToListAsync();
 
-            // Ativa a flag para o Vue saber que o gateway está ativo
             Inertia.Share("PixHabilitadoNestaLoja", true);
 
             if (gerarPixParaId.HasValue)
@@ -65,7 +66,10 @@ namespace RETSYS.Web.Controllers
         [HttpPost("/caixa/baixar/{id:guid}")]
         public async Task<IActionResult> BaixarParcela(Guid id)
         {
+            var oticaId = ObterOticaId();
+
             var parcela = await _context.OrdensServico
+                .Where(os => os.OticaId == oticaId)
                 .SelectMany(os => os.Parcelas)
                 .FirstOrDefaultAsync(p => p.Id == id);
 
@@ -82,7 +86,10 @@ namespace RETSYS.Web.Controllers
         [HttpGet("/caixa/status/{id:guid}")]
         public async Task<IActionResult> ObterStatusPix(Guid id)
         {
+            var oticaId = ObterOticaId();
+
             var parcela = await _context.OrdensServico
+                .Where(os => os.OticaId == oticaId)
                 .SelectMany(os => os.Parcelas)
                 .FirstOrDefaultAsync(p => p.Id == id);
 
@@ -103,6 +110,8 @@ namespace RETSYS.Web.Controllers
             [FromQuery] DateTime? dataFim,
             [FromQuery] string? tipoPeriodo)
         {
+            var oticaId = ObterOticaId();
+
             var perfilClaim = User.FindFirst(ClaimTypes.Role)?.Value ?? "VENDEDOR";
             bool isAdminOuGerente = string.Equals(perfilClaim, "ADMIN", StringComparison.OrdinalIgnoreCase) ||
                                     string.Equals(perfilClaim, "GERENTE", StringComparison.OrdinalIgnoreCase);
@@ -116,7 +125,6 @@ namespace RETSYS.Web.Controllers
             DateTime inicio = dataInicio?.Date ?? hoje;
             DateTime fim = dataFim?.Date.AddDays(1).AddTicks(-1) ?? hoje.AddDays(1).AddTicks(-1);
 
-            // Ajuste por atalhos de período (dia, semana, mês)
             if (!string.IsNullOrEmpty(tipoPeriodo))
             {
                 switch (tipoPeriodo.ToLower())
@@ -137,22 +145,19 @@ namespace RETSYS.Web.Controllers
                 }
             }
 
-            // Consulta base de OS no período
             var ordensPeriodo = await _context.OrdensServico
                 .Include(os => os.Cliente)
                 .Include(os => os.Vendedor)
                 .Include(os => os.Financeiro)
                     .ThenInclude(f => f!.ConferidoPor)
                 .Include(os => os.Receita)
-                .Where(os => os.Ativo && os.DataEntrada >= inicio && os.DataEntrada <= fim)
+                .Where(os => os.Ativo && os.OticaId == oticaId && os.DataEntrada >= inicio && os.DataEntrada <= fim)
                 .ToListAsync();
 
-            // OSs Válidas (Exclui Canceladas dos totais)
             var ordensValidas = ordensPeriodo
                 .Where(os => os.Status != "CANCELADO" && os.Status != "CANCELADA")
                 .ToList();
 
-            // OSs Canceladas (Sessão separada para auditoria)
             var ordensCanceladas = ordensPeriodo
                 .Where(os => os.Status == "CANCELADO" || os.Status == "CANCELADA")
                 .Select(os => new
@@ -166,7 +171,6 @@ namespace RETSYS.Web.Controllers
                 })
                 .ToList();
 
-            // 1. Totais Gerais
             decimal totalVendidoLiquido = ordensValidas.Sum(os => os.Financeiro?.ValorTotalLiquido ?? 0m);
             decimal totalEntradasRecebidas = ordensValidas.Sum(os => os.Financeiro?.ValorEntrada ?? 0m);
             decimal totalRetiradasRecebidas = ordensValidas.Sum(os => os.Financeiro?.ValorRecebidoRetirada ?? 0m);
@@ -176,7 +180,6 @@ namespace RETSYS.Web.Controllers
             int qtdOS = ordensValidas.Count;
             decimal ticketMedio = qtdOS > 0 ? Math.Round(totalVendidoLiquido / qtdOS, 2) : 0m;
 
-            // 2. Quebra por Forma de Pagamento (Entrada + Retirada)
             var formasPagamento = new[] { "DINHEIRO", "PIX", "CARTAO_CREDITO", "CARTAO_DEBITO", "BOLETO" };
             var resumoFormasPagamento = formasPagamento.Select(forma =>
             {
@@ -201,7 +204,6 @@ namespace RETSYS.Web.Controllers
                 };
             }).ToList();
 
-            // 3. Quebra por Tipo de Venda
             var oculosCompleto = ordensValidas.Where(os => (os.Financeiro?.ValorArmacao > 0) && (os.Financeiro?.ValorLente > 0)).ToList();
             var somenteArmacao = ordensValidas.Where(os => (os.Financeiro?.ValorArmacao > 0) && (os.Financeiro?.ValorLente == 0)).ToList();
             var somenteLente = ordensValidas.Where(os => (os.Financeiro?.ValorArmacao == 0) && (os.Financeiro?.ValorLente > 0)).ToList();
@@ -213,9 +215,9 @@ namespace RETSYS.Web.Controllers
                 new { Tipo = "Somente Lente", Qtd = somenteLente.Count, Total = somenteLente.Sum(os => os.Financeiro?.ValorTotalLiquido ?? 0m) }
             };
 
-            // 4. Quebra por Vendedora (incluindo comissões geradas)
             var comissoesPeriodo = await _context.Comissoes
-                .Where(c => c.DataGeracao >= inicio && c.DataGeracao <= fim && c.Status != "CANCELADO")
+                .Include(c => c.OrdemServico)
+                .Where(c => c.OrdemServico.OticaId == oticaId && c.DataGeracao >= inicio && c.DataGeracao <= fim && c.Status != "CANCELADO")
                 .ToListAsync();
 
             var resumoVendedores = ordensValidas
@@ -239,7 +241,6 @@ namespace RETSYS.Web.Controllers
                 .OrderByDescending(v => v.TotalVendido)
                 .ToList();
 
-            // 5. Tabela Detalhada com Status de Conferência
             var listaVendas = ordensValidas
                 .Select(os => new
                 {
@@ -271,7 +272,7 @@ namespace RETSYS.Web.Controllers
                 DataInicio = inicio.ToString("yyyy-MM-dd"),
                 DataFim = fim.ToString("yyyy-MM-dd"),
                 TipoPeriodo = tipoPeriodo ?? "hoje",
-                
+
                 Totais = new
                 {
                     TotalVendidoLiquido = totalVendidoLiquido,
@@ -298,6 +299,8 @@ namespace RETSYS.Web.Controllers
         [HttpPost("/caixa/conferir-pagamento/{osId:guid}")]
         public async Task<IActionResult> ConferirPagamento(Guid osId)
         {
+            var oticaId = ObterOticaId();
+
             var perfilClaim = User.FindFirst(ClaimTypes.Role)?.Value ?? "VENDEDOR";
             bool isAdminOuGerente = string.Equals(perfilClaim, "ADMIN", StringComparison.OrdinalIgnoreCase) ||
                                     string.Equals(perfilClaim, "GERENTE", StringComparison.OrdinalIgnoreCase);
@@ -307,7 +310,10 @@ namespace RETSYS.Web.Controllers
                 return StatusCode(StatusCodes.Status403Forbidden, new { mensagem = "Apenas gerentes ou administradores podem conferir pagamentos." });
             }
 
-            var financeiro = await _context.OsFinanceiros.FirstOrDefaultAsync(f => f.OsId == osId);
+            var financeiro = await _context.OsFinanceiros
+                .Include(f => f.OrdemServico)
+                .FirstOrDefaultAsync(f => f.OsId == osId && f.OrdemServico.OticaId == oticaId);
+
             if (financeiro == null)
             {
                 return NotFound();

@@ -6,8 +6,12 @@ namespace RETSYS.Domain.Entities
     public class Cliente
     {
         public Guid Id { get; set; } = Guid.NewGuid();
+
+        public Guid OticaId { get; set; }
+        public Otica? Otica { get; set; }
+
         public string Nome { get; set; } = string.Empty;
-        public string CPF { get; set; } = string.Empty; // Único e formatado
+        public string CPF { get; set; } = string.Empty; // Único por Ótica, formatado
         public string Telefone { get; set; } = string.Empty; // WhatsApp preferencial
         public DateTime? DataNascimento { get; set; }
 

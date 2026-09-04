@@ -26,8 +26,16 @@ public class UsuariosController : Controller
     [HttpGet("/usuarios")]
     public async Task<IActionResult> Index()
     {
+        if (!EhAdministrador())
+        {
+            return Forbid();
+        }
+
+        var oticaId = ObterOticaId();
+
         var equipe = await _context.Usuarios
             .AsNoTracking()
+            .Where(u => u.OticaId == oticaId)
             .OrderByDescending(u => u.CriadoEm)
             .Select(u => new
             {
@@ -38,7 +46,7 @@ public class UsuariosController : Controller
                 Perfil = (int)u.Perfil,
                 PerfilNome = u.Perfil == PerfilUsuario.Admin ? "Administrador" : "Vendedor",
                 u.Ativo,
-                u.PercentualComissao, // Percentual individual de comissão
+                u.PercentualComissao,
                 u.FotoUrl,
                 u.UltimoAcesso,
                 u.CriadoEm
@@ -57,6 +65,11 @@ public class UsuariosController : Controller
     [HttpPost("/equipe")]
     public async Task<IActionResult> Store([FromBody] DtoNovoColaborador model)
     {
+        if (!EhAdministrador())
+        {
+            return Forbid();
+        }
+
         if (string.IsNullOrWhiteSpace(model.Nome) || string.IsNullOrWhiteSpace(model.Email) || string.IsNullOrWhiteSpace(model.Senha))
         {
             Inertia.Share("erro", "Preencha todos os campos obrigatórios (Nome, E-mail e Senha).");
@@ -77,6 +90,7 @@ public class UsuariosController : Controller
         var novoUsuario = new Usuario
         {
             Id = Guid.NewGuid(),
+            OticaId = ObterOticaId(),
             Nome = model.Nome.Trim(),
             Email = model.Email.Trim().ToLower(),
             SenhaHash = hashSenha,
@@ -97,7 +111,14 @@ public class UsuariosController : Controller
     [HttpPost("/equipe/editar/{id:guid}")]
     public async Task<IActionResult> Editar(Guid id, [FromBody] DtoEditarColaborador model)
     {
-        var usuario = await _context.Usuarios.FindAsync(id);
+        if (!EhAdministrador())
+        {
+            return Forbid();
+        }
+
+        var oticaId = ObterOticaId();
+
+        var usuario = await _context.Usuarios.FirstOrDefaultAsync(u => u.Id == id && u.OticaId == oticaId);
         if (usuario == null)
         {
             return NotFound(new { message = "Usuário não encontrado." });
@@ -134,7 +155,14 @@ public class UsuariosController : Controller
     [HttpPost("/equipe/alternar-status/{id:guid}")]
     public async Task<IActionResult> AlternarStatus(Guid id)
     {
-        var usuario = await _context.Usuarios.FindAsync(id);
+        if (!EhAdministrador())
+        {
+            return Forbid();
+        }
+
+        var oticaId = ObterOticaId();
+
+        var usuario = await _context.Usuarios.FirstOrDefaultAsync(u => u.Id == id && u.OticaId == oticaId);
         if (usuario != null)
         {
             usuario.Ativo = !usuario.Ativo;
@@ -148,7 +176,14 @@ public class UsuariosController : Controller
     [HttpPost("/equipe/excluir/{id:guid}")]
     public async Task<IActionResult> Excluir(Guid id)
     {
-        var usuario = await _context.Usuarios.FindAsync(id);
+        if (!EhAdministrador())
+        {
+            return Forbid();
+        }
+
+        var oticaId = ObterOticaId();
+
+        var usuario = await _context.Usuarios.FirstOrDefaultAsync(u => u.Id == id && u.OticaId == oticaId);
         if (usuario != null)
         {
             _context.Usuarios.Remove(usuario);
@@ -157,23 +192,41 @@ public class UsuariosController : Controller
 
         return RedirectToAction(nameof(Index));
     }
+
+    // =========================================================================
+    // AUXILIARES
+    // =========================================================================
+
+    private bool EhAdministrador()
+    {
+        return User.IsInRole("Admin")
+            || User.IsInRole("Administrador")
+            || User.IsInRole("admin")
+            || User.IsInRole("administrador");
+    }
+
+    private Guid ObterOticaId()
+    {
+        var claim = User.FindFirst("OticaId")?.Value;
+        return Guid.TryParse(claim, out var oticaId) ? oticaId : Guid.Empty;
+    }
 }
 
 public record DtoNovoColaborador(
-    string Nome, 
-    string Email, 
-    string FilialLoja, 
+    string Nome,
+    string Email,
+    string FilialLoja,
     string Senha,
     PerfilUsuario Perfil = PerfilUsuario.Vendedor,
     decimal PercentualComissao = 3.00m
 );
 
 public record DtoEditarColaborador(
-    string Nome, 
-    string Email, 
-    string FilialLoja, 
-    PerfilUsuario Perfil, 
-    bool Ativo, 
+    string Nome,
+    string Email,
+    string FilialLoja,
+    PerfilUsuario Perfil,
+    bool Ativo,
     decimal PercentualComissao = 3.00m,
     string? NovaSenha = null
 );
