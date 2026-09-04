@@ -25,14 +25,6 @@ namespace RETSYS.Infrastructure.Migrations
                 nullable: false,
                 defaultValue: new Guid("00000000-0000-0000-0000-000000000000"));
 
-            migrationBuilder.AddColumn<string>(
-                name: "Cnpj",
-                table: "configuracoes_loja",
-                type: "character varying(20)",
-                maxLength: 20,
-                nullable: false,
-                defaultValue: "");
-
             migrationBuilder.AddColumn<Guid>(
                 name: "OticaId",
                 table: "configuracoes_loja",
@@ -143,10 +135,6 @@ namespace RETSYS.Infrastructure.Migrations
             migrationBuilder.DropColumn(
                 name: "OticaId",
                 table: "lentes");
-
-            migrationBuilder.DropColumn(
-                name: "Cnpj",
-                table: "configuracoes_loja");
 
             migrationBuilder.DropColumn(
                 name: "OticaId",
