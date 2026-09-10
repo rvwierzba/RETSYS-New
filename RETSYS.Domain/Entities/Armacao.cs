@@ -36,6 +36,9 @@ namespace RETSYS.Domain.Entities
 
         public bool Ativo { get; set; } = true;
 
+        // Loja/Unidade onde a armação está estocada (Matriz, Travessa Itália, Parque)
+        public string LojaUnidade { get; set; } = "Matriz";
+
         public DateTime CriadoEm { get; set; } = DateTime.UtcNow;
     }
 }

@@ -20,46 +20,187 @@ namespace RETSYS.Web.Controllers
             _context = context;
         }
 
-        // 1. Listagem do Contas a Receber + Geração Dinâmica de PIX (GET)
+        // 1. Listagem do Contas a Receber + Fluxo de Caixa por OS em Linha Única
         [HttpGet("/caixa")]
-        public async Task<IActionResult> Index([FromQuery] Guid? gerarPixParaId)
+        public async Task<IActionResult> Index(
+            [FromQuery] string? loja,
+            [FromQuery] string? situacao,
+            [FromQuery] string? formaPagamento,
+            [FromQuery] Guid? vendedorId,
+            [FromQuery] string? periodo,
+            [FromQuery] Guid? gerarPixParaId)
         {
             var oticaId = ObterOticaId();
+            string lojaFiltro = string.IsNullOrWhiteSpace(loja) ? "Consolidado" : loja;
+            DateTime hoje = DateTime.UtcNow.Date;
 
-            var parcelas = await _context.OrdensServico
+            IQueryable<OrdemServico> query = _context.OrdensServico
                 .Include(os => os.Cliente)
-                .Where(os => os.OticaId == oticaId)
-                .SelectMany(os => os.Parcelas.Select(p => new
-                {
-                    p.Id,
-                    p.NumeroParcela,
-                    p.DescricaoParcela,
-                    p.Valor,
-                    p.DataVencimento,
-                    p.DataPagamento,
-                    ClienteNome = os.Cliente != null ? os.Cliente.Nome : "Não informado",
-                    NumeroOS = os.NumeroOS
-                }))
-                .OrderBy(p => p.DataPagamento != null)
-                .ThenBy(p => p.DataVencimento)
+                .Include(os => os.Vendedor)
+                .Include(os => os.Financeiro)
+                    .ThenInclude(f => f!.Armacao)
+                .Include(os => os.Parcelas)
+                .Where(os => os.Ativo && os.OticaId == oticaId && os.Status != "CANCELADO" && os.Status != "CANCELADA");
+
+            if (!string.Equals(lojaFiltro, "Consolidado", StringComparison.OrdinalIgnoreCase))
+            {
+                query = query.Where(os => os.LojaVenda == lojaFiltro);
+            }
+
+            if (vendedorId.HasValue && vendedorId.Value != Guid.Empty)
+            {
+                query = query.Where(os => os.VendedorId == vendedorId.Value);
+            }
+
+            if (string.Equals(situacao, "1/1", StringComparison.OrdinalIgnoreCase))
+            {
+                query = query.Where(os => os.Financeiro != null && os.Financeiro.ValorRestante <= 0);
+            }
+            else if (string.Equals(situacao, "1/2", StringComparison.OrdinalIgnoreCase))
+            {
+                query = query.Where(os => os.Financeiro != null && os.Financeiro.ValorRestante > 0);
+            }
+
+            if (!string.IsNullOrWhiteSpace(formaPagamento))
+            {
+                var fPadrao = formaPagamento.Trim().ToUpper();
+                query = query.Where(os => os.Financeiro != null && (
+                    os.Financeiro.FormaPagamento.ToUpper().Contains(fPadrao) ||
+                    (os.Financeiro.FormaPagamentoRetirada != null && os.Financeiro.FormaPagamentoRetirada.ToUpper().Contains(fPadrao))
+                ));
+            }
+
+            var ordensLista = await query
+                .OrderByDescending(os => os.DataEntrada)
                 .ToListAsync();
+
+            // Mapeia para linha única por OS
+            var vendasCaixa = ordensLista.Select(os =>
+            {
+                decimal valorTotal = os.Financeiro?.ValorTotalLiquido ?? 0m;
+                decimal valorEntrada = os.Financeiro?.ValorEntrada ?? (os.Financeiro?.ValorTotalLiquido ?? 0m);
+                decimal valorRestante = os.Financeiro?.ValorRestante ?? 0m;
+                bool quitada = valorRestante <= 0 || os.Financeiro?.DataQuitacao != null;
+                string situacaoRotulo = quitada ? "1/1" : "1/2";
+                bool atrasada12 = !quitada && os.DataPrevistaEntrega.Date < hoje;
+
+                string armacaoTexto = os.Financeiro?.Armacao != null
+                    ? $"{os.Financeiro.Armacao.CodigoSku} {os.Financeiro.Armacao.ModeloReferencia}".Trim()
+                    : (!string.IsNullOrWhiteSpace(os.ArmacaoModeloManual) ? os.ArmacaoModeloManual : "—");
+
+                string formaFormatada = FormatarFormaPagamentoCaixa(
+                    os.Financeiro?.FormaPagamento,
+                    os.Financeiro?.Parcelas,
+                    os.Financeiro?.FormaPagamentoRetirada,
+                    os.Financeiro?.ParcelasRetirada,
+                    quitada
+                );
+
+                return new
+                {
+                    os.Id,
+                    os.NumeroOS,
+                    os.DataEntrada,
+                    os.DataPrevistaEntrega,
+                    os.LojaVenda,
+                    ClienteNome = os.Cliente != null ? os.Cliente.Nome : "Não informado",
+                    ClienteCpf = os.Cliente?.CPF,
+                    VendedorNome = os.Vendedor != null ? os.Vendedor.Nome : "Não informado",
+                    ArmacaoDescricao = armacaoTexto,
+                    ValorTotalLiquido = valorTotal,
+                    ValorEntrada = valorEntrada,
+                    ValorRestante = valorRestante,
+                    Situacao = situacaoRotulo,
+                    FormaPagamentoFormatada = formaFormatada,
+                    IsQuitada = quitada,
+                    IsAtrasada12 = atrasada12,
+                    os.Status,
+                    Parcelas = os.Parcelas.Select(p => new
+                    {
+                        p.Id,
+                        p.NumeroParcela,
+                        p.DescricaoParcela,
+                        p.Valor,
+                        p.DataVencimento,
+                        p.DataPagamento,
+                        p.Paga
+                    }).ToList()
+                };
+            }).ToList();
+
+            // CÁLCULO DOS TOTALIZADORES DUPLOS
+            decimal totalVendido = vendasCaixa.Sum(v => v.ValorTotalLiquido);
+            decimal totalRecebido = vendasCaixa.Sum(v => v.ValorEntrada + (v.IsQuitada && v.ValorRestante <= 0 ? 0 : 0));
+            
+            // Soma real do caixa recebido (Entradas + Quitações de retiradas)
+            decimal somaEntradas = ordensLista.Sum(os => os.Financeiro?.ValorEntrada ?? 0m);
+            decimal somaRetiradasQuitadas = ordensLista.Sum(os => os.Financeiro?.ValorRecebidoRetirada ?? 0m);
+            decimal totalRecebidoGaveta = somaEntradas + somaRetiradasQuitadas;
+            
+            decimal totalAReceber = vendasCaixa.Where(v => !v.IsQuitada).Sum(v => v.ValorRestante);
+
+            // Quebra do Total Recebido por Forma de Pagamento
+            var quebraFormas = new[] { "DINHEIRO", "PIX", "CARTAO_CREDITO", "CARTAO_DEBITO", "BOLETO" }
+                .Select(forma =>
+                {
+                    decimal entForma = ordensLista
+                        .Where(os => os.Financeiro != null && string.Equals(os.Financeiro.FormaPagamento, forma, StringComparison.OrdinalIgnoreCase))
+                        .Sum(os => os.Financeiro?.ValorEntrada ?? (os.Financeiro?.ValorRestante == 0 ? os.Financeiro.ValorTotalLiquido : 0m));
+
+                    decimal retForma = ordensLista
+                        .Where(os => os.Financeiro != null && string.Equals(os.Financeiro.FormaPagamentoRetirada, forma, StringComparison.OrdinalIgnoreCase))
+                        .Sum(os => os.Financeiro?.ValorRecebidoRetirada ?? 0m);
+
+                    return new
+                    {
+                        Forma = forma,
+                        TotalForma = entForma + retForma
+                    };
+                }).ToList();
 
             Inertia.Share("PixHabilitadoNestaLoja", true);
 
-            if (gerarPixParaId.HasValue)
+            return Inertia.Render("Caixa/Index", new
             {
-                var parcelaAlvo = parcelas.FirstOrDefault(p => p.Id == gerarPixParaId.Value);
-                if (parcelaAlvo != null && parcelaAlvo.DataPagamento == null)
+                Vendas = vendasCaixa,
+                LojaFiltro = lojaFiltro,
+                SituacaoFiltro = situacao ?? "todas",
+                FormaPagamentoFiltro = formaPagamento ?? "",
+                PeriodoFiltro = periodo ?? "hoje",
+
+                Totais = new
                 {
-                    Inertia.Share("DadosPixAtivo", new
-                    {
-                        qrCodeImagemUrl = $"https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=retsys_mock_pix_emv_{parcelaAlvo.Id}",
-                        pixCopiaECola = $"00020101021226870014br.gov.bcb.pix2565retsys{parcelaAlvo.Id}5405{parcelaAlvo.Valor.ToString("F2")}5802BR5909RETSYS_WEB"
-                    });
+                    TotalVendido = totalVendido,
+                    TotalRecebido = totalRecebidoGaveta,
+                    TotalAReceber = totalAReceber,
+                    QuebraFormas = quebraFormas
                 }
+            });
+        }
+
+        private static string FormatarFormaPagamentoCaixa(string? formaEntrada, int? parcelasEntrada, string? formaRetirada, int? parcelasRetirada, bool quitada)
+        {
+            string fEnt = FormatarFormaIndividual(formaEntrada ?? "DINHEIRO", parcelasEntrada);
+            if (string.IsNullOrEmpty(formaRetirada) || string.Equals(formaEntrada, formaRetirada, StringComparison.OrdinalIgnoreCase))
+            {
+                return fEnt;
             }
 
-            return Inertia.Render("Caixa/Index", new { Parcelas = parcelas });
+            string fRet = FormatarFormaIndividual(formaRetirada, parcelasRetirada);
+            return $"{fEnt} + {fRet}";
+        }
+
+        private static string FormatarFormaIndividual(string forma, int? parcelas)
+        {
+            return forma.ToUpper() switch
+            {
+                "CARTAO_CREDITO" => parcelas > 1 ? $"Cartão de crédito {parcelas}x" : "Cartão de crédito 1x",
+                "CARTAO_DEBITO" => "Cartão de débito",
+                "DINHEIRO" => "Dinheiro",
+                "PIX" => "PIX",
+                "BOLETO" => parcelas > 1 ? $"Boleto {parcelas}x" : "Boleto",
+                _ => forma
+            };
         }
 
         // 2. Confirmação do Recebimento / Baixa da Parcela (POST)

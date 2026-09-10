@@ -53,9 +53,23 @@
                   required
                 />
               </div>
+              <div>
+                <label class="block text-[11px] font-bold uppercase text-indigo-800 tracking-wider mb-1.5">
+                  Loja da Venda *
+                </label>
+                <select
+                  v-model="form.lojaVenda"
+                  class="w-full rounded-xl border-indigo-200 text-sm font-bold text-indigo-950 bg-indigo-50/50 focus:border-indigo-500 focus:ring-indigo-500"
+                  required
+                >
+                  <option value="Matriz">Matriz</option>
+                  <option value="Travessa Itália">Travessa Itália</option>
+                  <option value="Parque">Parque</option>
+                </select>
+              </div>
 
-              <div class="md:col-span-3">
-                <label class="block text-[11px] font-bold uppercase text-slate-400 tracking-wider mb-1.5">CPF do Cliente *</label>
+              <div class="md:col-span-2">
+                <label class="block text-[11px] font-bold uppercase text-slate-400 tracking-wider mb-1.5">CPF do Cliente (Opcional)</label>
                 <div class="flex gap-2">
                   <input
                     v-model="form.cpf"
@@ -65,9 +79,8 @@
                     @input="form.cpf = form.cpf.replace(/\D/g, '').slice(0, 11)"
                     @keydown.enter.prevent
                     class="w-full rounded-xl border-slate-200 text-sm font-mono focus:border-teal-500 focus:ring-teal-500"
-                    required
                   />
-                  <button type="button" @click="consultarCpfNoBanco" :disabled="consultandoCpf" class="bg-slate-950 hover:bg-slate-800 disabled:bg-slate-400 text-white px-4 py-2.5 rounded-xl text-xs font-bold transition whitespace-nowrap">
+                  <button type="button" @click="consultarCpfNoBanco" :disabled="consultandoCpf || !form.cpf" class="bg-slate-950 hover:bg-slate-800 disabled:bg-slate-400 text-white px-4 py-2.5 rounded-xl text-xs font-bold transition whitespace-nowrap">
                     {{ consultandoCpf ? 'Buscando...' : 'Buscar CPF' }}
                   </button>
                 </div>
@@ -654,6 +667,7 @@ const rascunhoRestaurado = ref(false)
 
 const form = useForm({
   numeroOS: props.ProximoNumeroOS || '',
+  lojaVenda: 'Matriz',
   cpf: '',
   nome: '',
   telefone: '',

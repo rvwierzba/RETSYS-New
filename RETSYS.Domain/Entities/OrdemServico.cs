@@ -61,5 +61,12 @@ namespace RETSYS.Domain.Entities
 
         // Controle de exclusão lógica para integridade histórica do banco de dados
         public bool Ativo { get; set; } = true;
+
+        // Loja/Unidade onde a venda foi efetuada (Matriz, Travessa Itália, Parque)
+        public string LojaVenda { get; set; } = "Matriz";
+
+        // Auditoria e log de ajuste de data (Ex: "data ajustada em 05/09 por Admin")
+        public string? DataAjustadaLog { get; set; }
+        public DateTime? DataEntradaOriginal { get; set; }
     }
 }

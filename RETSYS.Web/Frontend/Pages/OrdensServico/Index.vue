@@ -103,10 +103,14 @@
                   <p class="text-xs text-slate-400">
                     {{ formatarData(os.dataVenda || os.DataVenda || os.dataEntrada || os.DataEntrada) }}
                   </p>
+                  <span v-if="os.dataAjustadaLog || os.DataAjustadaLog" class="text-[9px] text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded font-mono font-bold block w-fit mt-1">
+                    {{ os.dataAjustadaLog || os.DataAjustadaLog }}
+                  </span>
                 </td>
                 <td class="py-4">
                   <p class="font-semibold text-slate-800">{{ os.clienteNome || os.ClienteNome }}</p>
                   <p class="text-[11px] text-slate-400">Atendente: {{ os.vendedorNome || os.VendedorNome || 'Não atribuído' }}</p>
+                  <p class="text-[11px] text-slate-400">Atendente: {{ os.vendedorNome || os.VendedorNome || 'Não atribuído' }} • <b class="text-indigo-600">{{ os.lojaVenda || os.LojaVenda || 'Matriz' }}</b></p>
                 </td>
 
                 <!-- SEÇÃO 3.2: CONTROLE VISUAL DE LENTES PEDIDAS NA TABELA -->
@@ -160,6 +164,16 @@
                     title="Visualizar OS Completa"
                   >
                     <span>👁️</span> OS
+                  </button>
+
+                  <!-- EDIÇÃO ADMIN DA DATA DE EMISSÃO -->
+                  <button 
+                    v-if="eAdmin && os.status !== 'CANCELADO' && os.status !== 'CANCELADA'"
+                    @click="abrirModalEditarAdmin(os)"
+                    class="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 text-xs font-bold px-2 py-1.5 rounded-lg transition shadow-sm font-mono"
+                    title="Editar Data de Emissão (Exclusivo Admin)"
+                  >
+                    ✏️ Admin
                   </button>
 
                   <!-- SEÇÃO 3.1 & 6: MARCAR COMO ENTREGUE / QUITAR SALDO -->

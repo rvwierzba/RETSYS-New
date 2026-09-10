@@ -141,12 +141,17 @@ namespace RETSYS.Web.Controllers
                 ? new string(model.CPF.Where(char.IsDigit).ToArray()) 
                 : null;
 
+            if (string.IsNullOrWhiteSpace(cpfFinal))
+            {
+                cpfFinal = null;
+            }
+
             var novoCliente = new Cliente
             {
                 Id = Guid.NewGuid(),
                 OticaId = oticaId,
                 Nome = model.Nome.Trim(),
-                CPF = cpfFinal ?? string.Empty,
+                CPF = cpfFinal,
                 Telefone = model.Telefone ?? string.Empty,
                 Cep = model.Cep ?? string.Empty,
                 Logradouro = model.Logradouro ?? string.Empty,

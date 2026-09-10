@@ -31,6 +31,9 @@ namespace RETSYS.Web.Controllers
         public async Task<IActionResult> Index(
             [FromQuery] string? filtroComposicao,
             [FromQuery] string? filtroLentePedida,
+            [FromQuery] string? filtroAtraso,
+            [FromQuery] string? filtroStatus,
+            [FromQuery] string? loja,
             [FromQuery] Guid? vendedorId)
         {
             var oticaId = ObterOticaId();
@@ -45,6 +48,11 @@ namespace RETSYS.Web.Controllers
                 .Include(os => os.Parcelas)
                 .Include(os => os.PedidoLentePor)
                 .Where(os => os.Ativo && os.OticaId == oticaId);
+
+            if (!string.IsNullOrWhiteSpace(loja) && !string.Equals(loja, "Consolidado", StringComparison.OrdinalIgnoreCase))
+            {
+                query = query.Where(os => os.LojaVenda == loja);
+            }
 
             if (string.Equals(perfilClaim, "VENDEDOR", StringComparison.OrdinalIgnoreCase) &&
                 Guid.TryParse(usuarioIdClaim, out Guid vendedorLogadoId))
@@ -74,7 +82,7 @@ namespace RETSYS.Web.Controllers
                 _ => query
             };
 
-            // --- SEÇÃO 3.3: FILTRO DE LENTES NÃO PEDIDAS (VINDO DO CARD DO DASHBOARD) ---
+            // FILTRO DE LENTES NÃO PEDIDAS
             if (filtroLentePedida == "pendente")
             {
                 query = query.Where(os =>
@@ -83,6 +91,23 @@ namespace RETSYS.Web.Controllers
                     os.Status != "CANCELADA" &&
                     ((os.Financeiro != null && os.Financeiro.ValorLente > 0) ||
                      !string.IsNullOrEmpty(os.LenteDescricaoManual)));
+            }
+
+            // UNIFICAÇÃO DE ATRASOS: "Serviços atrasados"
+            if (filtroAtraso == "atrasados")
+            {
+                DateTime hoje = DateTime.UtcNow.Date;
+                query = query.Where(os =>
+                    os.DataPrevistaEntrega.Date < hoje &&
+                    os.Status != "ENTREGUE" &&
+                    os.Status != "CANCELADO" &&
+                    os.Status != "CANCELADA");
+            }
+
+            // FILTRO POR STATUS
+            if (!string.IsNullOrWhiteSpace(filtroStatus))
+            {
+                query = query.Where(os => os.Status.ToUpper() == filtroStatus.ToUpper());
             }
 
             var queryValidasFaturamento = query.Where(os =>
@@ -435,19 +460,26 @@ namespace RETSYS.Web.Controllers
                     formCollection["cpf"].ToString().Where(char.IsDigit).ToArray()
                 );
 
-                if (string.IsNullOrWhiteSpace(cpfInformado))
+                string? cpfFinalOs = string.IsNullOrWhiteSpace(cpfInformado) ? null : cpfInformado;
+                string nomeClienteInformado = formCollection["nome"].ToString().Trim();
+
+                if (string.IsNullOrWhiteSpace(nomeClienteInformado))
                 {
                     return BadRequest(new
                     {
-                        mensagem = "Informe um CPF válido para o cliente."
+                        mensagem = "Informe o nome do cliente."
                     });
                 }
 
-                var cliente = await _context.Clientes
-                    .FirstOrDefaultAsync(c =>
-                        c.OticaId == oticaId &&
-                        c.CPF != null &&
-                        c.CPF.Replace(".", "").Replace("-", "") == cpfInformado);
+                Cliente? cliente = null;
+                if (!string.IsNullOrEmpty(cpfFinalOs))
+                {
+                    cliente = await _context.Clientes
+                        .FirstOrDefaultAsync(c =>
+                            c.OticaId == oticaId &&
+                            c.CPF != null &&
+                            c.CPF.Replace(".", "").Replace("-", "") == cpfFinalOs);
+                }
 
                 if (cliente == null)
                 {
@@ -455,7 +487,7 @@ namespace RETSYS.Web.Controllers
                     {
                         Id = Guid.NewGuid(),
                         OticaId = oticaId,
-                        CPF = cpfInformado,
+                        CPF = cpfFinalOs,
                         CreatedAt = DateTime.UtcNow
                     };
 
@@ -646,6 +678,10 @@ namespace RETSYS.Web.Controllers
                     }
                 }
 
+                string lojaVenda = formCollection.ContainsKey("lojaVenda") && !string.IsNullOrWhiteSpace(formCollection["lojaVenda"].ToString())
+                    ? formCollection["lojaVenda"].ToString()
+                    : (string.IsNullOrEmpty(vendedor.FilialLoja) ? "Matriz" : vendedor.FilialLoja);
+
                 var novaOS = new OrdemServico
                 {
                     Id = Guid.NewGuid(),
@@ -653,6 +689,7 @@ namespace RETSYS.Web.Controllers
                     NumeroOS = numeroOsDigitado,
                     ClienteId = cliente.Id,
                     VendedorId = vendedor.Id,
+                    LojaVenda = lojaVenda,
                     DataEntrada = DateTime.UtcNow,
 
                     DataPrevistaEntrega = formCollection.ContainsKey("dataPrevistaEntrega") &&
@@ -1325,6 +1362,86 @@ namespace RETSYS.Web.Controllers
             }
 
             return Ok(resultado);
+        }
+
+        // 9. Edição Administrativa Exclusiva da OS pós-emissão (Admin / Gerente)
+        [HttpPost("/ordens/editar-admin/{id:guid}")]
+        public async Task<IActionResult> EditarAdmin(
+            Guid id,
+            [FromForm] DateTime? novaDataEntrada,
+            [FromForm] string? motivo)
+        {
+            var oticaId = ObterOticaId();
+            var perfilClaim = User.FindFirst(ClaimTypes.Role)?.Value ?? "VENDEDOR";
+            bool ehAdminOuGerente = string.Equals(perfilClaim, "ADMIN", StringComparison.OrdinalIgnoreCase) ||
+                                    string.Equals(perfilClaim, "GERENTE", StringComparison.OrdinalIgnoreCase);
+
+            if (!ehAdminOuGerente)
+            {
+                Inertia.Share("erro", "Apenas Administradores ou Gerentes podem editar dados de lançamento de OS.");
+                return RedirectToAction(nameof(Index));
+            }
+
+            var os = await _context.OrdensServico
+                .Include(o => o.Vendedor)
+                .Include(o => o.Financeiro)
+                .FirstOrDefaultAsync(o => o.Id == id && o.OticaId == oticaId && o.Ativo);
+
+            if (os == null)
+            {
+                return NotFound();
+            }
+
+            if (novaDataEntrada.HasValue && novaDataEntrada.Value.Date != os.DataEntrada.Date)
+            {
+                string periodoAntigo = os.DataEntrada.ToString("yyyy-MM");
+                string periodoNovo = novaDataEntrada.Value.ToString("yyyy-MM");
+
+                bool periodoBloqueado = await _context.FechamentosComissao
+                    .AnyAsync(f => (f.PeriodoReferencia == periodoAntigo || f.PeriodoReferencia == periodoNovo) 
+                                && (f.Status == "FECHADO" || f.Status == "PAGO"));
+
+                if (periodoBloqueado)
+                {
+                    Inertia.Share("erro", "Alteração bloqueada: o período de comissão deste mês já se encontra FECHADO ou PAGO!");
+                    return RedirectToAction(nameof(Index));
+                }
+
+                var usuarioIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                var usuarioNomeClaim = User.FindFirst(ClaimTypes.Name)?.Value ?? "Admin";
+                Guid.TryParse(usuarioIdClaim, out Guid usuarioLogadoId);
+
+                var log = new OsAuditoriaLog
+                {
+                    OticaId = oticaId,
+                    OrdemServicoId = os.Id,
+                    UsuarioId = usuarioLogadoId != Guid.Empty ? usuarioLogadoId : (os.VendedorId ?? Guid.Empty),
+                    CampoAlterado = "DataEntrada",
+                    ValorAntigo = os.DataEntrada.ToString("yyyy-MM-dd"),
+                    ValorNovo = novaDataEntrada.Value.ToString("yyyy-MM-dd"),
+                    Descricao = $"Data de entrada alterada por {usuarioNomeClaim}. Motivo: {motivo ?? "Ajuste administrativo"}"
+                };
+                _context.OsAuditoriaLogs.Add(log);
+
+                if (!os.DataEntradaOriginal.HasValue)
+                {
+                    os.DataEntradaOriginal = os.DataEntrada;
+                }
+
+                os.DataEntrada = DateTime.SpecifyKind(novaDataEntrada.Value, DateTimeKind.Utc);
+                os.DataAjustadaLog = $"data ajustada em {DateTime.UtcNow:dd/MM} por {usuarioNomeClaim}";
+
+                var comissoes = await _context.Comissoes.Where(c => c.OrdemServicoId == os.Id).ToListAsync();
+                foreach (var c in comissoes)
+                {
+                    c.PeriodoReferencia = periodoNovo;
+                    c.DataGeracao = os.DataEntrada;
+                }
+
+                await _context.SaveChangesAsync();
+            }
+
+            return RedirectToAction(nameof(Index));
         }
     }
 }

@@ -11,7 +11,7 @@ namespace RETSYS.Domain.Entities
         public Otica? Otica { get; set; }
 
         public string Nome { get; set; } = string.Empty;
-        public string CPF { get; set; } = string.Empty; // Único por Ótica, formatado
+        public string? CPF { get; set; } // Único por Ótica se preenchido, formatado
         public string Telefone { get; set; } = string.Empty; // WhatsApp preferencial
         public DateTime? DataNascimento { get; set; }
 

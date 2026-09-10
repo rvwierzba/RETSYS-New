@@ -25,6 +25,7 @@ namespace RETSYS.Infrastructure.Data
         public DbSet<ConfiguracaoComissao> ConfiguracoesComissao => Set<ConfiguracaoComissao>();
         public DbSet<Comissao> Comissoes => Set<Comissao>();
         public DbSet<FechamentoComissao> FechamentosComissao => Set<FechamentoComissao>();
+        public DbSet<OsAuditoriaLog> OsAuditoriaLogs => Set<OsAuditoriaLog>();
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -137,15 +138,15 @@ namespace RETSYS.Infrastructure.Data
                 b.ToTable("clientes");
                 b.HasKey(c => c.Id);
                 b.Property(c => c.Nome).IsRequired().HasMaxLength(150);
-                b.Property(c => c.CPF).IsRequired().HasMaxLength(14);
-                b.Property(c => c.Telefone).IsRequired().HasMaxLength(20);
-                b.Property(c => c.Logradouro).IsRequired().HasMaxLength(150);
-                b.Property(c => c.Numero).IsRequired().HasMaxLength(10);
+                b.Property(c => c.CPF).IsRequired(false).HasMaxLength(14);
+                b.Property(c => c.Telefone).IsRequired(false).HasMaxLength(20);
+                b.Property(c => c.Logradouro).IsRequired(false).HasMaxLength(150);
+                b.Property(c => c.Numero).IsRequired(false).HasMaxLength(10);
                 b.Property(c => c.Complemento).HasMaxLength(60);
-                b.Property(c => c.Bairro).IsRequired().HasMaxLength(80);
-                b.Property(c => c.Cidade).IsRequired().HasMaxLength(80);
-                b.Property(c => c.Estado).IsRequired().HasMaxLength(2);
-                b.Property(c => c.Cep).IsRequired().HasMaxLength(9);
+                b.Property(c => c.Bairro).IsRequired(false).HasMaxLength(80);
+                b.Property(c => c.Cidade).IsRequired(false).HasMaxLength(80);
+                b.Property(c => c.Estado).IsRequired(false).HasMaxLength(2);
+                b.Property(c => c.Cep).IsRequired(false).HasMaxLength(9);
                 b.Property(c => c.Convenio).HasMaxLength(100);
                 b.Property(c => c.Email).HasMaxLength(150);
                 b.Property(c => c.Observacoes).HasColumnType("text");
@@ -392,6 +393,30 @@ namespace RETSYS.Infrastructure.Data
                 b.HasOne(fc => fc.FechadoPor)
                  .WithMany()
                  .HasForeignKey(fc => fc.FechadoPorId)
+                 .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            // OS_AUDITORIA_LOGS
+            modelBuilder.Entity<OsAuditoriaLog>(b =>
+            {
+                b.ToTable("os_auditoria_logs");
+                b.HasKey(a => a.Id);
+                b.Property(a => a.CampoAlterado).IsRequired().HasMaxLength(100);
+                b.Property(a => a.Descricao).IsRequired().HasMaxLength(500);
+
+                b.HasOne(a => a.Otica)
+                 .WithMany()
+                 .HasForeignKey(a => a.OticaId)
+                 .OnDelete(DeleteBehavior.Restrict);
+
+                b.HasOne(a => a.OrdemServico)
+                 .WithMany()
+                 .HasForeignKey(a => a.OrdemServicoId)
+                 .OnDelete(DeleteBehavior.Cascade);
+
+                b.HasOne(a => a.Usuario)
+                 .WithMany()
+                 .HasForeignKey(a => a.UsuarioId)
                  .OnDelete(DeleteBehavior.Restrict);
             });
         }

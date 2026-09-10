@@ -13,7 +13,14 @@
           </p>
         </div>
         
-        <div class="flex items-center gap-2">
+        <div class="flex flex-wrap items-center gap-2">
+          <select v-model="filtros.loja" @change="atualizarDashboard" class="rounded-xl border-slate-200 text-xs font-bold text-indigo-700 focus:border-indigo-500 focus:ring-indigo-500 bg-indigo-50/50">
+            <option value="Consolidado">🏢 Todas as Lojas (Consolidado)</option>
+            <option value="Matriz">Matriz</option>
+            <option value="Travessa Itália">Travessa Itália</option>
+            <option value="Parque">Parque</option>
+          </select>
+
           <select v-model="filtros.mes" @change="atualizarDashboard" class="rounded-xl border-slate-200 text-xs font-bold text-slate-700 focus:border-teal-500 focus:ring-teal-500 bg-slate-50">
             <option v-for="(nome, index) in meses" :key="index + 1" :value="index + 1">{{ nome }}</option>
           </select>
@@ -23,8 +30,8 @@
         </div>
       </div>
 
-      <!-- CARDS DE RESUMO DO TOPO (INCLUI CARD SEÇÃO 3.3: LENTES NÃO PEDIDAS) -->
-      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7 gap-4">
+      <!-- CARDS DE RESUMO DO TOPO (PADRÃO CLICÁVEL & UNIFICADO) -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
         
         <!-- 1. OS Emitidas Hoje -->
         <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
@@ -49,12 +56,13 @@
         </div>
 
         <!-- 3. SEÇÃO 3.3: CARD LENTES NÃO PEDIDAS (NOVO) -->
+        <!-- 3. LENTES NÃO PEDIDAS (CLICÁVEL) -->
         <div 
           @click="irParaLentesNaoPedidas"
           :class="[
             kpisHoje.lentesNaoPedidas > 0 
               ? 'bg-rose-50/70 border-rose-300 ring-2 ring-rose-100 cursor-pointer hover:bg-rose-100/80' 
-              : 'bg-white border-slate-200'
+              : 'bg-white border-slate-200 hover:border-slate-300 cursor-pointer'
           ]"
           class="p-5 rounded-2xl border shadow-sm flex items-center justify-between transition duration-200"
           title="Clique para ver Ordens de Serviço com lentes pendentes de pedido ao laboratório"
@@ -76,59 +84,67 @@
           </div>
         </div>
 
-        <!-- 4. Minha Comissão -->
-        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between ring-2 ring-offset-0" :class="[eAdmin ? 'ring-indigo-100' : 'ring-teal-100']">
+        <!-- 4. SERVIÇOS ATRASADOS (UNIFICADO E CLICÁVEL) -->
+        <div 
+          @click="irParaServicosAtrasados"
+          :class="[
+            (kpisHoje.servicosAtrasados ?? kpisHoje.osVencidas) > 0 
+              ? 'bg-amber-50/70 border-amber-300 ring-2 ring-amber-100 cursor-pointer hover:bg-amber-100/80' 
+              : 'bg-white border-slate-200 hover:border-slate-300 cursor-pointer'
+          ]"
+          class="p-5 rounded-2xl border shadow-sm flex items-center justify-between transition duration-200"
+          title="Clique para abrir a lista de Ordens de Serviço com data prevista de entrega estourada"
+        >
           <div>
-            <span class="text-[10px] font-bold uppercase text-slate-400 tracking-wider">Minha Comissão</span>
+            <div class="flex items-center gap-1.5">
+              <span class="text-[10px] font-bold uppercase tracking-wider" :class="(kpisHoje.servicosAtrasados ?? kpisHoje.osVencidas) > 0 ? 'text-amber-900' : 'text-slate-400'">Serviços Atrasados</span>
+              <span v-if="(kpisHoje.servicosAtrasados ?? kpisHoje.osVencidas) > 0" class="w-2 h-2 rounded-full bg-amber-600 animate-ping"></span>
+            </div>
+            <p class="text-2xl font-black mt-1 font-mono" :class="(kpisHoje.servicosAtrasados ?? kpisHoje.osVencidas) > 0 ? 'text-amber-800 font-black' : 'text-slate-900'">
+              {{ kpisHoje.servicosAtrasados ?? kpisHoje.osVencidas }}
+            </p>
+            <span class="text-[9px] text-slate-400 block mt-0.5 leading-none">Prazo de entrega estourado</span>
+          </div>
+          <div class="w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold" :class="(kpisHoje.servicosAtrasados ?? kpisHoje.osVencidas) > 0 ? 'bg-amber-100 text-amber-800' : 'bg-slate-100 text-slate-700'">
+            ⏰
+          </div>
+        </div>
+
+        <!-- 5. COMISSÃO (CLICÁVEL) -->
+        <div 
+          @click="irParaComissoes"
+          class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between ring-2 ring-offset-0 cursor-pointer hover:bg-slate-50 transition" 
+          :class="[eAdmin ? 'ring-indigo-100 border-indigo-200' : 'ring-teal-100 border-teal-200']"
+          :title="eAdmin ? 'Clique para abrir o painel de fechamento de comissões por vendedora' : 'Clique para consultar seu extrato de comissões'"
+        >
+          <div>
+            <span class="text-[10px] font-bold uppercase text-slate-400 tracking-wider">
+              {{ eAdmin ? 'Comissão das vendedoras' : 'Minha Comissão' }}
+            </span>
             <p class="text-2xl font-black mt-1 font-mono" :class="[eAdmin ? 'text-indigo-600' : 'text-teal-600']">
               R$ {{ formatMoeda(comissaoMes) }}
             </p>
             <span class="text-[9px] text-slate-400 block mt-0.5 leading-none">
-              {{ eAdmin ? 'Total consolidado a pagar' : 'Sua comissão acumulada' }}
+              {{ eAdmin ? 'Total consolidado do mês' : 'Sua comissão acumulada' }}
             </span>
           </div>
           <div class="w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold" :class="[eAdmin ? 'bg-indigo-50 text-indigo-600' : 'bg-teal-50 text-teal-600']">💰</div>
         </div>
 
-        <!-- 5. Aguardando Retirada -->
-        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
+        <!-- 6. AGUARDANDO RETIRADA (CLICÁVEL) -->
+        <div 
+          @click="irParaProntas"
+          class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between cursor-pointer hover:bg-slate-50 transition"
+          title="Clique para ver Ordens de Serviço prontas aguardando retirada"
+        >
           <div>
             <span class="text-[10px] font-bold uppercase text-slate-400 tracking-wider">Aguardando Retirada</span>
             <p class="text-2xl font-black text-slate-800 mt-1 font-mono">
               {{ kpisHoje.osProntas }} <span class="text-xs text-slate-400 font-normal">OS</span>
             </p>
+            <span class="text-[9px] text-slate-400 block mt-0.5 leading-none">Óculos prontos no balcão</span>
           </div>
           <div class="w-10 h-10 rounded-xl bg-slate-50 text-slate-600 flex items-center justify-center text-sm font-bold">👓</div>
-        </div>
-
-        <!-- 6. Entregas Vencidas -->
-        <div 
-          :class="[kpisHoje.osVencidas > 0 ? 'bg-red-50/60 border-red-200 ring-2 ring-red-100' : 'bg-white border-slate-200']"
-          class="p-5 rounded-2xl border shadow-sm flex items-center justify-between transition duration-200"
-        >
-          <div>
-            <span class="text-[10px] font-bold uppercase text-slate-400 tracking-wider">Entregas Vencidas</span>
-            <p class="text-2xl font-black mt-1 font-mono" :class="[kpisHoje.osVencidas > 0 ? 'text-red-700 animate-pulse' : 'text-slate-900']">
-              {{ kpisHoje.osVencidas }}
-            </p>
-            <span class="text-[9px] text-slate-400 block mt-0.5 leading-none">Atrasadas em laboratório</span>
-          </div>
-          <div class="w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold" :class="[kpisHoje.osVencidas > 0 ? 'bg-red-100 text-red-700' : 'bg-slate-100 text-slate-700']">🛑</div>
-        </div>
-
-        <!-- 7. Retiradas Atrasadas -->
-        <div 
-          :class="[kpisHoje.osAtrasadas > 0 ? 'bg-amber-50/60 border-amber-200' : 'bg-white border-slate-200']"
-          class="p-5 rounded-2xl border shadow-sm flex items-center justify-between transition duration-200"
-        >
-          <div>
-            <span class="text-[10px] font-bold uppercase text-slate-400 tracking-wider">Retiradas Atrasadas</span>
-            <p class="text-2xl font-black mt-1 font-mono" :class="[kpisHoje.osAtrasadas > 0 ? 'text-amber-800' : 'text-slate-900']">
-              {{ kpisHoje.osAtrasadas }}
-            </p>
-            <span class="text-[9px] text-slate-400 block mt-0.5 leading-none">Entregues fora do prazo</span>
-          </div>
-          <div class="w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold" :class="[kpisHoje.osAtrasadas > 0 ? 'bg-amber-100 text-amber-800' : 'bg-slate-100 text-slate-700']">⚠️</div>
         </div>
 
       </div>
@@ -367,6 +383,7 @@ const page = usePage()
 const props = defineProps({
   PerfilUsuario: String, perfilUsuario: String,
   IsAdmin: Boolean, isAdmin: Boolean,
+  LojaFiltro: String, lojaFiltro: String,
   
   ResumoHoje: Object, resumoHoje: Object,
   MinhaComissaoMes: Number, minhaComissaoMes: Number,
@@ -387,11 +404,12 @@ const props = defineProps({
 
 const filtros = reactive({
   mes: props.MesFiltro ?? props.mesFiltro ?? new Date().getMonth() + 1,
-  ano: props.AnoFiltro ?? props.anoFiltro ?? new Date().getFullYear()
+  ano: props.AnoFiltro ?? props.anoFiltro ?? new Date().getFullYear(),
+  loja: props.LojaFiltro ?? props.lojaFiltro ?? 'Consolidado'
 })
 
 const eAdmin = computed(() => props.IsAdmin ?? props.isAdmin ?? (props.PerfilUsuario ?? props.perfilUsuario ?? '').toLowerCase() === 'admin')
-const kpisHoje = computed(() => props.ResumoHoje ?? props.resumoHoje ?? { osHoje: 0, faturadoHoje: 0, osProntas: 0, osVencidas: 0, osAtrasadas: 0, lentesNaoPedidas: 0, lentesNaoPedidasCriticas: 0 })
+const kpisHoje = computed(() => props.ResumoHoje ?? props.resumoHoje ?? { osHoje: 0, faturadoHoje: 0, osProntas: 0, osVencidas: 0, servicosAtrasados: 0, lentesNaoPedidas: 0, lentesNaoPedidasCriticas: 0 })
 const comissaoMes = computed(() => props.MinhaComissaoMes ?? props.minhaComissaoMes ?? 0)
 
 const graficoDados = computed(() => props.FaturamentoGrafico ?? props.faturamentoGrafico ?? [])
@@ -408,10 +426,24 @@ const meses = [
 
 const atualizarDashboard = () => {
   router.get('/dashboard', { mes: filtros.mes, ano: filtros.ano }, { preserveState: true })
+  router.get('/dashboard', { mes: filtros.mes, ano: filtros.ano, loja: filtros.loja }, { preserveState: true })
 }
 
 const irParaLentesNaoPedidas = () => {
   router.get('/ordens', { filtroComposicao: 'pendente' })
+  router.get('/ordens', { filtroLentePedida: 'pendente', loja: filtros.loja })
+}
+
+const irParaServicosAtrasados = () => {
+  router.get('/ordens', { filtroAtraso: 'atrasados', loja: filtros.loja })
+}
+
+const irParaComissoes = () => {
+  router.get(eAdmin.value ? '/admin/comissoes' : '/minhas-comissoes')
+}
+
+const irParaProntas = () => {
+  router.get('/ordens', { filtroStatus: 'PRONTO', loja: filtros.loja })
 }
 
 const formatMoeda = (valor) => {

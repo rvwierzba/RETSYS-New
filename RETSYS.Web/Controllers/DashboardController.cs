@@ -21,11 +21,10 @@ namespace RETSYS.Web.Controllers
         }
 
         [HttpGet("/dashboard")]
-        public async Task<IActionResult> Index([FromQuery] int? mes, [FromQuery] int? ano)
+        public async Task<IActionResult> Index([FromQuery] int? mes, [FromQuery] int? ano, [FromQuery] string? loja)
         {
             var oticaId = ObterOticaId();
 
-            // 1. Identificação do Utilizador Logado e do seu Perfil de Acesso
             var emailUsuario = User.FindFirst(ClaimTypes.Email)?.Value;
             var usuarioLogado = await _context.Usuarios
                 .FirstOrDefaultAsync(u => u.Email == emailUsuario && u.Ativo && u.OticaId == oticaId);
@@ -35,21 +34,24 @@ namespace RETSYS.Web.Controllers
                 return Redirect("/login");
             }
 
-            // Definição de permissões com base no Perfil (Admin vs Vendedor)
             bool isAdmin = usuarioLogado.Perfil.ToString() == "Admin" || usuarioLogado.Perfil.ToString() == "Gerente";
             Guid? vendedorIdFiltro = isAdmin ? null : usuarioLogado.Id;
 
-            // Filtros de mês/ano para os gráficos e rankings históricos
+            string lojaFiltro = string.IsNullOrWhiteSpace(loja) ? "Consolidado" : loja;
+
             int mesFiltro = mes ?? DateTime.UtcNow.Month;
             int anoFiltro = ano ?? DateTime.UtcNow.Year;
             DateTime hoje = DateTime.UtcNow.Date;
 
-            // =========================================================================
-            // CARDS DE RESUMO DO DIA (TOPO)
-            // =========================================================================
-            
+            // Base query por Ótica e Loja
+            var baseQueryOs = _context.OrdensServico.Where(os => os.OticaId == oticaId && os.Ativo);
+            if (!string.Equals(lojaFiltro, "Consolidado", StringComparison.OrdinalIgnoreCase))
+            {
+                baseQueryOs = baseQueryOs.Where(os => os.LojaVenda == lojaFiltro);
+            }
+
             // OS Emitidas Hoje
-            var queryOsHoje = _context.OrdensServico.Where(os => os.OticaId == oticaId && os.DataEntrada.Date == hoje && os.Status != "CANCELADO" && os.Status != "CANCELADA");
+            var queryOsHoje = baseQueryOs.Where(os => os.DataEntrada.Date == hoje && os.Status != "CANCELADO" && os.Status != "CANCELADA");
             if (!isAdmin) queryOsHoje = queryOsHoje.Where(os => os.VendedorId == vendedorIdFiltro);
             int osHojeCount = await queryOsHoje.CountAsync();
 
@@ -59,18 +61,14 @@ namespace RETSYS.Web.Controllers
                 .SumAsync(os => os.Financeiro != null ? os.Financeiro.ValorTotalLiquido : 0);
 
             // OS prontas aguardando retirada (Status: PRONTO)
-            var queryProntas = _context.OrdensServico.Where(os => os.OticaId == oticaId && os.Status == "PRONTO" && os.Ativo);
+            var queryProntas = baseQueryOs.Where(os => os.Status == "PRONTO");
             if (!isAdmin) queryProntas = queryProntas.Where(os => os.VendedorId == vendedorIdFiltro);
             int osProntasCount = await queryProntas.CountAsync();
 
-            // =========================================================================
-            // 🔬 REQUISITO SEÇÃO 3.3: ALERTA DE LENTES NÃO PEDIDAS
-            // =========================================================================
-            var queryLentesNaoPedidas = _context.OrdensServico
+            // Alerta de Lentes não pedidas
+            var queryLentesNaoPedidas = baseQueryOs
                 .Include(os => os.Financeiro)
-                .Where(os => os.OticaId == oticaId
-                       && os.Ativo 
-                       && os.Status != "CANCELADO" 
+                .Where(os => os.Status != "CANCELADO" 
                        && os.Status != "CANCELADA"
                        && !os.LentePedida
                        && ((os.Financeiro != null && os.Financeiro.ValorLente > 0) || !string.IsNullOrEmpty(os.LenteDescricaoManual)));
@@ -79,31 +77,19 @@ namespace RETSYS.Web.Controllers
 
             int osLentesNaoPedidasCount = await queryLentesNaoPedidas.CountAsync();
 
-            // Destaque crítico: Lentes não pedidas há mais de 1 dia desde a emissão da OS
             DateTime dataLimite1Dia = hoje.AddDays(-1);
             int osLentesNaoPedidasCriticas = await queryLentesNaoPedidas
                 .Where(os => os.DataEntrada.Date <= dataLimite1Dia)
                 .CountAsync();
 
-            // =========================================================================
-            // 🛡️ REQUISITO - SEÇÃO 7.2: DISTINÇÃO ENTRE VENCIDAS X ATRASADAS
-            // =========================================================================
+            // UNIFICAÇÃO DE ATRASOS: "Serviços atrasados"
+            // OS cuja data_prevista_entrega já passou e que ainda não foram entregues (status != ENTREGUE e != CANCELADO)
+            var queryServicosAtrasados = baseQueryOs
+                .Where(os => os.DataPrevistaEntrega.Date < hoje && os.Status != "ENTREGUE" && os.Status != "CANCELADO" && os.Status != "CANCELADA");
+            if (!isAdmin) queryServicosAtrasados = queryServicosAtrasados.Where(os => os.VendedorId == vendedorIdFiltro);
+            int osServicosAtrasadosCount = await queryServicosAtrasados.CountAsync();
 
-            // Entregas Vencidas: Passou do prazo estimado e ainda NÃO foi entregue ao cliente 
-            var queryVencidas = _context.OrdensServico
-                .Where(os => os.OticaId == oticaId && os.DataPrevistaEntrega.Date < hoje && os.Status != "ENTREGUE" && os.Status != "CANCELADO" && os.Status != "CANCELADA" && os.Ativo);
-            if (!isAdmin) queryVencidas = queryVencidas.Where(os => os.VendedorId == vendedorIdFiltro);
-            int osVencidasCount = await queryVencidas.CountAsync();
-
-            // Entregas Atrasadas: Já foi entregue (ENTREGUE), mas a data real superou o prazo 
-            var queryAtrasadasReal = _context.OrdensServico
-                .Where(os => os.OticaId == oticaId && os.Status == "ENTREGUE" && os.DataEntregaReal.HasValue && os.DataEntregaReal.Value.Date > os.DataPrevistaEntrega.Date && os.Ativo);
-            if (!isAdmin) queryAtrasadasReal = queryAtrasadasReal.Where(os => os.VendedorId == vendedorIdFiltro);
-            int osAtrasadasRealCount = await queryAtrasadasReal.CountAsync();
-
-            // =========================================================================
-            // 💰 REQUISITO - SEÇÃO 1: CARD DINÂMICO "MINHA COMISSÃO"
-            // =========================================================================
+            // CARD DINÂMICO DE COMISSÃO: "Comissão das vendedoras" (para ADMIN) vs "Minha comissão" (para Vendedor)
             string periodoAtual = hoje.ToString("yyyy-MM"); 
 
             var queryComissaoMes = _context.Comissoes
@@ -112,21 +98,23 @@ namespace RETSYS.Web.Controllers
                          && (c.Status == "PENDENTE" || c.Status == "PAGO")
                          && c.OrdemServico.OticaId == oticaId); 
 
+            if (!string.Equals(lojaFiltro, "Consolidado", StringComparison.OrdinalIgnoreCase))
+            {
+                queryComissaoMes = queryComissaoMes.Where(c => c.OrdemServico.LojaVenda == lojaFiltro);
+            }
+
             if (!isAdmin)
             {
                 queryComissaoMes = queryComissaoMes.Where(c => c.VendedorId == vendedorIdFiltro);
             }
 
-            decimal minhaComissaoMes = await queryComissaoMes.SumAsync(c => c.ValorComissao);
+            decimal comissaoMesTotal = await queryComissaoMes.SumAsync(c => c.ValorComissao);
 
-            // =========================================================================
-            // SEÇÃO CENTRAL: GRÁFICO DE 30 DIAS & LISTA DE ÚLTIMAS 5 OS
-            // =========================================================================
-
+            // Gráfico 30 dias
             var dataLimite30Dias = hoje.AddDays(-30);
-            var queryGrafico = _context.OrdensServico
+            var queryGrafico = baseQueryOs
                 .Include(os => os.Financeiro)
-                .Where(os => os.OticaId == oticaId && os.DataEntrada.Date >= dataLimite30Dias && os.DataEntrada.Date <= hoje && os.Status != "CANCELADO" && os.Status != "CANCELADA" && os.Ativo);
+                .Where(os => os.DataEntrada.Date >= dataLimite30Dias && os.DataEntrada.Date <= hoje && os.Status != "CANCELADO" && os.Status != "CANCELADA");
             
             if (!isAdmin) queryGrafico = queryGrafico.Where(os => os.VendedorId == vendedorIdFiltro);
 
@@ -148,10 +136,9 @@ namespace RETSYS.Web.Controllers
                 })
                 .ToList();
 
-            var queryUltimas5 = _context.OrdensServico
+            var queryUltimas5 = baseQueryOs
                 .Include(os => os.Cliente)
                 .Include(os => os.Financeiro)
-                .Where(os => os.Ativo && os.OticaId == oticaId)
                 .OrderByDescending(os => os.DataEntrada);
 
             var queryUltimas5Filtrada = isAdmin ? queryUltimas5 : queryUltimas5.Where(os => os.VendedorId == vendedorIdFiltro);
@@ -168,15 +155,16 @@ namespace RETSYS.Web.Controllers
                 })
                 .ToListAsync();
 
-            // =========================================================================
-            // ALERTAS: PRODUTOS BAIXOS & ENTREGAS VENCIDAS
-            // =========================================================================
-
             var armacoesEstoqueBaixo = new List<EstoqueBaixoDto>();
             if (isAdmin)
             {
-                armacoesEstoqueBaixo = await _context.Armacoes
-                    .Where(a => a.OticaId == oticaId && a.QuantidadeEstoque < 3 && a.Ativo)
+                var queryEstoque = _context.Armacoes.Where(a => a.OticaId == oticaId && a.QuantidadeEstoque < 3 && a.Ativo);
+                if (!string.Equals(lojaFiltro, "Consolidado", StringComparison.OrdinalIgnoreCase))
+                {
+                    queryEstoque = queryEstoque.Where(a => a.LojaUnidade == lojaFiltro);
+                }
+
+                armacoesEstoqueBaixo = await queryEstoque
                     .Select(a => new EstoqueBaixoDto 
                     { 
                         ModeloReferencia = a.ModeloReferencia, 
@@ -185,9 +173,9 @@ namespace RETSYS.Web.Controllers
                     .ToListAsync();
             }
 
-            var queryAlertasVencidos = _context.OrdensServico
+            var queryAlertasVencidos = baseQueryOs
                 .Include(os => os.Cliente)
-                .Where(os => os.OticaId == oticaId && os.DataPrevistaEntrega.Date < hoje && os.Status != "ENTREGUE" && os.Status != "CANCELADO" && os.Status != "CANCELADA" && os.Ativo);
+                .Where(os => os.DataPrevistaEntrega.Date < hoje && os.Status != "ENTREGUE" && os.Status != "CANCELADO" && os.Status != "CANCELADA");
 
             if (!isAdmin) queryAlertasVencidos = queryAlertasVencidos.Where(os => os.VendedorId == vendedorIdFiltro);
 
@@ -199,12 +187,9 @@ namespace RETSYS.Web.Controllers
                 .Select(os => new { os.NumeroOS, os.ClienteNome, DiasAtraso = (hoje - os.DataPrevistaEntrega.Date).Days })
                 .ToList();
 
-            // =========================================================================
-            // METRICAS HISTÓRICAS DA BARRA LATERAL
-            // =========================================================================
-            var queryTotalFaturado = _context.OrdensServico
+            var queryTotalFaturado = baseQueryOs
                 .Include(os => os.Financeiro)
-                .Where(os => os.OticaId == oticaId && os.DataEntrada.Month == mesFiltro && os.DataEntrada.Year == anoFiltro && os.Status != "CANCELADO" && os.Status != "CANCELADA" && os.Ativo);
+                .Where(os => os.DataEntrada.Month == mesFiltro && os.DataEntrada.Year == anoFiltro && os.Status != "CANCELADO" && os.Status != "CANCELADA");
 
             if (!isAdmin) queryTotalFaturado = queryTotalFaturado.Where(os => os.VendedorId == vendedorIdFiltro);
 
@@ -216,21 +201,20 @@ namespace RETSYS.Web.Controllers
 
             if (isAdmin)
             {
-                rankingVendedores = await _context.OrdensServico
+                rankingVendedores = await baseQueryOs
                     .Include(os => os.Vendedor)
                     .Include(os => os.Financeiro)
-                    .Where(os => os.OticaId == oticaId && os.DataEntrada.Month == mesFiltro && os.DataEntrada.Year == anoFiltro && os.Status != "CANCELADO" && os.Status != "CANCELADA" && os.Ativo)
+                    .Where(os => os.DataEntrada.Month == mesFiltro && os.DataEntrada.Year == anoFiltro && os.Status != "CANCELADO" && os.Status != "CANCELADA")
                     .GroupBy(os => os.Vendedor != null ? os.Vendedor.Nome : "Sem Vendedor")
                     .Select(g => new VendedorRankingDto { VendedorNome = g.Key, TotalVendas = g.Sum(os => os.Financeiro != null ? os.Financeiro.ValorTotalLiquido : 0), QuantidadeOS = g.Count() })
                     .OrderByDescending(v => v.TotalVendas)
                     .ToListAsync();
 
                 faturamentoPorLoja = await _context.OrdensServico
-                    .Include(os => os.Vendedor)
                     .Include(os => os.Financeiro)
                     .Where(os => os.OticaId == oticaId && os.DataEntrada.Month == mesFiltro && os.DataEntrada.Year == anoFiltro && os.Status != "CANCELADO" && os.Status != "CANCELADA" && os.Ativo)
-                    .GroupBy(os => os.Vendedor != null ? os.Vendedor.FilialLoja : "Matriz")
-                    .Select(g => new FaturamentoLojaDto { Loja = string.IsNullOrEmpty(g.Key) ? "Matriz" : g.Key, Total = g.Sum(os => os.Financeiro != null ? os.Financeiro.ValorTotalLiquido : 0) })
+                    .GroupBy(os => string.IsNullOrEmpty(os.LojaVenda) ? "Matriz" : os.LojaVenda)
+                    .Select(g => new FaturamentoLojaDto { Loja = g.Key, Total = g.Sum(os => os.Financeiro != null ? os.Financeiro.ValorTotalLiquido : 0) })
                     .ToListAsync();
             }
 
@@ -238,18 +222,19 @@ namespace RETSYS.Web.Controllers
             {
                 PerfilUsuario = usuarioLogado.Perfil.ToString(),
                 IsAdmin = isAdmin,
+                LojaFiltro = lojaFiltro,
                 
                 ResumoHoje = new {
                     OsHoje = osHojeCount,
                     FaturadoHoje = faturadoHoje,
                     OsProntas = osProntasCount,
-                    OsVencidas = osVencidasCount,
-                    OsAtrasadas = osAtrasadasRealCount,
+                    ServicosAtrasados = osServicosAtrasadosCount,
                     LentesNaoPedidas = osLentesNaoPedidasCount,
-                    LentesNaoPedidasCriticas = osLentesNaoPedidasCriticas
+                    LentesNaoPedidasCriticas = osLentesNaoPedidasCriticas,
+                    ComissaoMesTotal = comissaoMesTotal
                 },
 
-                MinhaComissaoMes = minhaComissaoMes,
+                MinhaComissaoMes = comissaoMesTotal,
 
                 FaturamentoGrafico = faturamentoUltimos30Dias,
                 UltimasOS = ultimas5OS,
