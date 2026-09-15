@@ -231,30 +231,69 @@ namespace RETSYS.Web.Controllers
         [HttpPost("/lentes/precos")]
         public async Task<IActionResult> CriarPreco([FromBody] NovoLentePrecoInput input)
         {
-            if (!EhAdministrador())
-            {
-                return StatusCode(StatusCodes.Status403Forbidden, new { mensagem = "Apenas administradores podem cadastrar preços na matriz." });
-            }
-
             try
             {
-                if (input == null || input.LenteId == Guid.Empty || string.IsNullOrWhiteSpace(input.Tipo))
+                if (input == null || string.IsNullOrWhiteSpace(input.Tipo))
                 {
-                    return BadRequest(new { mensagem = "Lente base e Tipo são campos obrigatórios." });
+                    return BadRequest(new { mensagem = "O tipo da variação é obrigatório." });
                 }
 
                 var oticaId = ObterOticaId();
-
-                var lenteExiste = await _context.Lentes.AnyAsync(l => l.Id == input.LenteId && l.OticaId == oticaId);
-                if (!lenteExiste)
+                if (oticaId == Guid.Empty)
                 {
-                    return NotFound(new { mensagem = "Lente base não encontrada no catálogo desta ótica." });
+                    return BadRequest(new { mensagem = "Ótica não identificada. Faça login novamente." });
+                }
+
+                Guid targetLenteId = Guid.Empty;
+
+                if (input.LenteId.HasValue && input.LenteId.Value != Guid.Empty)
+                {
+                    var lenteExiste = await _context.Lentes.AnyAsync(l => l.Id == input.LenteId.Value && l.OticaId == oticaId);
+                    if (lenteExiste)
+                    {
+                        targetLenteId = input.LenteId.Value;
+                    }
+                }
+
+                if (targetLenteId == Guid.Empty)
+                {
+                    string lab = string.IsNullOrWhiteSpace(input.Laboratorio) ? "Genérico" : input.Laboratorio.Trim();
+                    string bloco = string.IsNullOrWhiteSpace(input.NomeBloco) ? "Padrão" : input.NomeBloco.Trim();
+
+                    var lenteExistente = await _context.Lentes
+                        .FirstOrDefaultAsync(l => l.OticaId == oticaId &&
+                                                 l.Laboratorio.ToLower() == lab.ToLower() &&
+                                                 l.Tipo.ToLower() == bloco.ToLower());
+
+                    if (lenteExistente != null)
+                    {
+                        targetLenteId = lenteExistente.Id;
+                    }
+                    else
+                    {
+                        var novaLente = new Lente
+                        {
+                            Id = Guid.NewGuid(),
+                            OticaId = oticaId,
+                            CodigoSku = $"LNT-{Guid.NewGuid().ToString()[..8].ToUpper()}",
+                            Laboratorio = lab,
+                            Tipo = bloco,
+                            Surfacada = input.Surfacada,
+                            GraduacaoMin = -20.00m,
+                            GraduacaoMax = 20.00m,
+                            Ativo = true
+                        };
+
+                        _context.Lentes.Add(novaLente);
+                        await _context.SaveChangesAsync();
+                        targetLenteId = novaLente.Id;
+                    }
                 }
 
                 var novoPreco = new LentePreco
                 {
                     Id = Guid.NewGuid(),
-                    LenteId = input.LenteId,
+                    LenteId = targetLenteId,
                     Tipo = input.Tipo.Trim(),
                     IndiceRefracao = input.IndiceRefracao,
                     Tratamento = string.IsNullOrWhiteSpace(input.Tratamento) ? null : input.Tratamento.Trim(),
@@ -386,7 +425,10 @@ namespace RETSYS.Web.Controllers
                     return NotFound(new { mensagem = "Preço não encontrado na matriz." });
                 }
 
-                preco.LenteId = input.LenteId;
+                if (input.LenteId.HasValue && input.LenteId.Value != Guid.Empty)
+                {
+                    preco.LenteId = input.LenteId.Value;
+                }
                 preco.Tipo = input.Tipo.Trim();
                 preco.IndiceRefracao = input.IndiceRefracao;
                 preco.Tratamento = string.IsNullOrWhiteSpace(input.Tratamento) ? null : input.Tratamento.Trim();
@@ -445,7 +487,10 @@ namespace RETSYS.Web.Controllers
 
     public class NovoLentePrecoInput
     {
-        public Guid LenteId { get; set; }
+        public Guid? LenteId { get; set; }
+        public string? Laboratorio { get; set; }
+        public string? NomeBloco { get; set; }
+        public bool Surfacada { get; set; }
         public string Tipo { get; set; } = "MONOFOCAL";
         public decimal IndiceRefracao { get; set; }
         public string? Tratamento { get; set; }

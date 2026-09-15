@@ -10,7 +10,7 @@
             Tabela de Preço da Ótica
           </h1>
           <p class="text-xs text-slate-500 mt-1">
-            Gerencie as lentes cadastradas e a tabela oficial de preços de venda da ótica por fabricante, tipo, índice de refração e tratamento.
+            Gerencie o catálogo oficial de lentes da ótica, valores de custo, venda, tratamentos e refrações.
           </p>
         </div>
 
@@ -31,7 +31,6 @@
             Lentes Cadastradas
           </button>
           <button 
-            v-if="isAdmin"
             @click="abaAtiva = 'importar'" 
             :class="[abaAtiva === 'importar' ? 'bg-white text-slate-950 shadow-sm font-black' : 'text-slate-500 hover:text-slate-800 font-medium']"
             class="px-4 py-2 rounded-lg text-xs transition flex items-center gap-1"
@@ -54,7 +53,7 @@
             <input 
               v-model="filtroBusca"
               type="text" 
-              placeholder="Filtrar por laboratório, tipo ou tratamento..." 
+              placeholder="Filtrar por fabricante, bloco ou tratamento..." 
               class="rounded-xl border-slate-200 text-xs focus:border-teal-500 focus:ring-teal-500 max-w-xs placeholder:text-slate-400"
             />
           </div>
@@ -70,9 +69,9 @@
                   <th class="pb-3">Laboratório / Bloco</th>
                   <th class="pb-3">Tipo / Tratamento</th>
                   <th class="pb-3 text-center">Índice</th>
-                  <th class="pb-3 text-center" v-if="isAdmin">Preço Custo</th>
+                  <th class="pb-3 text-center">Preço Custo</th>
                   <th class="pb-3 text-right">Preço Venda</th>
-                  <th class="pb-3 text-center" v-if="isAdmin">Ações</th>
+                  <th class="pb-3 text-center">Ações</th>
                 </tr>
               </thead>
               <tbody>
@@ -88,9 +87,9 @@
                     </p>
                   </td>
                   <td class="py-3 text-center font-mono font-bold text-slate-700">{{ preco.indiceRefracao }}</td>
-                  <td class="py-3 text-center font-mono text-slate-500" v-if="isAdmin">R$ {{ formatMoeda(preco.precoCusto) }}</td>
+                  <td class="py-3 text-center font-mono text-slate-500">R$ {{ formatMoeda(preco.precoCusto) }}</td>
                   <td class="py-3 text-right font-black text-teal-600 font-mono text-sm">R$ {{ formatMoeda(preco.precoVenda) }}</td>
-                  <td class="py-3 text-center flex items-center justify-center gap-1.5" v-if="isAdmin">
+                  <td class="py-3 text-center flex items-center justify-center gap-1.5">
                     <button @click="abrirModalEdicaoPreco(preco)" class="text-slate-700 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 font-bold px-2 py-1 text-[10px] rounded transition font-mono">
                       Editar
                     </button>
@@ -107,53 +106,35 @@
         <!-- Painel Lateral Direto: Cadastros Operacionais Unificados (Uma Coluna) -->
         <div class="space-y-6 h-fit">
           
-          <!-- FORMULÁRIO A: NOVA LENTE BASE (CATÁLOGO DE BLOCOS) -->
-          <div v-if="isAdmin" class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
-            <h3 class="text-sm font-black text-slate-950 uppercase tracking-wider font-mono text-teal-600">＋ Nova Lente Base</h3>
-            
-            <form @submit.prevent="cadastrarLenteBase" class="space-y-4 text-xs">
-              <div>
-                <label class="block font-bold text-slate-400 uppercase mb-1">Laboratório / Fornecedor *</label>
-                <input v-model="formLenteBase.Laboratorio" type="text" placeholder="Ex: Essilor, Hoya, Zeiss" class="w-full rounded-xl border-slate-200 bg-slate-50/50" required />
-              </div>
-
-              <div>
-                <label class="block font-bold text-slate-400 uppercase mb-1">Nome do Bloco / Design *</label>
-                <input v-model="formLenteBase.Tipo" type="text" placeholder="Ex: Airwear, Varilux Comfort, Orma" class="w-full rounded-xl border-slate-200 bg-slate-50/50" required />
-              </div>
-
-              <div class="flex items-center justify-between bg-slate-50 p-3 rounded-xl border border-slate-200">
-                <div>
-                  <span class="block font-bold text-slate-700 text-xs">Lente Surfaçada?</span>
-                  <span class="text-[10px] text-slate-400">Marque se for bloco de receita sob medida</span>
-                </div>
-                <input type="checkbox" v-model="formLenteBase.Surfacada" class="rounded border-slate-300 text-teal-600 focus:ring-teal-500 h-4 w-4" />
-              </div>
-
-              <button type="submit" :disabled="formLenteBase.processing" class="w-full bg-teal-600 hover:bg-teal-700 text-white font-bold py-2.5 rounded-xl transition shadow-sm uppercase tracking-wider text-[10px]">
-                <span v-if="formLenteBase.processing">Gravando Bloco...</span>
-                <span v-else>Salvar Lente Base</span>
-              </button>
-            </form>
-          </div>
-
-          <!-- FORMULÁRIO B: ADICIONAR VARIAÇÃO DE PREÇO NA MATRIZ -->
+          <!-- FORMULÁRIO RÁPIDO: NOVO PREÇO NA TABELA -->
           <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
-            <h3 class="text-sm font-black text-slate-950 uppercase tracking-wider font-mono">Novo Preço Matriz</h3>
+            <h3 class="text-sm font-black text-slate-950 uppercase tracking-wider font-mono text-teal-600">＋ Novo Preço na Tabela</h3>
             
-            <div v-if="!isAdmin" class="p-4 bg-slate-50 text-slate-500 rounded-xl text-xs text-center border">
-              🔐 Apenas administradores ou gerentes podem parametrizar preços de lentes.
-            </div>
-
-            <form v-else @submit.prevent="cadastrarPreco" class="space-y-4 text-xs">
+            <form @submit.prevent="cadastrarPreco" class="space-y-4 text-xs">
               <div>
-                <label class="block font-bold text-slate-400 uppercase mb-1">Lente Base (Catálogo) *</label>
+                <label class="block font-bold text-slate-400 uppercase mb-1">Escolher Lente ou Criar Nova *</label>
                 <select v-model="formPreco.LenteId" class="w-full rounded-xl border-slate-200 bg-slate-50/50" required>
-                  <option value="">Selecione o Bloco de Lente</option>
+                  <option value="NOVA">➕ [Nova Lente / Fabricante]</option>
                   <option v-for="l in LentesMapeadas" :key="l.id" :value="l.id">
                     [{{ l.laboratorio }}] {{ l.tipo }} {{ l.surfacada ? '(SURFAÇADA)' : '' }}
                   </option>
                 </select>
+              </div>
+
+              <!-- Campos de Nova Lente se selecionado NOVA -->
+              <div v-if="formPreco.LenteId === 'NOVA'" class="space-y-3 p-3 bg-teal-50/60 border border-teal-100 rounded-xl">
+                <div>
+                  <label class="block font-bold text-teal-900 uppercase mb-1">Laboratório / Fabricante *</label>
+                  <input v-model="formPreco.Laboratorio" type="text" placeholder="Ex: Essilor, Hoya, Zeiss" class="w-full rounded-xl border-slate-200 bg-white" required />
+                </div>
+                <div>
+                  <label class="block font-bold text-teal-900 uppercase mb-1">Nome do Bloco / Modelo *</label>
+                  <input v-model="formPreco.NomeBloco" type="text" placeholder="Ex: Varilux Comfort, Orma" class="w-full rounded-xl border-slate-200 bg-white" required />
+                </div>
+                <div class="flex items-center justify-between">
+                  <span class="font-bold text-teal-900 text-xs">Lente Surfaçada?</span>
+                  <input type="checkbox" v-model="formPreco.Surfacada" class="rounded border-slate-300 text-teal-600 focus:ring-teal-500 h-4 w-4" />
+                </div>
               </div>
 
               <div>
@@ -178,7 +159,7 @@
                     v-model="formPreco.Tratamento" 
                     type="text" 
                     list="tratamentos-sugeridos" 
-                    placeholder="Ex: Antirreflexo Premium, Fotossensível" 
+                    placeholder="Ex: Antirreflexo Premium, BlueCut" 
                     class="w-full rounded-xl border-slate-200 font-medium bg-slate-50/50" 
                     required 
                   />
@@ -200,8 +181,8 @@
               </div>
 
               <button type="submit" :disabled="formPreco.processing" class="w-full bg-slate-950 hover:bg-slate-800 text-white font-bold py-3 rounded-xl transition shadow-sm uppercase tracking-wider text-[10px]">
-                <span v-if="formPreco.processing">Gravando Matriz...</span>
-                <span v-else>Gravar na Matriz</span>
+                <span v-if="formPreco.processing">Gravando Preço...</span>
+                <span v-else>Salvar na Tabela</span>
               </button>
             </form>
           </div>
@@ -230,7 +211,7 @@
                 <th class="pb-3">Laboratório / Fornecedor</th>
                 <th class="pb-3">Bloco / Design</th>
                 <th class="pb-3 text-center">Tipo de Receita</th>
-                <th class="pb-3 text-center" v-if="isAdmin">Ações</th>
+                <th class="pb-3 text-center">Ações</th>
               </tr>
             </thead>
             <tbody>
@@ -242,7 +223,7 @@
                     {{ lente.surfacada ? 'SURFAÇADA' : 'PADRÃO / PRONTA' }}
                   </span>
                 </td>
-                <td class="py-3 text-center flex items-center justify-center gap-1.5" v-if="isAdmin">
+                <td class="py-3 text-center flex items-center justify-center gap-1.5">
                   <button @click="abrirModalEdicaoLente(lente)" class="text-slate-700 hover:text-slate-900 bg-slate-100 hover:bg-slate-200 font-bold px-2 py-1 text-[10px] rounded transition font-mono">
                     Editar
                   </button>
@@ -259,7 +240,7 @@
       <!-- =========================================================================
            ABA 3: IMPORTADOR INTELIGENTE POR IA (OLLAMA LOCAL)
            ========================================================================= -->
-      <div v-if="abaAtiva === 'importar' && isAdmin" class="bg-white p-6 rounded-2xl border border-slate-200 shadow-xl space-y-4 max-w-3xl mx-auto animate-fadeIn">
+      <div v-if="abaAtiva === 'importar'" class="bg-white p-6 rounded-2xl border border-slate-200 shadow-xl space-y-4 max-w-3xl mx-auto animate-fadeIn">
         <div>
           <h3 class="text-sm font-black text-slate-950 uppercase tracking-wider font-mono flex items-center gap-1.5">
             <span class="w-2.5 h-2.5 rounded-full bg-indigo-600 animate-pulse"></span>
@@ -403,7 +384,7 @@ const props = defineProps({
   precos: { type: Array, default: () => [] },
   Precos: { type: Array, default: () => [] },
   TratamentosSugeridos: { type: Array, default: () => ['Antirreflexo Comum', 'Antirreflexo Premium', 'Filtro Azul (BlueCut)', 'Fotossensível (Transitions)', 'Resina Incolor'] },
-  IsAdmin: { type: Boolean, default: false }
+  IsAdmin: { type: Boolean, default: true }
 })
 
 const abaAtiva = ref('precos')
@@ -412,8 +393,6 @@ const carregandoImportacao = ref(false)
 
 const modalEdicaoPrecoAberta = ref(false)
 const modalEdicaoLenteAberta = ref(false)
-
-const isAdmin = computed(() => props.IsAdmin ?? (page.props.auth?.usuarioPerfil || '').toLowerCase() === 'admin')
 
 // Normalização defensiva do payload JSON vindo do back-end
 const listaPrecosNormalizada = computed(() => {
@@ -453,18 +432,14 @@ const precosFiltrados = computed(() => {
   )
 })
 
-// FORMULÁRIO A: Criação da Lente Base
-const formLenteBase = useForm({
-  Laboratorio: '',
-  Tipo: '',
-  Surfacada: false
-})
-
-// FORMULÁRIO B: Atribuição de preço na Matriz
+// FORMULÁRIO: Atribuição de preço na Matriz (Com suporte a Lente Base existente ou Nova)
 const formPreco = useForm({
-  LenteId: '',
+  LenteId: 'NOVA',
+  Laboratorio: '',
+  NomeBloco: '',
+  Surfacada: false,
   Tipo: 'MONOFOCAL',
-  IndiceRefracao: null,
+  IndiceRefracao: 1.56,
   Tratamento: '', 
   PrecoCusto: 0,
   PrecoVenda: 0
@@ -495,20 +470,6 @@ const formImportacao = ref({
 const formatMoeda = (valor) => {
   if (valor === undefined || valor === null) return '0,00'
   return Number(valor).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-}
-
-const cadastrarLenteBase = () => {
-  router.post('/lentes', {
-    laboratorio: formLenteBase.Laboratorio,
-    tipo: formLenteBase.Tipo,
-    surfacada: formLenteBase.Surfacada
-  }, {
-    preserveScroll: true,
-    onSuccess: () => {
-      formLenteBase.reset()
-      alert('Nova Lente Base adicionada ao catálogo!')
-    }
-  })
 }
 
 const abrirModalEdicaoLente = (lente) => {
@@ -542,8 +503,13 @@ const removerLenteBase = (id) => {
 }
 
 const cadastrarPreco = () => {
+  const isNovaLente = formPreco.LenteId === 'NOVA'
+  
   router.post('/lentes/precos', {
-    lenteId: formPreco.LenteId,
+    lenteId: isNovaLente ? null : formPreco.LenteId,
+    laboratorio: isNovaLente ? formPreco.Laboratorio : '',
+    nomeBloco: isNovaLente ? formPreco.NomeBloco : '',
+    surfacada: isNovaLente ? formPreco.Surfacada : false,
     tipo: formPreco.Tipo,
     indiceRefracao: parseFloat(formPreco.IndiceRefracao) || 0,
     tratamento: formPreco.Tratamento || "",
@@ -553,7 +519,8 @@ const cadastrarPreco = () => {
     preserveScroll: true,
     onSuccess: () => {
       formPreco.reset()
-      alert('Preço inserido com sucesso na matriz ativa!')
+      formPreco.LenteId = 'NOVA'
+      alert('Preço inserido com sucesso na tabela!')
     }
   })
 }
