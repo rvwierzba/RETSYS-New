@@ -53,20 +53,7 @@
                   required
                 />
               </div>
-              <div>
-                <label class="block text-[11px] font-bold uppercase text-indigo-800 tracking-wider mb-1.5">
-                  Loja da Venda *
-                </label>
-                <select
-                  v-model="form.lojaVenda"
-                  class="w-full rounded-xl border-indigo-200 text-sm font-bold text-indigo-950 bg-indigo-50/50 focus:border-indigo-500 focus:ring-indigo-500"
-                  required
-                >
-                  <option value="Matriz">Matriz</option>
-                  <option value="Travessa Itália">Travessa Itália</option>
-                  <option value="Parque">Parque</option>
-                </select>
-              </div>
+              <input type="hidden" v-model="form.lojaVenda" />
 
               <div class="md:col-span-2">
                 <label class="block text-[11px] font-bold uppercase text-slate-400 tracking-wider mb-1.5">CPF do Cliente (Opcional)</label>

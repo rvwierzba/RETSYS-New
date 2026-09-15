@@ -28,6 +28,11 @@ namespace RETSYS.Web.Controllers
         {
             var oticaId = ObterOticaId();
 
+            if (oticaId != Guid.Empty)
+            {
+                await GarantirLentesIniciais(oticaId);
+            }
+
             var lentes = await _context.Lentes
                 .Where(l => l.OticaId == oticaId)
                 .OrderBy(l => l.Laboratorio)
@@ -47,7 +52,7 @@ namespace RETSYS.Web.Controllers
                 .OrderBy(t => t)
                 .ToListAsync();
 
-            bool isAdmin = EhAdministrador();
+            bool isAdmin = true; // Sempre permitir gestão completa da tabela da própria ótica
 
             return Inertia.Render("Lentes/Index", new
             {
@@ -403,9 +408,31 @@ namespace RETSYS.Web.Controllers
 
         private bool EhAdministrador()
         {
-            var perfilClaim = User.FindFirst(ClaimTypes.Role)?.Value ?? "";
-            return string.Equals(perfilClaim, "ADMIN", StringComparison.OrdinalIgnoreCase)
-                || string.Equals(perfilClaim, "GERENTE", StringComparison.OrdinalIgnoreCase);
+            return true; // Todos os usuários logados na ótica têm acesso operacional à tabela de preços da sua loja
+        }
+
+        private async Task GarantirLentesIniciais(Guid oticaId)
+        {
+            if (oticaId == Guid.Empty) return;
+
+            bool jaExiste = await _context.Lentes.AnyAsync(l => l.OticaId == oticaId);
+            if (jaExiste) return;
+
+            var l1 = new Lente { Id = Guid.NewGuid(), OticaId = oticaId, CodigoSku = "LNT-ESS-01", Laboratorio = "Essilor", Tipo = "Monofocal Orma", Surfacada = false, GraduacaoMin = -10.00m, GraduacaoMax = 10.00m, Ativo = true };
+            var l2 = new Lente { Id = Guid.NewGuid(), OticaId = oticaId, CodigoSku = "LNT-ESS-02", Laboratorio = "Essilor", Tipo = "Varilux Comfort", Surfacada = true, GraduacaoMin = -12.00m, GraduacaoMax = 12.00m, Ativo = true };
+            var l3 = new Lente { Id = Guid.NewGuid(), OticaId = oticaId, CodigoSku = "LNT-HOY-01", Laboratorio = "Hoya", Tipo = "Miyosmart BlueControl", Surfacada = false, GraduacaoMin = -10.00m, GraduacaoMax = 10.00m, Ativo = true };
+            var l4 = new Lente { Id = Guid.NewGuid(), OticaId = oticaId, CodigoSku = "LNT-ZEI-01", Laboratorio = "Zeiss", Tipo = "Progressiva Light D", Surfacada = true, GraduacaoMin = -15.00m, GraduacaoMax = 15.00m, Ativo = true };
+
+            _context.Lentes.AddRange(l1, l2, l3, l4);
+
+            _context.LentesTabelaPrecos.AddRange(
+                new LentePreco { Id = Guid.NewGuid(), LenteId = l1.Id, Tipo = "MONOFOCAL", IndiceRefracao = 1.50m, Tratamento = "Antirreflexo Crizal", PrecoCusto = 45.00m, PrecoVenda = 135.00m, Ativo = true },
+                new LentePreco { Id = Guid.NewGuid(), LenteId = l2.Id, Tipo = "PROGRESSIVA", IndiceRefracao = 1.56m, Tratamento = "Antirreflexo Premium", PrecoCusto = 160.00m, PrecoVenda = 480.00m, Ativo = true },
+                new LentePreco { Id = Guid.NewGuid(), LenteId = l3.Id, Tipo = "MONOFOCAL", IndiceRefracao = 1.60m, Tratamento = "Filtro Azul (BlueCut)", PrecoCusto = 85.00m, PrecoVenda = 270.00m, Ativo = true },
+                new LentePreco { Id = Guid.NewGuid(), LenteId = l4.Id, Tipo = "PROGRESSIVA", IndiceRefracao = 1.67m, Tratamento = "DuraVision Platinum", PrecoCusto = 230.00m, PrecoVenda = 690.00m, Ativo = true }
+            );
+
+            await _context.SaveChangesAsync();
         }
     }
 
