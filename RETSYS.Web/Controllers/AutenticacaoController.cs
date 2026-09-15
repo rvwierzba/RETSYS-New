@@ -33,6 +33,7 @@ namespace RETSYS.Web.Controllers
         {
             // Busca o usuário pelo e-mail informado
             var usuario = await _context.Usuarios
+                .Include(u => u.Otica)
                 .FirstOrDefaultAsync(u => u.Email == requisicao.Email && u.Ativo);
 
             // Se não achar ou a senha encriptada não bater, devolve erro
@@ -47,6 +48,8 @@ namespace RETSYS.Web.Controllers
             usuario.UltimoAcesso = DateTime.UtcNow;
             await _context.SaveChangesAsync();
 
+            string nomeOtica = usuario.Otica?.Nome ?? "Ótica RETSYS";
+
             // Cria os "crachás" (Claims) de identificação do usuário dentro do sistema
             var credenciais = new List<Claim>
             {
@@ -55,7 +58,8 @@ namespace RETSYS.Web.Controllers
                 new Claim(ClaimTypes.Email, usuario.Email),
                 new Claim(ClaimTypes.Role, usuario.Perfil.ToString()), // Vendedor, Gerente ou Admin
                 new Claim("Filial", usuario.FilialLoja),
-                new Claim("OticaId", usuario.OticaId.ToString()) // Isolamento Multi-Tenant
+                new Claim("OticaId", usuario.OticaId.ToString()), // Isolamento Multi-Tenant
+                new Claim("OticaNome", nomeOtica)
             };
 
             var identidade = new ClaimsIdentity(credenciais, "Cookies");

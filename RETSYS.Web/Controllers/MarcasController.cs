@@ -34,7 +34,7 @@ public class MarcasController : TenantController
                 m.Descricao,
                 m.Ativo,
                 m.CriadoEm,
-                TotalArmacoes = _context.Armacoes.Count(a => a.MarcaId == m.Id)
+                TotalArmacoes = _context.Armacoes.Count(a => a.MarcaId == m.Id && a.OticaId == oticaId)
             })
             .ToListAsync();
 
@@ -141,7 +141,7 @@ public class MarcasController : TenantController
     {
         var oticaId = ObterOticaId();
 
-        var possuiArmacoes = await _context.Armacoes.AnyAsync(a => a.MarcaId == id);
+        var possuiArmacoes = await _context.Armacoes.AnyAsync(a => a.MarcaId == id && a.OticaId == oticaId);
         if (possuiArmacoes)
         {
             Inertia.Share("erro", "Não é possível excluir uma marca que possui armações vinculadas.");

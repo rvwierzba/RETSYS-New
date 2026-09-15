@@ -1,44 +1,91 @@
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
 using InertiaCore;
-using RETSYS.Domain;
+using RETSYS.Infrastructure.Data;
+using RETSYS.Domain.Entities;
 using System.Threading.Tasks;
+using System;
 
 namespace RETSYS.Web.Controllers
 {
-    public class ConfiguracoesController : Controller
+    public class ConfiguracoesController : TenantController
     {
-        // Simulador de persistência em memória para manter os dados no balcão do MVP
-        private static string _nomeLoja = "Ótica RETSYS - Matriz";
-        private static string _cnpj = "00.000.000/0001-00";
-        private static string _pixApiKey = ""; 
+        private readonly ApplicationDbContext _context;
+
+        public ConfiguracoesController(ApplicationDbContext context)
+        {
+            _context = context;
+        }
 
         [HttpGet("/configuracoes")]
-        public IActionResult Index()
+        public async Task<IActionResult> Index()
         {
+            var oticaId = ObterOticaId();
+
+            var config = await _context.ConfiguracoesLoja
+                .FirstOrDefaultAsync(c => c.OticaId == oticaId);
+
+            if (config == null)
+            {
+                var otica = await _context.Oticas.FirstOrDefaultAsync(o => o.Id == oticaId);
+                string nomeInicial = otica?.Nome ?? "Ótica RETSYS";
+
+                config = new ConfiguracaoLoja
+                {
+                    Id = Guid.NewGuid(),
+                    OticaId = oticaId,
+                    NomeLoja = nomeInicial,
+                    Cnpj = "",
+                    PixApiKey = ""
+                };
+
+                _context.ConfiguracoesLoja.Add(config);
+                await _context.SaveChangesAsync();
+            }
+
             return Inertia.Render("Configuracoes/Index", new
             {
-                NomeLoja = _nomeLoja,
-                Cnpj = _cnpj,
-                PixApiKey = _pixApiKey
+                NomeLoja = config.NomeLoja,
+                Cnpj = config.Cnpj ?? "",
+                PixApiKey = config.PixApiKey ?? ""
             });
         }
 
         [HttpPost("/configuracoes")]
-        public IActionResult Salvar([FromBody] DtoConfigSalvar dados)
+        public async Task<IActionResult> Salvar([FromBody] DtoConfigSalvar dados)
         {
-            if (!string.IsNullOrWhiteSpace(dados.NomeLoja)) _nomeLoja = dados.NomeLoja;
-            if (!string.IsNullOrWhiteSpace(dados.Cnpj)) _cnpj = dados.Cnpj;
-            
-            // Atualiza a chave global que o módulo do caixa usa para saber se o PIX está ativo
-            _pixApiKey = dados.PixApiKey ?? "";
+            var oticaId = ObterOticaId();
 
-            // Compartilha dinamicamente com o pipeline do Inertia se a OpenPix está ativa nesta sessão
-            Inertia.Share("PixHabilitadoNestaLoja", !string.IsNullOrEmpty(_pixApiKey));
+            var config = await _context.ConfiguracoesLoja
+                .FirstOrDefaultAsync(c => c.OticaId == oticaId);
+
+            if (config == null)
+            {
+                config = new ConfiguracaoLoja
+                {
+                    Id = Guid.NewGuid(),
+                    OticaId = oticaId,
+                    NomeLoja = !string.IsNullOrWhiteSpace(dados.NomeLoja) ? dados.NomeLoja.Trim() : "Ótica RETSYS",
+                    Cnpj = dados.Cnpj?.Trim() ?? "",
+                    PixApiKey = dados.PixApiKey?.Trim() ?? ""
+                };
+                _context.ConfiguracoesLoja.Add(config);
+            }
+            else
+            {
+                if (!string.IsNullOrWhiteSpace(dados.NomeLoja)) config.NomeLoja = dados.NomeLoja.Trim();
+                config.Cnpj = dados.Cnpj?.Trim() ?? "";
+                config.PixApiKey = dados.PixApiKey?.Trim() ?? "";
+                _context.ConfiguracoesLoja.Update(config);
+            }
+
+            await _context.SaveChangesAsync();
+
+            Inertia.Share("PixHabilitadoNestaLoja", !string.IsNullOrEmpty(config.PixApiKey));
 
             return RedirectToAction(nameof(Index));
         }
     }
 
-    // Record auxiliar estruturado para o transporte de dados corporativos
     public record DtoConfigSalvar(string NomeLoja, string Cnpj, string? PixApiKey);
 }

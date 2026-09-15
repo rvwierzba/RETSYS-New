@@ -1392,7 +1392,9 @@ namespace RETSYS.Web.Controllers
                 string periodoNovo = novaDataEntrada.Value.ToString("yyyy-MM");
 
                 bool periodoBloqueado = await _context.FechamentosComissao
-                    .AnyAsync(f => (f.PeriodoReferencia == periodoAntigo || f.PeriodoReferencia == periodoNovo) 
+                    .Include(f => f.Vendedor)
+                    .AnyAsync(f => f.Vendedor.OticaId == oticaId 
+                                && (f.PeriodoReferencia == periodoAntigo || f.PeriodoReferencia == periodoNovo) 
                                 && (f.Status == "FECHADO" || f.Status == "PAGO"));
 
                 if (periodoBloqueado)

@@ -127,6 +127,7 @@ app.Use(async (context, next) =>
         usuarioNome = estaAutenticado ? (usuario?.Identity?.Name ?? "Colaborador") : "Colaborador",
         usuarioPerfil = estaAutenticado ? (usuario?.FindFirst(ClaimTypes.Role)?.Value ?? "Vendedor") : "Vendedor",
         usuarioFoto = estaAutenticado ? (usuario?.FindFirst("FotoUrl")?.Value ?? usuario?.FindFirst(ClaimTypes.UserData)?.Value) : null,
+        oticaNome = estaAutenticado ? (usuario?.FindFirst("OticaNome")?.Value ?? "Ótica RETSYS") : "Ótica RETSYS",
         spotifyTokenAtivo = context.Session.GetString("SpotifyToken") != null
     });
     

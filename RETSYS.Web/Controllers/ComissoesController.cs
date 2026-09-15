@@ -78,7 +78,8 @@ namespace RETSYS.Web.Controllers
 
             var fechamentos = await _context.FechamentosComissao
                 .AsNoTracking()
-                .Where(f => f.VendedorId == vendedorId)
+                .Include(f => f.Vendedor)
+                .Where(f => f.VendedorId == vendedorId && f.Vendedor.OticaId == oticaId)
                 .OrderByDescending(f => f.PeriodoReferencia)
                 .ToListAsync();
 
@@ -232,9 +233,11 @@ namespace RETSYS.Web.Controllers
             }
 
             var fechamentoExistente = await _context.FechamentosComissao
+                .Include(f => f.Vendedor)
                 .FirstOrDefaultAsync(f =>
                     f.VendedorId == vendedorId &&
-                    f.PeriodoReferencia == periodo);
+                    f.PeriodoReferencia == periodo &&
+                    f.Vendedor.OticaId == oticaId);
 
             if (fechamentoExistente != null && fechamentoExistente.Status == "PAGO")
             {
@@ -345,10 +348,12 @@ namespace RETSYS.Web.Controllers
             }
 
             var comissoesVinculadas = await _context.Comissoes
+                .Include(c => c.OrdemServico)
                 .Where(c =>
                     c.VendedorId == fechamento.VendedorId &&
                     c.PeriodoReferencia == fechamento.PeriodoReferencia &&
-                    c.Status == "FECHADO")
+                    c.Status == "FECHADO" &&
+                    c.OrdemServico.OticaId == oticaId)
                 .ToListAsync();
 
             if (!comissoesVinculadas.Any())

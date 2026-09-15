@@ -42,8 +42,11 @@
       <!-- Perfil do Utilizador e Menu Suspenso -->
       <div class="relative flex items-center gap-4">
         <div class="text-right hidden sm:block">
-          <p class="text-xs font-bold text-slate-200">{{ nomeUsuario }}</p>
-          <p class="text-[10px] text-slate-400 font-mono">
+          <div class="flex items-center gap-2 justify-end">
+            <span class="text-xs font-bold text-slate-200">{{ nomeUsuario }}</span>
+            <span class="bg-teal-900/60 text-teal-300 border border-teal-700/60 px-2 py-0.5 rounded text-[10px] font-black uppercase tracking-wider">{{ nomeOtica }}</span>
+          </div>
+          <p class="text-[10px] text-slate-400 font-mono mt-0.5">
             Ligado há: <span class="text-teal-400 font-bold">{{ tempoConectado }}</span>
           </p>
         </div>
@@ -122,6 +125,7 @@ const authData = computed(() => page.props.auth || {})
 const perfil = computed(() => authData.value.usuarioPerfil || 'Vendedor')
 const nomeUsuario = computed(() => authData.value.usuarioNome || 'Colaborador')
 const fotoPerfil = computed(() => authData.value.usuarioFoto || null)
+const nomeOtica = computed(() => authData.value.oticaNome || 'Ótica RETSYS')
 
 onMounted(() => {
   const tempoInicio = Date.now()
