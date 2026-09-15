@@ -314,9 +314,9 @@
         </div>
       </div>
 
-      <div v-if="eAdmin" class="grid grid-cols-1 lg:grid-cols-3 gap-6 pt-4">
+      <div v-if="eAdmin" class="grid grid-cols-1 gap-6 pt-4">
         
-        <div class="lg:col-span-2 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+        <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
           <h3 class="text-sm font-black text-slate-950 uppercase tracking-wider font-mono">Ranking de Desempenho dos Vendedores</h3>
           
           <div v-if="ranking.length === 0" class="text-center py-8 text-slate-400 text-xs">
@@ -343,7 +343,6 @@
           </div>
         </div>
 
-        </div>
       </div>
 
     </div>
