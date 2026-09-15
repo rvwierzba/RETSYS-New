@@ -68,17 +68,17 @@ namespace RETSYS.Web.Controllers
                     c.Telefone,
                     
                     // Dados da OS mais recente
-                    UltimaOs = c.OrdensServico.OrderByDescending(os => os.DataEntrada).Select(os => os.NumeroOS).FirstOrDefault() ?? 
+                    UltimaOs = c.OrdensServico.Where(os => os.OticaId == oticaId).OrderByDescending(os => os.DataEntrada).Select(os => os.NumeroOS).FirstOrDefault() ?? 
                                (c.DataUltimaCompra.HasValue ? "MIGRAÇÃO (CRM)" : "Nenhuma"),
 
                     // Mapeamento de Status de Entrega da OS mais recente
-                    StatusEntrega = c.OrdensServico.OrderByDescending(os => os.DataEntrada).Select(os => 
+                    StatusEntrega = c.OrdensServico.Where(os => os.OticaId == oticaId).OrderByDescending(os => os.DataEntrada).Select(os => 
                         os.Status == "ENTREGUE" ? "Entregue" :
                         os.DataPrevistaEntrega.Date < hojeUtc ? "Atrasado" : "A entregar"
                     ).FirstOrDefault() ?? "Nenhum",
 
                     TotalGasto = (c.ValorGasto ?? 0) + (c.OrdensServico
-                        .Where(os => os.Status == "ENTREGUE")
+                        .Where(os => os.Status == "ENTREGUE" && os.OticaId == oticaId)
                         .Sum(os => (decimal?)os.Financeiro.ValorTotalLiquido) ?? 0)
                 })
                 .ToListAsync();
