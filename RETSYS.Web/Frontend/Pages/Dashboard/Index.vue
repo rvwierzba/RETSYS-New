@@ -14,13 +14,6 @@
         </div>
         
         <div class="flex flex-wrap items-center gap-2">
-          <select v-model="filtros.loja" @change="atualizarDashboard" class="rounded-xl border-slate-200 text-xs font-bold text-indigo-700 focus:border-indigo-500 focus:ring-indigo-500 bg-indigo-50/50">
-            <option value="Consolidado">🏢 Todas as Lojas (Consolidado)</option>
-            <option value="Matriz">Matriz</option>
-            <option value="Travessa Itália">Travessa Itália</option>
-            <option value="Parque">Parque</option>
-          </select>
-
           <select v-model="filtros.mes" @change="atualizarDashboard" class="rounded-xl border-slate-200 text-xs font-bold text-slate-700 focus:border-teal-500 focus:ring-teal-500 bg-slate-50">
             <option v-for="(nome, index) in meses" :key="index + 1" :value="index + 1">{{ nome }}</option>
           </select>
@@ -350,22 +343,6 @@
           </div>
         </div>
 
-        <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
-          <h3 class="text-sm font-black text-slate-950 uppercase tracking-wider font-mono">Faturamento consolidado por Loja</h3>
-          
-          <div v-if="faturamentoLojas.length === 0" class="text-center py-8 text-slate-400 text-xs">
-            Sem registros de faturamentos de filiais no período.
-          </div>
-
-          <div v-else class="space-y-3">
-            <div v-for="loja in faturamentoLojas" :key="loja.Loja" class="p-3.5 bg-slate-50 rounded-xl border border-slate-100 flex items-center justify-between text-xs">
-              <div>
-                <p class="font-bold text-slate-800">{{ loja.Loja }}</p>
-                <p class="text-[10px] text-slate-400">Unidade Operacional</p>
-              </div>
-              <p class="font-black text-slate-950 font-mono">R$ {{ formatMoeda(loja.Total) }}</p>
-            </div>
-          </div>
         </div>
       </div>
 
@@ -383,7 +360,6 @@ const page = usePage()
 const props = defineProps({
   PerfilUsuario: String, perfilUsuario: String,
   IsAdmin: Boolean, isAdmin: Boolean,
-  LojaFiltro: String, lojaFiltro: String,
   
   ResumoHoje: Object, resumoHoje: Object,
   MinhaComissaoMes: Number, minhaComissaoMes: Number,
@@ -398,14 +374,12 @@ const props = defineProps({
   AnoFiltro: Number, anoFiltro: Number,
   TotalFaturadoMensal: Number, totalFaturadoMensal: Number,
   TotalOSMensal: Number, totalOSMensal: Number,
-  RankingVendedores: Array, rankingVendedores: Array,
-  FaturamentoPorLoja: Array, faturamentoPorLoja: Array
+  RankingVendedores: Array, rankingVendedores: Array
 })
 
 const filtros = reactive({
   mes: props.MesFiltro ?? props.mesFiltro ?? new Date().getMonth() + 1,
-  ano: props.AnoFiltro ?? props.anoFiltro ?? new Date().getFullYear(),
-  loja: props.LojaFiltro ?? props.lojaFiltro ?? 'Consolidado'
+  ano: props.AnoFiltro ?? props.anoFiltro ?? new Date().getFullYear()
 })
 
 const eAdmin = computed(() => props.IsAdmin ?? props.isAdmin ?? (props.PerfilUsuario ?? props.perfilUsuario ?? '').toLowerCase() === 'admin')
@@ -417,7 +391,6 @@ const ultimasOrdens = computed(() => props.UltimasOS ?? props.ultimasOS ?? [])
 const estoqueVencendo = computed(() => props.AlertasEstoque ?? props.alertasEstoque ?? [])
 const entregasAtrasadas = computed(() => props.AlertasEntregasVencidas ?? props.alertasEntregasVencidas ?? [])
 const ranking = computed(() => props.RankingVendedores ?? props.rankingVendedores ?? [])
-const faturamentoLojas = computed(() => props.FaturamentoPorLoja ?? props.faturamentoPorLoja ?? [])
 
 const meses = [
   'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
@@ -426,16 +399,14 @@ const meses = [
 
 const atualizarDashboard = () => {
   router.get('/dashboard', { mes: filtros.mes, ano: filtros.ano }, { preserveState: true })
-  router.get('/dashboard', { mes: filtros.mes, ano: filtros.ano, loja: filtros.loja }, { preserveState: true })
 }
 
 const irParaLentesNaoPedidas = () => {
   router.get('/ordens', { filtroComposicao: 'pendente' })
-  router.get('/ordens', { filtroLentePedida: 'pendente', loja: filtros.loja })
 }
 
 const irParaServicosAtrasados = () => {
-  router.get('/ordens', { filtroAtraso: 'atrasados', loja: filtros.loja })
+  router.get('/ordens', { filtroAtraso: 'atrasados' })
 }
 
 const irParaComissoes = () => {
@@ -443,7 +414,7 @@ const irParaComissoes = () => {
 }
 
 const irParaProntas = () => {
-  router.get('/ordens', { filtroStatus: 'PRONTO', loja: filtros.loja })
+  router.get('/ordens', { filtroStatus: 'PRONTO' })
 }
 
 const formatMoeda = (valor) => {

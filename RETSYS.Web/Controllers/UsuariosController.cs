@@ -1,3 +1,4 @@
+using System.Security.Claims;
 using InertiaCore;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
@@ -10,7 +11,7 @@ using RETSYS.Infrastructure.Data;
 namespace RETSYS.Web.Controllers;
 
 [Authorize]
-public class UsuariosController : Controller
+public class UsuariosController : TenantController
 {
     private readonly ApplicationDbContext _context;
     private readonly IServicoCriptografia _criptografia;
@@ -55,6 +56,7 @@ public class UsuariosController : Controller
 
         var lojas = await _context.ConfiguracoesLoja
             .AsNoTracking()
+            .Where(l => l.OticaId == oticaId)
             .Select(l => new { l.Id, Nome = l.NomeLoja })
             .ToListAsync();
 
@@ -199,16 +201,11 @@ public class UsuariosController : Controller
 
     private bool EhAdministrador()
     {
-        return User.IsInRole("Admin")
-            || User.IsInRole("Administrador")
-            || User.IsInRole("admin")
-            || User.IsInRole("administrador");
-    }
-
-    private Guid ObterOticaId()
-    {
-        var claim = User.FindFirst("OticaId")?.Value;
-        return Guid.TryParse(claim, out var oticaId) ? oticaId : Guid.Empty;
+        var perfilClaim = User.FindFirst(ClaimTypes.Role)?.Value ?? "";
+        return string.Equals(perfilClaim, "ADMIN", StringComparison.OrdinalIgnoreCase)
+            || string.Equals(perfilClaim, "GERENTE", StringComparison.OrdinalIgnoreCase)
+            || User.IsInRole("Admin")
+            || User.IsInRole("Administrador");
     }
 }
 

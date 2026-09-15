@@ -301,6 +301,102 @@ namespace RETSYS.Web.Controllers
             }
         }
 
+        [HttpPut("/lentes/{id:guid}")]
+        [HttpPost("/lentes/editar/{id:guid}")]
+        public async Task<IActionResult> EditarLenteBase(Guid id, [FromBody] NovaLenteInput input)
+        {
+            if (!EhAdministrador())
+            {
+                return StatusCode(StatusCodes.Status403Forbidden, new { mensagem = "Apenas administradores podem editar lentes base." });
+            }
+
+            try
+            {
+                var oticaId = ObterOticaId();
+                var lente = await _context.Lentes.FirstOrDefaultAsync(l => l.Id == id && l.OticaId == oticaId);
+                if (lente == null)
+                {
+                    return NotFound(new { mensagem = "Lente base não encontrada." });
+                }
+
+                lente.Laboratorio = input.Laboratorio.Trim();
+                lente.Tipo = input.Tipo.Trim();
+                lente.Surfacada = input.Surfacada;
+
+                await _context.SaveChangesAsync();
+                return await Index();
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { mensagem = "Erro interno ao editar lente base.", erro = ex.Message });
+            }
+        }
+
+        [HttpDelete("/lentes/{id:guid}")]
+        [HttpPost("/lentes/excluir/{id:guid}")]
+        public async Task<IActionResult> RemoverLenteBase(Guid id)
+        {
+            if (!EhAdministrador())
+            {
+                return StatusCode(StatusCodes.Status403Forbidden, new { mensagem = "Apenas administradores podem remover lentes base." });
+            }
+
+            try
+            {
+                var oticaId = ObterOticaId();
+                var lente = await _context.Lentes.FirstOrDefaultAsync(l => l.Id == id && l.OticaId == oticaId);
+                if (lente == null)
+                {
+                    return NotFound(new { mensagem = "Lente base não encontrada." });
+                }
+
+                _context.Lentes.Remove(lente);
+                await _context.SaveChangesAsync();
+                return await Index();
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { mensagem = "Erro interno ao remover lente base.", erro = ex.Message });
+            }
+        }
+
+        [HttpPut("/lentes/precos/{id:guid}")]
+        [HttpPost("/lentes/precos/editar/{id:guid}")]
+        public async Task<IActionResult> EditarPreco(Guid id, [FromBody] NovoLentePrecoInput input)
+        {
+            if (!EhAdministrador())
+            {
+                return StatusCode(StatusCodes.Status403Forbidden, new { mensagem = "Apenas administradores podem editar preços na matriz." });
+            }
+
+            try
+            {
+                var oticaId = ObterOticaId();
+                var preco = await _context.LentesTabelaPrecos
+                    .Include(p => p.Lente)
+                    .FirstOrDefaultAsync(p => p.Id == id && p.Lente != null && p.Lente.OticaId == oticaId);
+
+                if (preco == null)
+                {
+                    return NotFound(new { mensagem = "Preço não encontrado na matriz." });
+                }
+
+                preco.LenteId = input.LenteId;
+                preco.Tipo = input.Tipo.Trim();
+                preco.IndiceRefracao = input.IndiceRefracao;
+                preco.Tratamento = string.IsNullOrWhiteSpace(input.Tratamento) ? null : input.Tratamento.Trim();
+                preco.PrecoCusto = input.PrecoCusto;
+                preco.PrecoVenda = input.PrecoVenda;
+
+                await _context.SaveChangesAsync();
+                return await Index();
+            }
+            catch (Exception ex)
+            {
+                return StatusCode(500, new { mensagem = "Erro interno ao editar preço da matriz.", erro = ex.Message });
+            }
+        }
+
         // =========================================================================
         // AUXILIAR — MESMO PADRÃO USADO EM OrdensServicoController E CaixaController
         // =========================================================================

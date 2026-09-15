@@ -21,7 +21,7 @@ namespace RETSYS.Web.Controllers
         }
 
         [HttpGet("/dashboard")]
-        public async Task<IActionResult> Index([FromQuery] int? mes, [FromQuery] int? ano, [FromQuery] string? loja)
+        public async Task<IActionResult> Index([FromQuery] int? mes, [FromQuery] int? ano)
         {
             var oticaId = ObterOticaId();
 
@@ -37,18 +37,12 @@ namespace RETSYS.Web.Controllers
             bool isAdmin = usuarioLogado.Perfil.ToString() == "Admin" || usuarioLogado.Perfil.ToString() == "Gerente";
             Guid? vendedorIdFiltro = isAdmin ? null : usuarioLogado.Id;
 
-            string lojaFiltro = string.IsNullOrWhiteSpace(loja) ? "Consolidado" : loja;
-
             int mesFiltro = mes ?? DateTime.UtcNow.Month;
             int anoFiltro = ano ?? DateTime.UtcNow.Year;
             DateTime hoje = DateTime.UtcNow.Date;
 
-            // Base query por Ótica e Loja
+            // Base query por Ótica (Tenant único)
             var baseQueryOs = _context.OrdensServico.Where(os => os.OticaId == oticaId && os.Ativo);
-            if (!string.Equals(lojaFiltro, "Consolidado", StringComparison.OrdinalIgnoreCase))
-            {
-                baseQueryOs = baseQueryOs.Where(os => os.LojaVenda == lojaFiltro);
-            }
 
             // OS Emitidas Hoje
             var queryOsHoje = baseQueryOs.Where(os => os.DataEntrada.Date == hoje && os.Status != "CANCELADO" && os.Status != "CANCELADA");
@@ -83,13 +77,12 @@ namespace RETSYS.Web.Controllers
                 .CountAsync();
 
             // UNIFICAÇÃO DE ATRASOS: "Serviços atrasados"
-            // OS cuja data_prevista_entrega já passou e que ainda não foram entregues (status != ENTREGUE e != CANCELADO)
             var queryServicosAtrasados = baseQueryOs
                 .Where(os => os.DataPrevistaEntrega.Date < hoje && os.Status != "ENTREGUE" && os.Status != "CANCELADO" && os.Status != "CANCELADA");
             if (!isAdmin) queryServicosAtrasados = queryServicosAtrasados.Where(os => os.VendedorId == vendedorIdFiltro);
             int osServicosAtrasadosCount = await queryServicosAtrasados.CountAsync();
 
-            // CARD DINÂMICO DE COMISSÃO: "Comissão das vendedoras" (para ADMIN) vs "Minha comissão" (para Vendedor)
+            // CARD DINÂMICO DE COMISSÃO
             string periodoAtual = hoje.ToString("yyyy-MM"); 
 
             var queryComissaoMes = _context.Comissoes
@@ -97,11 +90,6 @@ namespace RETSYS.Web.Controllers
                 .Where(c => c.PeriodoReferencia == periodoAtual 
                          && (c.Status == "PENDENTE" || c.Status == "PAGO")
                          && c.OrdemServico.OticaId == oticaId); 
-
-            if (!string.Equals(lojaFiltro, "Consolidado", StringComparison.OrdinalIgnoreCase))
-            {
-                queryComissaoMes = queryComissaoMes.Where(c => c.OrdemServico.LojaVenda == lojaFiltro);
-            }
 
             if (!isAdmin)
             {
@@ -158,13 +146,8 @@ namespace RETSYS.Web.Controllers
             var armacoesEstoqueBaixo = new List<EstoqueBaixoDto>();
             if (isAdmin)
             {
-                var queryEstoque = _context.Armacoes.Where(a => a.OticaId == oticaId && a.QuantidadeEstoque < 3 && a.Ativo);
-                if (!string.Equals(lojaFiltro, "Consolidado", StringComparison.OrdinalIgnoreCase))
-                {
-                    queryEstoque = queryEstoque.Where(a => a.LojaUnidade == lojaFiltro);
-                }
-
-                armacoesEstoqueBaixo = await queryEstoque
+                armacoesEstoqueBaixo = await _context.Armacoes
+                    .Where(a => a.OticaId == oticaId && a.QuantidadeEstoque < 3 && a.Ativo)
                     .Select(a => new EstoqueBaixoDto 
                     { 
                         ModeloReferencia = a.ModeloReferencia, 
@@ -209,20 +192,12 @@ namespace RETSYS.Web.Controllers
                     .Select(g => new VendedorRankingDto { VendedorNome = g.Key, TotalVendas = g.Sum(os => os.Financeiro != null ? os.Financeiro.ValorTotalLiquido : 0), QuantidadeOS = g.Count() })
                     .OrderByDescending(v => v.TotalVendas)
                     .ToListAsync();
-
-                faturamentoPorLoja = await _context.OrdensServico
-                    .Include(os => os.Financeiro)
-                    .Where(os => os.OticaId == oticaId && os.DataEntrada.Month == mesFiltro && os.DataEntrada.Year == anoFiltro && os.Status != "CANCELADO" && os.Status != "CANCELADA" && os.Ativo)
-                    .GroupBy(os => string.IsNullOrEmpty(os.LojaVenda) ? "Matriz" : os.LojaVenda)
-                    .Select(g => new FaturamentoLojaDto { Loja = g.Key, Total = g.Sum(os => os.Financeiro != null ? os.Financeiro.ValorTotalLiquido : 0) })
-                    .ToListAsync();
             }
 
             return Inertia.Render("Dashboard/Index", new
             {
                 PerfilUsuario = usuarioLogado.Perfil.ToString(),
                 IsAdmin = isAdmin,
-                LojaFiltro = lojaFiltro,
                 
                 ResumoHoje = new {
                     OsHoje = osHojeCount,
@@ -245,8 +220,7 @@ namespace RETSYS.Web.Controllers
                 AnoFiltro = anoFiltro,
                 TotalFaturadoMensal = totalFaturadoMensal,
                 TotalOSMensal = totalOSMensal,
-                RankingVendedores = rankingVendedores,
-                FaturamentoPorLoja = faturamentoPorLoja
+                RankingVendedores = rankingVendedores
             });
         }
     }

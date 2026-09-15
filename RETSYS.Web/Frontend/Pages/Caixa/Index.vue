@@ -10,17 +10,6 @@
         </div>
 
         <div class="flex flex-wrap items-center gap-3">
-          <!-- Filtro de Loja -->
-          <div>
-            <label class="block text-[9px] font-bold uppercase text-slate-400 mb-0.5">Loja / Unidade</label>
-            <select v-model="filtros.loja" @change="filtrarCaixa" class="rounded-xl border-slate-200 text-xs font-bold text-indigo-700 bg-indigo-50/50 focus:ring-indigo-500">
-              <option value="Consolidado">🏢 Todas as Lojas (Consolidado)</option>
-              <option value="Matriz">Matriz</option>
-              <option value="Travessa Itália">Travessa Itália</option>
-              <option value="Parque">Parque</option>
-            </select>
-          </div>
-
           <!-- Filtro de Situação -->
           <div>
             <label class="block text-[9px] font-bold uppercase text-slate-400 mb-0.5">Situação</label>
@@ -194,7 +183,6 @@ import AuthenticatedLayout from '../../Shared/AuthenticatedLayout.vue'
 const props = defineProps({
   vendas: Array, Vendas: Array,
   totais: Object, Totais: Object,
-  lojaFiltro: String, LojaFiltro: String,
   situacaoFiltro: String, SituacaoFiltro: String,
   formaPagamentoFiltro: String, FormaPagamentoFiltro: String
 })
@@ -203,7 +191,6 @@ const parcelaSelecionada = ref(null)
 const intervaloChecagem = ref(null)
 
 const filtros = reactive({
-  loja: props.LojaFiltro ?? props.lojaFiltro ?? 'Consolidado',
   situacao: props.SituacaoFiltro ?? props.situacaoFiltro ?? 'todas',
   formaPagamento: props.FormaPagamentoFiltro ?? props.formaPagamentoFiltro ?? ''
 })
@@ -213,7 +200,6 @@ const totais = computed(() => props.Totais ?? props.totais ?? { totalVendido: 0,
 
 const filtrarCaixa = () => {
   router.get('/caixa', {
-    loja: filtros.loja,
     situacao: filtros.situacao,
     formaPagamento: filtros.formaPagamento
   }, { preserveState: true })

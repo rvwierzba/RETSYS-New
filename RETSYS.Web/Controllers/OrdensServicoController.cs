@@ -33,7 +33,6 @@ namespace RETSYS.Web.Controllers
             [FromQuery] string? filtroLentePedida,
             [FromQuery] string? filtroAtraso,
             [FromQuery] string? filtroStatus,
-            [FromQuery] string? loja,
             [FromQuery] Guid? vendedorId)
         {
             var oticaId = ObterOticaId();
@@ -48,11 +47,6 @@ namespace RETSYS.Web.Controllers
                 .Include(os => os.Parcelas)
                 .Include(os => os.PedidoLentePor)
                 .Where(os => os.Ativo && os.OticaId == oticaId);
-
-            if (!string.IsNullOrWhiteSpace(loja) && !string.Equals(loja, "Consolidado", StringComparison.OrdinalIgnoreCase))
-            {
-                query = query.Where(os => os.LojaVenda == loja);
-            }
 
             if (string.Equals(perfilClaim, "VENDEDOR", StringComparison.OrdinalIgnoreCase) &&
                 Guid.TryParse(usuarioIdClaim, out Guid vendedorLogadoId))

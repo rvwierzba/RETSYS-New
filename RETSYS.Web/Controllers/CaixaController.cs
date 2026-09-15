@@ -23,7 +23,6 @@ namespace RETSYS.Web.Controllers
         // 1. Listagem do Contas a Receber + Fluxo de Caixa por OS em Linha Única
         [HttpGet("/caixa")]
         public async Task<IActionResult> Index(
-            [FromQuery] string? loja,
             [FromQuery] string? situacao,
             [FromQuery] string? formaPagamento,
             [FromQuery] Guid? vendedorId,
@@ -31,7 +30,6 @@ namespace RETSYS.Web.Controllers
             [FromQuery] Guid? gerarPixParaId)
         {
             var oticaId = ObterOticaId();
-            string lojaFiltro = string.IsNullOrWhiteSpace(loja) ? "Consolidado" : loja;
             DateTime hoje = DateTime.UtcNow.Date;
 
             IQueryable<OrdemServico> query = _context.OrdensServico
@@ -41,11 +39,6 @@ namespace RETSYS.Web.Controllers
                     .ThenInclude(f => f!.Armacao)
                 .Include(os => os.Parcelas)
                 .Where(os => os.Ativo && os.OticaId == oticaId && os.Status != "CANCELADO" && os.Status != "CANCELADA");
-
-            if (!string.Equals(lojaFiltro, "Consolidado", StringComparison.OrdinalIgnoreCase))
-            {
-                query = query.Where(os => os.LojaVenda == lojaFiltro);
-            }
 
             if (vendedorId.HasValue && vendedorId.Value != Guid.Empty)
             {
@@ -163,7 +156,6 @@ namespace RETSYS.Web.Controllers
             return Inertia.Render("Caixa/Index", new
             {
                 Vendas = vendasCaixa,
-                LojaFiltro = lojaFiltro,
                 SituacaoFiltro = situacao ?? "todas",
                 FormaPagamentoFiltro = formaPagamento ?? "",
                 PeriodoFiltro = periodo ?? "hoje",
