@@ -48,8 +48,8 @@ namespace RETSYS.Web.Controllers
                         return usuario.OticaId;
                     }
 
-                    // Se o usuário por algum motivo ainda estiver sem OticaId no banco
-                    var oticaExistente = context.Oticas.FirstOrDefault();
+                    // Se o usuário por algum motivo ainda estiver sem OticaId ou com Guid zero no banco
+                    var oticaExistente = context.Oticas.FirstOrDefault(o => o.Id != Guid.Empty);
                     if (oticaExistente == null)
                     {
                         oticaExistente = new Otica
@@ -65,6 +65,13 @@ namespace RETSYS.Web.Controllers
                     usuario.OticaId = oticaExistente.Id;
                     context.SaveChanges();
                     return usuario.OticaId;
+                }
+
+                // Se não localizou o usuário específico, busca a primeira Ótica válida cadastrada
+                var oticaPadrao = context.Oticas.FirstOrDefault(o => o.Id != Guid.Empty);
+                if (oticaPadrao != null)
+                {
+                    return oticaPadrao.Id;
                 }
             }
 

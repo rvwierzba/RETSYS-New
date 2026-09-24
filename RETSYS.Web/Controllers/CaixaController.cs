@@ -29,6 +29,11 @@ namespace RETSYS.Web.Controllers
             [FromQuery] string? periodo,
             [FromQuery] Guid? gerarPixParaId)
         {
+            if (!EhAdministrador())
+            {
+                return Redirect("/dashboard");
+            }
+
             var oticaId = ObterOticaId();
             DateTime hoje = DateTime.UtcNow.Date;
 
@@ -470,6 +475,15 @@ namespace RETSYS.Web.Controllers
 
             await _context.SaveChangesAsync();
             return RedirectToAction(nameof(Fechamento));
+        }
+
+        private bool EhAdministrador()
+        {
+            var perfilClaim = User.FindFirst(ClaimTypes.Role)?.Value ?? "";
+            return string.Equals(perfilClaim, "ADMIN", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(perfilClaim, "GERENTE", StringComparison.OrdinalIgnoreCase)
+                || User.IsInRole("Admin")
+                || User.IsInRole("Administrador");
         }
     }
 }

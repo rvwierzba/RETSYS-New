@@ -197,7 +197,8 @@ namespace RETSYS.Web.Controllers
 
                 if (oticaId == Guid.Empty)
                 {
-                    return BadRequest(new { mensagem = "Não foi possível identificar a ótica do usuário logado. Faça login novamente." });
+                    Inertia.Share("erro", "Não foi possível identificar a ótica do usuário logado. Faça login novamente.");
+                    return RedirectToAction(nameof(Index));
                 }
 
                 var novaLente = new Lente
@@ -216,11 +217,12 @@ namespace RETSYS.Web.Controllers
                 _context.Lentes.Add(novaLente);
                 await _context.SaveChangesAsync();
 
-                return await Index();
+                return RedirectToAction(nameof(Index));
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { mensagem = "Erro interno ao salvar lente base.", erro = ex.Message });
+                Inertia.Share("erro", $"Erro ao salvar lente: {ex.Message}");
+                return RedirectToAction(nameof(Index));
             }
         }
 
@@ -235,13 +237,15 @@ namespace RETSYS.Web.Controllers
             {
                 if (input == null || string.IsNullOrWhiteSpace(input.Tipo))
                 {
-                    return BadRequest(new { mensagem = "O tipo da variação é obrigatório." });
+                    Inertia.Share("erro", "O tipo da variação é obrigatório.");
+                    return RedirectToAction(nameof(Index));
                 }
 
                 var oticaId = ObterOticaId();
                 if (oticaId == Guid.Empty)
                 {
-                    return BadRequest(new { mensagem = "Ótica não identificada. Faça login novamente." });
+                    Inertia.Share("erro", "Ótica não identificada. Faça login novamente.");
+                    return RedirectToAction(nameof(Index));
                 }
 
                 Guid targetLenteId = Guid.Empty;
@@ -305,11 +309,12 @@ namespace RETSYS.Web.Controllers
                 _context.LentesTabelaPrecos.Add(novoPreco);
                 await _context.SaveChangesAsync();
 
-                return await Index();
+                return RedirectToAction(nameof(Index));
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { mensagem = "Erro interno ao salvar preço na matriz.", erro = ex.Message });
+                Inertia.Share("erro", $"Erro ao salvar preço na matriz: {ex.Message}");
+                return RedirectToAction(nameof(Index));
             }
         }
 
@@ -337,11 +342,12 @@ namespace RETSYS.Web.Controllers
                 _context.LentesTabelaPrecos.Remove(preco);
                 await _context.SaveChangesAsync();
 
-                return await Index();
+                return RedirectToAction(nameof(Index));
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { mensagem = "Erro interno ao remover preço da matriz.", erro = ex.Message });
+                Inertia.Share("erro", $"Erro ao remover preço da matriz: {ex.Message}");
+                return RedirectToAction(nameof(Index));
             }
         }
 
@@ -368,11 +374,12 @@ namespace RETSYS.Web.Controllers
                 lente.Surfacada = input.Surfacada;
 
                 await _context.SaveChangesAsync();
-                return await Index();
+                return RedirectToAction(nameof(Index));
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { mensagem = "Erro interno ao editar lente base.", erro = ex.Message });
+                Inertia.Share("erro", $"Erro ao editar lente base: {ex.Message}");
+                return RedirectToAction(nameof(Index));
             }
         }
 
@@ -396,11 +403,12 @@ namespace RETSYS.Web.Controllers
 
                 _context.Lentes.Remove(lente);
                 await _context.SaveChangesAsync();
-                return await Index();
+                return RedirectToAction(nameof(Index));
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { mensagem = "Erro interno ao remover lente base.", erro = ex.Message });
+                Inertia.Share("erro", $"Erro ao remover lente base: {ex.Message}");
+                return RedirectToAction(nameof(Index));
             }
         }
 
@@ -436,11 +444,12 @@ namespace RETSYS.Web.Controllers
                 preco.PrecoVenda = input.PrecoVenda;
 
                 await _context.SaveChangesAsync();
-                return await Index();
+                return RedirectToAction(nameof(Index));
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { mensagem = "Erro interno ao editar preço da matriz.", erro = ex.Message });
+                Inertia.Share("erro", $"Erro ao editar preço da matriz: {ex.Message}");
+                return RedirectToAction(nameof(Index));
             }
         }
 

@@ -21,21 +21,53 @@ namespace RETSYS.Infrastructure.Data
             // Executa automaticamente as Migrations pendentes caso o banco tenha acabado de subir
             await _context.Database.MigrateAsync();
 
-            // 1. Garantir que exta pelo menos uma Ótica matriz no sistema
-            var oticaPadrao = await _context.Oticas.FirstOrDefaultAsync();
+            // 1. Garantir que exista pelo menos uma Ótica matriz no sistema com GUID válido (diferente de Guid.Empty)
+            var oticaPadrao = await _context.Oticas.FirstOrDefaultAsync(o => o.Id != Guid.Empty);
             if (oticaPadrao == null)
             {
+                // Se só existe a ótica com Guid.Empty, recuperamos o nome dela se houver
+                var oticaZero = await _context.Oticas.FirstOrDefaultAsync(o => o.Id == Guid.Empty);
+                string nome = (oticaZero != null && !string.IsNullOrWhiteSpace(oticaZero.Nome) && !oticaZero.Nome.Equals("Ótica Padrão", StringComparison.OrdinalIgnoreCase)) 
+                    ? oticaZero.Nome 
+                    : "Ótica RETSYS";
+
                 oticaPadrao = new Otica
                 {
                     Id = Guid.NewGuid(),
-                    Nome = "Ótica RETSYS Demonstrativa",
+                    Nome = nome,
                     CriadoEm = DateTime.UtcNow
                 };
                 _context.Oticas.Add(oticaPadrao);
                 await _context.SaveChangesAsync();
             }
 
-            // 2. Verificar se a tabela de Usuários está vazia
+            // 2. Sincronização e aglutinação automática de todos os dados legados com Guid.Empty para a Ótica válida
+            try
+            {
+                using var comando = _context.Database.GetDbConnection().CreateCommand();
+                await _context.Database.OpenConnectionAsync();
+
+                string novoOticaId = oticaPadrao.Id.ToString();
+
+                comando.CommandText = $"""
+                    UPDATE "usuarios" SET "OticaId" = '{novoOticaId}' WHERE "OticaId" = '00000000-0000-0000-0000-000000000000';
+                    UPDATE "marcas" SET "OticaId" = '{novoOticaId}' WHERE "OticaId" = '00000000-0000-0000-0000-000000000000';
+                    UPDATE "armacoes" SET "OticaId" = '{novoOticaId}' WHERE "OticaId" = '00000000-0000-0000-0000-000000000000';
+                    UPDATE "lentes" SET "OticaId" = '{novoOticaId}' WHERE "OticaId" = '00000000-0000-0000-0000-000000000000';
+                    UPDATE "clientes" SET "OticaId" = '{novoOticaId}' WHERE "OticaId" = '00000000-0000-0000-0000-000000000000';
+                    UPDATE "ordens_servico" SET "OticaId" = '{novoOticaId}' WHERE "OticaId" = '00000000-0000-0000-0000-000000000000';
+                    UPDATE "configuracoes_loja" SET "OticaId" = '{novoOticaId}' WHERE "OticaId" = '00000000-0000-0000-0000-000000000000';
+                    UPDATE "os_auditoria_logs" SET "OticaId" = '{novoOticaId}' WHERE "OticaId" = '00000000-0000-0000-0000-000000000000';
+                    DELETE FROM "oticas" WHERE "Id" = '00000000-0000-0000-0000-000000000000';
+                """;
+                await comando.ExecuteNonQueryAsync();
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[Auto-Sync MultiTenant Ótica Aviso]: {ex.Message}");
+            }
+
+            // 3. Verificar se a tabela de Usuários está vazia
             if (!await _context.Usuarios.AnyAsync())
             {
                 // Criando o perfil do Dono da Ótica (Administrador geral)
@@ -68,19 +100,6 @@ namespace RETSYS.Infrastructure.Data
 
                 _context.Usuarios.AddRange(admin, vendedor);
                 await _context.SaveChangesAsync();
-            }
-            else
-            {
-                // Corrigir usuários legados eventualmente sem OticaId
-                var usuariosSemOtica = await _context.Usuarios.Where(u => u.OticaId == Guid.Empty).ToListAsync();
-                if (usuariosSemOtica.Any())
-                {
-                    foreach (var u in usuariosSemOtica)
-                    {
-                        u.OticaId = oticaPadrao.Id;
-                    }
-                    await _context.SaveChangesAsync();
-                }
             }
         }
     }
