@@ -83,7 +83,7 @@ import { Link, usePage } from '@inertiajs/vue3'
 
 const page = usePage()
 
-const eAdmin = computed(() => page.props.auth?.usuarioPerfil === 'Admin')
+const eAdmin = computed(() => ['Admin', 'Sistema', 'Gerente'].includes(page.props.auth?.usuarioPerfil))
 const estaConectado = computed(() => !!page.props.auth?.spotifyTokenAtivo)
 
 const intervaloStatus = ref(null)

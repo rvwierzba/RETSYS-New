@@ -35,6 +35,7 @@
                 <select v-model="form.Perfil" class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500">
                   <option :value="2">Vendedor</option>
                   <option :value="1">Administrador</option>
+                  <option v-if="ehSistema" :value="3">⚡ Sistema (Acesso Global)</option>
                 </select>
               </div>
 
@@ -88,8 +89,17 @@
                     <p class="text-xs text-slate-400 font-mono">{{ user.email || user.Email }}</p>
                   </td>
                   <td class="py-4 text-center">
-                    <span class="px-2.5 py-0.5 rounded-full text-xs font-bold bg-slate-100 text-slate-700 border border-slate-200">
-                      {{ user.perfilNome || user.PerfilNome || (user.perfil === 1 ? 'Admin' : 'Vendedor') }}
+                    <span 
+                      :class="[
+                        (user.perfil === 3 || user.perfilNome === 'Sistema')
+                          ? 'bg-purple-100 text-purple-800 border-purple-300 font-black'
+                          : (user.perfil === 1 || user.perfilNome === 'Administrador' || user.perfilNome === 'Admin')
+                            ? 'bg-indigo-50 text-indigo-700 border-indigo-200 font-bold'
+                            : 'bg-slate-100 text-slate-700 border-slate-200 font-medium'
+                      ]"
+                      class="px-2.5 py-0.5 rounded-full text-xs border"
+                    >
+                      {{ user.perfilNome || user.PerfilNome || (user.perfil === 3 ? 'Sistema' : (user.perfil === 1 ? 'Admin' : 'Vendedor')) }}
                     </span>
                   </td>
                   <!-- Coluna do % Individual de Comissão -->
@@ -153,6 +163,7 @@
                 <select v-model="formEdicao.Perfil" class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500">
                   <option :value="2">Vendedor</option>
                   <option :value="1">Administrador</option>
+                  <option v-if="ehSistema" :value="3">⚡ Sistema (Acesso Global)</option>
                 </select>
               </div>
 
@@ -191,14 +202,19 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
-import { useForm, router } from '@inertiajs/vue3'
+import { ref, computed } from 'vue'
+import { useForm, router, usePage } from '@inertiajs/vue3'
 import AuthenticatedLayout from '../../Shared/AuthenticatedLayout.vue'
 
-defineProps({
+const props = defineProps({
   Equipe: Array,
-  equipe: Array
+  equipe: Array,
+  EhSistema: Boolean,
+  ehSistema: Boolean
 })
+
+const page = usePage()
+const ehSistema = computed(() => props.EhSistema ?? props.ehSistema ?? !!page.props.auth?.ehSistema ?? page.props.auth?.usuarioPerfil === 'Sistema')
 
 const modalEdicaoAberta = ref(false)
 

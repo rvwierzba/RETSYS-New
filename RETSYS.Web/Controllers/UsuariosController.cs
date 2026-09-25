@@ -45,7 +45,7 @@ public class UsuariosController : TenantController
                 u.Email,
                 u.FilialLoja,
                 Perfil = (int)u.Perfil,
-                PerfilNome = u.Perfil == PerfilUsuario.Admin ? "Administrador" : "Vendedor",
+                PerfilNome = u.Perfil == PerfilUsuario.Sistema ? "Sistema" : (u.Perfil == PerfilUsuario.Admin ? "Administrador" : "Vendedor"),
                 u.Ativo,
                 u.PercentualComissao,
                 u.FotoUrl,
@@ -60,7 +60,7 @@ public class UsuariosController : TenantController
             .Select(l => new { l.Id, Nome = l.NomeLoja })
             .ToListAsync();
 
-        return Inertia.Render("Users/Index", new { Equipe = equipe, Lojas = lojas });
+        return Inertia.Render("Users/Index", new { Equipe = equipe, Lojas = lojas, EhSistema = EhSistema() });
     }
 
     // POST: /equipe
@@ -70,6 +70,12 @@ public class UsuariosController : TenantController
         if (!EhAdministrador())
         {
             return Forbid();
+        }
+
+        if (model.Perfil == PerfilUsuario.Sistema && !EhSistema())
+        {
+            Inertia.Share("erro", "Apenas usuários com perfil Sistema podem criar outros usuários de Sistema.");
+            return RedirectToAction(nameof(Index));
         }
 
         if (string.IsNullOrWhiteSpace(model.Nome) || string.IsNullOrWhiteSpace(model.Email) || string.IsNullOrWhiteSpace(model.Senha))
@@ -118,9 +124,15 @@ public class UsuariosController : TenantController
             return Forbid();
         }
 
+        if (model.Perfil == PerfilUsuario.Sistema && !EhSistema())
+        {
+            Inertia.Share("erro", "Apenas usuários com perfil Sistema podem promover contas para o perfil Sistema.");
+            return RedirectToAction(nameof(Index));
+        }
+
         var oticaId = ObterOticaId();
 
-        var usuario = await _context.Usuarios.FirstOrDefaultAsync(u => u.Id == id && u.OticaId == oticaId);
+        var usuario = await _context.Usuarios.FirstOrDefaultAsync(u => u.Id == id && (u.OticaId == oticaId || EhSistema()));
         if (usuario == null)
         {
             return NotFound(new { message = "Usuário não encontrado." });
@@ -164,7 +176,7 @@ public class UsuariosController : TenantController
 
         var oticaId = ObterOticaId();
 
-        var usuario = await _context.Usuarios.FirstOrDefaultAsync(u => u.Id == id && u.OticaId == oticaId);
+        var usuario = await _context.Usuarios.FirstOrDefaultAsync(u => u.Id == id && (u.OticaId == oticaId || EhSistema()));
         if (usuario != null)
         {
             usuario.Ativo = !usuario.Ativo;
@@ -185,7 +197,7 @@ public class UsuariosController : TenantController
 
         var oticaId = ObterOticaId();
 
-        var usuario = await _context.Usuarios.FirstOrDefaultAsync(u => u.Id == id && u.OticaId == oticaId);
+        var usuario = await _context.Usuarios.FirstOrDefaultAsync(u => u.Id == id && (u.OticaId == oticaId || EhSistema()));
         if (usuario != null)
         {
             _context.Usuarios.Remove(usuario);
@@ -193,19 +205,6 @@ public class UsuariosController : TenantController
         }
 
         return RedirectToAction(nameof(Index));
-    }
-
-    // =========================================================================
-    // AUXILIARES
-    // =========================================================================
-
-    private bool EhAdministrador()
-    {
-        var perfilClaim = User.FindFirst(ClaimTypes.Role)?.Value ?? "";
-        return string.Equals(perfilClaim, "ADMIN", StringComparison.OrdinalIgnoreCase)
-            || string.Equals(perfilClaim, "GERENTE", StringComparison.OrdinalIgnoreCase)
-            || User.IsInRole("Admin")
-            || User.IsInRole("Administrador");
     }
 }
 

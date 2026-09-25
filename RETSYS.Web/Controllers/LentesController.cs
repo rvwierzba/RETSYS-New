@@ -454,13 +454,8 @@ namespace RETSYS.Web.Controllers
         }
 
         // =========================================================================
-        // AUXILIAR — MESMO PADRÃO USADO EM OrdensServicoController E CaixaController
+        // AUXILIAR
         // =========================================================================
-
-        private bool EhAdministrador()
-        {
-            return true; // Todos os usuários logados na ótica têm acesso operacional à tabela de preços da sua loja
-        }
 
         private async Task GarantirLentesIniciais(Guid oticaId)
         {

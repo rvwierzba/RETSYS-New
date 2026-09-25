@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using InertiaCore;
 using RETSYS.Infrastructure.Data;
 using RETSYS.Domain.Entities;
+using RETSYS.Domain.Enums;
 using System;
 using System.Linq;
 using System.Security.Claims;
@@ -27,14 +28,14 @@ namespace RETSYS.Web.Controllers
 
             var emailUsuario = User.FindFirst(ClaimTypes.Email)?.Value;
             var usuarioLogado = await _context.Usuarios
-                .FirstOrDefaultAsync(u => u.Email == emailUsuario && u.Ativo && u.OticaId == oticaId);
+                .FirstOrDefaultAsync(u => u.Email == emailUsuario && u.Ativo);
 
             if (usuarioLogado == null)
             {
                 return Redirect("/login");
             }
 
-            bool isAdmin = usuarioLogado.Perfil.ToString() == "Admin" || usuarioLogado.Perfil.ToString() == "Gerente";
+            bool isAdmin = EhAdministrador() || usuarioLogado.Perfil == PerfilUsuario.Admin || usuarioLogado.Perfil == PerfilUsuario.Sistema || usuarioLogado.Perfil.ToString() == "Gerente";
             Guid? vendedorIdFiltro = isAdmin ? null : usuarioLogado.Id;
 
             int mesFiltro = mes ?? DateTime.UtcNow.Month;

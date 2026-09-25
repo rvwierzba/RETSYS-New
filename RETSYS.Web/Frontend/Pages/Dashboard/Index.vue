@@ -381,7 +381,7 @@ const filtros = reactive({
   ano: props.AnoFiltro ?? props.anoFiltro ?? new Date().getFullYear()
 })
 
-const eAdmin = computed(() => props.IsAdmin ?? props.isAdmin ?? (props.PerfilUsuario ?? props.perfilUsuario ?? '').toLowerCase() === 'admin')
+const eAdmin = computed(() => props.IsAdmin ?? props.isAdmin ?? ['admin', 'sistema', 'gerente'].includes((props.PerfilUsuario ?? props.perfilUsuario ?? page.props.auth?.usuarioPerfil ?? '').toLowerCase()))
 const kpisHoje = computed(() => props.ResumoHoje ?? props.resumoHoje ?? { osHoje: 0, faturadoHoje: 0, osProntas: 0, osVencidas: 0, servicosAtrasados: 0, lentesNaoPedidas: 0, lentesNaoPedidasCriticas: 0 })
 const comissaoMes = computed(() => props.MinhaComissaoMes ?? props.minhaComissaoMes ?? 0)
 

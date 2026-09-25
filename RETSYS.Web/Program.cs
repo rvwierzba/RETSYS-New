@@ -122,12 +122,66 @@ app.Use(async (context, next) =>
 {
     var usuario = context.User;
     bool estaAutenticado = usuario?.Identity?.IsAuthenticated == true;
+    var perfilClaim = estaAutenticado ? (usuario?.FindFirst(ClaimTypes.Role)?.Value ?? "Vendedor") : "Vendedor";
+    bool ehSistema = string.Equals(perfilClaim, "Sistema", StringComparison.OrdinalIgnoreCase) || (usuario?.IsInRole("Sistema") == true);
+
+    Guid oticaAtivaId = Guid.Empty;
+    string nomeOtica = "Ótica RETSYS";
+
+    if (estaAutenticado)
+    {
+        var db = context.RequestServices.GetService<ApplicationDbContext>();
+
+        if (ehSistema)
+        {
+            var sessaoOticaId = context.Session.GetString("OticaAtivaId");
+            if (!string.IsNullOrEmpty(sessaoOticaId) && Guid.TryParse(sessaoOticaId, out var oticaSessaoGuid) && oticaSessaoGuid != Guid.Empty)
+            {
+                oticaAtivaId = oticaSessaoGuid;
+            }
+        }
+
+        if (oticaAtivaId == Guid.Empty)
+        {
+            var claimOtica = usuario?.FindFirst("OticaId")?.Value;
+            if (Guid.TryParse(claimOtica, out var claimGuid))
+            {
+                oticaAtivaId = claimGuid;
+            }
+        }
+
+        if (oticaAtivaId != Guid.Empty && db != null)
+        {
+            var otica = db.Oticas.AsNoTracking().FirstOrDefault(o => o.Id == oticaAtivaId);
+            if (otica != null)
+            {
+                nomeOtica = otica.Nome;
+            }
+        }
+    }
+
+    object? oticasDisponiveis = null;
+    if (estaAutenticado && ehSistema)
+    {
+        var db = context.RequestServices.GetService<ApplicationDbContext>();
+        if (db != null)
+        {
+            oticasDisponiveis = db.Oticas
+                .AsNoTracking()
+                .OrderBy(o => o.Nome)
+                .Select(o => new { id = o.Id.ToString(), nome = o.Nome })
+                .ToList();
+        }
+    }
 
     Inertia.Share("auth", new {
         usuarioNome = estaAutenticado ? (usuario?.Identity?.Name ?? "Colaborador") : "Colaborador",
-        usuarioPerfil = estaAutenticado ? (usuario?.FindFirst(ClaimTypes.Role)?.Value ?? "Vendedor") : "Vendedor",
+        usuarioPerfil = perfilClaim,
+        ehSistema = ehSistema,
         usuarioFoto = estaAutenticado ? (usuario?.FindFirst("FotoUrl")?.Value ?? usuario?.FindFirst(ClaimTypes.UserData)?.Value) : null,
-        oticaNome = estaAutenticado ? (usuario?.FindFirst("OticaNome")?.Value ?? "Ótica RETSYS") : "Ótica RETSYS",
+        oticaId = oticaAtivaId != Guid.Empty ? oticaAtivaId.ToString() : null,
+        oticaNome = nomeOtica,
+        oticasDisponiveis = oticasDisponiveis,
         spotifyTokenAtivo = context.Session.GetString("SpotifyToken") != null
     });
     
