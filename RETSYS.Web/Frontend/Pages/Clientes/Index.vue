@@ -295,7 +295,7 @@
       <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
         <h3 class="text-sm font-black text-slate-950 uppercase tracking-wider font-mono mb-4">Registros Encontrados</h3>
 
-        <div v-if="!Clientes || Clientes.length === 0" class="text-center py-12 border-2 border-dashed border-slate-100 rounded-xl text-slate-400 text-sm">
+        <div v-if="listaClientes.length === 0" class="text-center py-12 border-2 border-dashed border-slate-100 rounded-xl text-slate-400 text-sm">
           Nenhum cliente atende aos critérios de busca ou ao período informado.
         </div>
 
@@ -313,46 +313,46 @@
               </tr>
             </thead>
             <tbody>
-              <tr v-for="c in Clientes" :key="c.Id" class="border-b border-slate-50 hover:bg-slate-50/50 transition">
-                <td class="py-4 font-bold text-slate-800">{{ c.Nome }}</td>
-                <td class="py-4 text-center font-mono text-slate-600 text-xs">{{ c.CPF || '--' }}</td>
+              <tr v-for="c in listaClientes" :key="c.id" class="border-b border-slate-50 hover:bg-slate-50/50 transition">
+                <td class="py-4 font-bold text-slate-800">{{ c.nome }}</td>
+                <td class="py-4 text-center font-mono text-slate-600 text-xs">{{ c.cpf || '--' }}</td>
                 
                 <td class="py-4 text-center">
                   <span :class="[
                     'px-2.5 py-1 rounded-full text-[10px] font-black uppercase font-mono border',
-                    c.StatusEntrega === 'Entregue' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
-                    c.StatusEntrega === 'Atrasado' ? 'bg-rose-50 text-rose-700 border-rose-200 animate-pulse' :
-                    c.StatusEntrega === 'A entregar' ? 'bg-sky-50 text-sky-700 border-sky-200' :
+                    c.statusEntrega === 'Entregue' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
+                    c.statusEntrega === 'Atrasado' ? 'bg-rose-50 text-rose-700 border-rose-200 animate-pulse' :
+                    c.statusEntrega === 'A entregar' ? 'bg-sky-50 text-sky-700 border-sky-200' :
                     'bg-slate-50 text-slate-400 border-slate-200'
                   ]">
-                    {{ c.StatusEntrega || 'Nenhum' }}
+                    {{ c.statusEntrega || 'Nenhum' }}
                   </span>
                 </td>
 
                 <td class="py-4 text-center font-mono text-xs">
                   <a 
-                    v-if="c.Telefone" 
-                    :href="generarLinkSampleWhatsapp(c.Telefone)" 
+                    v-if="c.telefone" 
+                    :href="generarLinkSampleWhatsapp(c.telefone)" 
                     target="_blank"
                     class="text-teal-600 hover:text-teal-700 font-bold inline-flex items-center gap-1 bg-teal-50 px-2.5 py-1 rounded-lg border border-teal-100/80 transition"
                   >
-                    <span>💬</span> {{ c.Telefone }}
+                    <span>💬</span> {{ c.telefone }}
                   </a>
                   <span v-else class="text-slate-400">--</span>
                 </td>
 
                 <td class="py-4 text-center font-mono text-xs text-teal-600 font-bold">
-                  {{ c.UltimaOs }}
+                  {{ c.ultimaOs }}
                 </td>
 
                 <!-- PONTO 4: Exibição monetária formatada em Reais -->
                 <td class="py-4 text-right font-black text-slate-950 font-mono text-xs">
-                  R$ {{ Number(c.TotalGasto || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}
+                  R$ {{ Number(c.totalGasto || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}
                 </td>
                 
                 <td class="py-4 text-center">
                   <Link 
-                    :href="`/clientes/${c.Id}/historico`"
+                    :href="`/clientes/${c.id}/historico`"
                     class="bg-slate-950 hover:bg-slate-800 text-white text-xs font-bold px-3 py-1.5 rounded-lg transition shadow-sm font-mono"
                   >
                     Ficha Completa
@@ -375,18 +375,37 @@ import AuthenticatedLayout from '../../Shared/AuthenticatedLayout.vue'
 
 const props = defineProps({
   Clientes: Array,
+  clientes: Array,
   FiltroBusca: String,
+  filtroBusca: String,
   MesFiltro: Number,
-  AnoFiltro: Number
+  mesFiltro: Number,
+  AnoFiltro: Number,
+  anoFiltro: Number,
+  AñoFiltro: Number,
+  añoFiltro: Number
 })
 
-const termoBusca = ref(props.FiltroBusca || '')
+const termoBusca = ref(props.FiltroBusca ?? props.filtroBusca ?? '')
 const exibirFormNovoCliente = ref(false) 
 const modoCadastro = ref('rapido')
 
 const filtroPeriodo = reactive({
-  mes: props.MesFiltro || null,
-  ano: props.AnoFiltro || null
+  mes: props.MesFiltro ?? props.mesFiltro ?? null,
+  ano: props.AnoFiltro ?? props.anoFiltro ?? props.AñoFiltro ?? props.añoFiltro ?? null
+})
+
+const listaClientes = computed(() => {
+  const bruta = props.Clientes ?? props.clientes ?? []
+  return bruta.map(c => ({
+    id: c.Id ?? c.id,
+    nome: c.Nome ?? c.nome ?? '',
+    cpf: c.CPF ?? c.cpf ?? '',
+    telefone: c.Telefone ?? c.telefone ?? '',
+    statusEntrega: c.StatusEntrega ?? c.statusEntrega ?? 'Nenhum',
+    ultimaOs: c.UltimaOs ?? c.ultimaOs ?? 'Nenhuma',
+    totalGasto: c.TotalGasto ?? c.totalGasto ?? 0
+  }))
 })
 
 const meses = [

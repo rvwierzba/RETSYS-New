@@ -6,8 +6,9 @@ yarn-error.log*
 .pnpm-debug.log*
 .dist/
 dist
-wwwroot/dist/
-wwwroot/assets/
+**/wwwroot/dist/
+**/wwwroot/assets/
+**/wwwroot/.vite/
 .vite/
 
 # === .NET / C# / BACKEND ===

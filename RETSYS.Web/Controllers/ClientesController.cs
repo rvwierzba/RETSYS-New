@@ -87,6 +87,7 @@ namespace RETSYS.Web.Controllers
                 Clientes = listaClientes,
                 FiltroBusca = busca ?? "",
                 MesFiltro = mes,
+                AnoFiltro = ano,
                 AñoFiltro = ano
             });
         }

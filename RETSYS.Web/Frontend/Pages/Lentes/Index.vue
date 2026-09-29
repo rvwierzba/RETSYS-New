@@ -164,7 +164,7 @@
                     required 
                   />
                   <datalist id="tratamentos-sugeridos">
-                    <option v-for="t in props.TratamentosSugeridos" :key="t" :value="t" />
+                    <option v-for="t in tratamentosLista" :key="t" :value="t" />
                   </datalist>
                 </div>
               </div>
@@ -198,6 +198,12 @@
             <h3 class="text-sm font-black text-slate-950 uppercase tracking-wider font-mono">Lentes Base Cadastradas</h3>
             <p class="text-xs text-slate-400 mt-0.5">Catálogo de blocos e laboratórios cadastrados para a sua ótica.</p>
           </div>
+          <button 
+            @click="abrirModalNovaLente" 
+            class="bg-slate-950 hover:bg-slate-800 text-white text-xs font-bold px-4 py-2 rounded-xl transition shadow-sm flex items-center gap-1.5 font-mono"
+          >
+            <span>＋ Nova Lente Base</span>
+          </button>
         </div>
 
         <div v-if="LentesMapeadas.length === 0" class="text-center py-12 border-2 border-dashed border-slate-100 rounded-xl text-slate-400 text-xs">
@@ -368,6 +374,41 @@
         </div>
       </div>
 
+      <!-- MODAL DE CADASTRO DE NOVA LENTE BASE -->
+      <div v-if="modalNovaLenteAberta" class="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-md w-full p-6 space-y-4">
+          <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+            <h3 class="text-base font-bold text-slate-950">Cadastrar Nova Lente Base</h3>
+            <button @click="modalNovaLenteAberta = false" class="text-slate-400 hover:text-slate-800 font-bold">✕</button>
+          </div>
+
+          <form @submit.prevent="salvarNovaLente" class="space-y-4 text-xs">
+            <div>
+              <label class="block font-bold text-slate-400 uppercase mb-1">Laboratório / Fabricante *</label>
+              <input v-model="formNovaLente.Laboratorio" type="text" placeholder="Ex: Essilor, Hoya, Zeiss" class="w-full rounded-xl border-slate-200 text-xs" required />
+            </div>
+
+            <div>
+              <label class="block font-bold text-slate-400 uppercase mb-1">Nome do Bloco / Design *</label>
+              <input v-model="formNovaLente.Tipo" type="text" placeholder="Ex: Varilux Comfort, Orma" class="w-full rounded-xl border-slate-200 text-xs" required />
+            </div>
+
+            <div class="flex items-center justify-between bg-slate-50 p-3 rounded-xl border border-slate-200">
+              <div>
+                <span class="block font-bold text-slate-700 text-xs">Lente Surfaçada?</span>
+                <span class="text-[10px] text-slate-400">Marque se for bloco de receita sob medida</span>
+              </div>
+              <input type="checkbox" v-model="formNovaLente.Surfacada" class="rounded border-slate-300 text-teal-600 focus:ring-teal-500 h-4 w-4" />
+            </div>
+
+            <div class="flex justify-end gap-2 pt-3 border-t border-slate-100">
+              <button type="button" @click="modalNovaLenteAberta = false" class="px-4 py-2 rounded-xl text-slate-600 font-bold hover:bg-slate-100">Cancelar</button>
+              <button type="submit" class="px-5 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold transition">Cadastrar Lente</button>
+            </div>
+          </form>
+        </div>
+      </div>
+
     </div>
   </AuthenticatedLayout>
 </template>
@@ -381,10 +422,13 @@ const page = usePage()
 
 const props = defineProps({
   Lentes: { type: Array, default: () => [] },
+  lentes: { type: Array, default: () => [] },
   precos: { type: Array, default: () => [] },
   Precos: { type: Array, default: () => [] },
-  TratamentosSugeridos: { type: Array, default: () => ['Antirreflexo Comum', 'Antirreflexo Premium', 'Filtro Azul (BlueCut)', 'Fotossensível (Transitions)', 'Resina Incolor'] },
-  IsAdmin: { type: Boolean, default: true }
+  TratamentosSugeridos: { type: Array, default: () => [] },
+  tratamentosSugeridos: { type: Array, default: () => [] },
+  IsAdmin: { type: Boolean, default: true },
+  isAdmin: { type: Boolean, default: true }
 })
 
 const abaAtiva = ref('precos')
@@ -393,15 +437,45 @@ const carregandoImportacao = ref(false)
 
 const modalEdicaoPrecoAberta = ref(false)
 const modalEdicaoLenteAberta = ref(false)
+const modalNovaLenteAberta = ref(false)
+
+const formNovaLente = ref({
+  Laboratorio: '',
+  Tipo: '',
+  Surfacada: false
+})
+
+const abrirModalNovaLente = () => {
+  formNovaLente.value = {
+    Laboratorio: '',
+    Tipo: '',
+    Surfacada: false
+  }
+  modalNovaLenteAberta.value = true
+}
+
+const salvarNovaLente = () => {
+  router.post('/lentes', {
+    laboratorio: formNovaLente.value.Laboratorio,
+    tipo: formNovaLente.value.Tipo,
+    surfacada: formNovaLente.value.Surfacada
+  }, {
+    preserveScroll: true,
+    onSuccess: () => {
+      modalNovaLenteAberta.value = false
+      alert('Lente base cadastrada com sucesso!')
+    }
+  })
+}
 
 // Normalização defensiva do payload JSON vindo do back-end
 const listaPrecosNormalizada = computed(() => {
-  const bruta = props.Precos ?? props.precos ?? []
+  const bruta = (props.Precos && props.Precos.length > 0) ? props.Precos : (props.precos ?? [])
   return bruta.map(p => ({
     id: p.Id ?? p.id,
     lenteId: p.LenteId ?? p.lenteId,
-    laboratorio: p.Lente?.Laboratorio ?? p.lente?.laboratorio ?? 'Genérico',
-    blocoTipo: p.Lente?.Tipo ?? p.lente?.tipo ?? 'Lente Base',
+    laboratorio: p.Lente?.Laboratorio ?? p.lente?.laboratorio ?? p.Laboratorio ?? p.laboratorio ?? 'Genérico',
+    blocoTipo: p.Lente?.Tipo ?? p.lente?.tipo ?? p.Tipo ?? p.tipo ?? 'Lente Base',
     tipo: p.Tipo ?? p.tipo,
     indiceRefracao: p.IndiceRefracao ?? p.indiceRefracao,
     tratamento: p.Tratamento ?? p.tratamento,
@@ -411,12 +485,20 @@ const listaPrecosNormalizada = computed(() => {
 })
 
 const LentesMapeadas = computed(() => {
-  return (props.Lentes ?? []).map(l => ({
+  const bruta = (props.Lentes && props.Lentes.length > 0) ? props.Lentes : (props.lentes ?? [])
+  return bruta.map(l => ({
     id: l.Id ?? l.id,
-    laboratorio: l.Laboratorio ?? l.laboratorio,
-    tipo: l.Tipo ?? l.tipo,
+    laboratorio: l.Laboratorio ?? l.laboratorio ?? 'Genérico',
+    tipo: l.Tipo ?? l.tipo ?? 'Lente Base',
     surfacada: l.Surfacada ?? l.surfacada ?? false
   }))
+})
+
+const tratamentosLista = computed(() => {
+  const lista = (props.TratamentosSugeridos && props.TratamentosSugeridos.length > 0) 
+    ? props.TratamentosSugeridos 
+    : (props.tratamentosSugeridos ?? [])
+  return lista.length > 0 ? lista : ['Antirreflexo Comum', 'Antirreflexo Premium', 'Filtro Azul (BlueCut)', 'Fotossensível (Transitions)', 'Resina Incolor']
 })
 
 // Filtro em tempo real digitado pelo operador
