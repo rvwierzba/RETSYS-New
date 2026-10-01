@@ -93,8 +93,21 @@
 
             <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
               <div>
-                <label class="block text-[11px] font-bold uppercase text-slate-400 tracking-wider mb-1.5">Emissão da OS (Hoje) 🔒</label>
+                <label 
+                  class="block text-[11px] font-bold uppercase tracking-wider mb-1.5 flex items-center justify-between"
+                  :class="eAdmin ? 'text-indigo-600 font-black' : 'text-slate-400'"
+                >
+                  <span>Emissão da OS {{ eAdmin ? '✏️ (Admin)' : '🔒' }}</span>
+                </label>
                 <input
+                  v-if="eAdmin"
+                  v-model="form.dataEmissao"
+                  type="date"
+                  class="w-full rounded-xl border-indigo-200 text-sm font-mono font-bold bg-indigo-50/50 text-indigo-950 focus:border-indigo-500 focus:ring-indigo-500 shadow-sm"
+                  title="Administradores podem alterar a data de emissão da OS"
+                />
+                <input
+                  v-else
                   :value="dataEmissaoHoje"
                   type="date"
                   disabled
@@ -619,7 +632,7 @@
 
 <script setup>
 import { ref, watch, onMounted, onBeforeUnmount, computed } from 'vue'
-import { useForm, Link, router } from '@inertiajs/vue3'
+import { useForm, Link, router, usePage } from '@inertiajs/vue3'
 import axios from 'axios'
 import AuthenticatedLayout from '../../Shared/AuthenticatedLayout.vue'
 
@@ -634,6 +647,12 @@ const props = defineProps({
 })
 
 const CHAVE_RASCUNHO = 'retsys_os_rascunho'
+
+const page = usePage()
+const eAdmin = computed(() => {
+  const perfil = (page.props.auth?.usuarioPerfil || '').toLowerCase()
+  return ['admin', 'sistema', 'gerente'].includes(perfil)
+})
 
 const dataEmissaoHoje = computed(() => new Date().toISOString().split('T')[0])
 
@@ -654,6 +673,7 @@ const rascunhoRestaurado = ref(false)
 
 const form = useForm({
   numeroOS: props.ProximoNumeroOS || '',
+  dataEmissao: new Date().toISOString().split('T')[0],
   lojaVenda: 'Matriz',
   cpf: '',
   nome: '',

@@ -474,13 +474,70 @@
         </div>
       </div>
 
+      <!-- MODAL DE EDIÇÃO ADMIN DA DATA DE EMISSÃO -->
+      <div v-if="modalEditarAdminAberta && osParaEdicaoAdmin" class="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-md w-full p-6 space-y-5">
+          <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+            <div>
+              <span class="text-[10px] font-mono font-bold bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded-full uppercase">Alteração de Emissão (Admin)</span>
+              <h3 class="text-base font-black text-slate-950 font-mono mt-1">OS {{ osParaEdicaoAdmin.numeroOS || osParaEdicaoAdmin.NumeroOS }}</h3>
+            </div>
+            <button @click="modalEditarAdminAberta = false" class="text-slate-400 hover:text-slate-800 font-bold">✕</button>
+          </div>
+
+          <form @submit.prevent="salvarEdicaoAdmin" class="space-y-4 text-xs">
+            <div>
+              <label class="block font-bold uppercase text-slate-500 tracking-wider mb-1">Nova Data de Emissão *</label>
+              <input 
+                v-model="formEdicaoAdmin.novaDataEntrada" 
+                type="date" 
+                required 
+                class="w-full rounded-xl border-slate-200 text-sm font-mono font-bold text-slate-900 bg-slate-50 focus:border-indigo-500 focus:ring-indigo-500"
+              />
+            </div>
+
+            <div>
+              <label class="block font-bold uppercase text-slate-500 tracking-wider mb-1">Motivo do Ajuste *</label>
+              <input 
+                v-model="formEdicaoAdmin.motivo" 
+                type="text" 
+                placeholder="Ex: Lançamento retroativo de OS entregue em dia anterior" 
+                required 
+                class="w-full rounded-xl border-slate-200 text-xs text-slate-900 bg-slate-50 focus:border-indigo-500 focus:ring-indigo-500"
+              />
+            </div>
+
+            <div class="p-3 bg-amber-50 border border-amber-200 rounded-xl text-[11px] text-amber-900 leading-relaxed font-sans">
+              ⚠️ <b>Atenção:</b> Alterar a data de emissão vai recalcular o caixa e o período de comissões. Períodos com comissão fechada ou paga não permitem alteração.
+            </div>
+
+            <div class="flex justify-end gap-2 pt-2 border-t border-slate-100">
+              <button 
+                type="button" 
+                @click="modalEditarAdminAberta = false" 
+                class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold transition"
+              >
+                Cancelar
+              </button>
+              <button 
+                type="submit" 
+                :disabled="processandoEdicaoAdmin" 
+                class="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white rounded-xl font-bold transition shadow-sm"
+              >
+                {{ processandoEdicaoAdmin ? 'Salvando...' : 'Salvar Data' }}
+              </button>
+            </div>
+          </form>
+        </div>
+      </div>
+
     </div>
   </AuthenticatedLayout>
 </template>
 
 <script setup>
 import { ref, computed } from 'vue'
-import { router } from '@inertiajs/vue3'
+import { router, usePage, useForm } from '@inertiajs/vue3'
 import AuthenticatedLayout from '../../Shared/AuthenticatedLayout.vue'
 
 const props = defineProps({
@@ -491,11 +548,54 @@ const props = defineProps({
   TotalFiltroAtivo: Number, totalFiltroAtivo: Number
 })
 
+const page = usePage()
+const eAdmin = computed(() => {
+  const perfil = (page.props.auth?.usuarioPerfil || '').toLowerCase()
+  return ['admin', 'sistema', 'gerente'].includes(perfil)
+})
+
 const osSelecionada = ref(null)
 const modalEntregaAberta = ref(false)
 const osParaEntrega = ref(null)
 const processandoEntrega = ref(false)
 const vendedorSelecionado = ref(props.VendedorFiltro ?? props.vendedorFiltro ?? '')
+
+const modalEditarAdminAberta = ref(false)
+const osParaEdicaoAdmin = ref(null)
+const processandoEdicaoAdmin = ref(false)
+const formEdicaoAdmin = useForm({
+  novaDataEntrada: '',
+  motivo: ''
+})
+
+const abrirModalEditarAdmin = (os) => {
+  osParaEdicaoAdmin.value = os
+  const dataRaw = os.dataEntrada || os.DataEntrada
+  const dataIso = dataRaw ? new Date(dataRaw).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]
+  formEdicaoAdmin.novaDataEntrada = dataIso
+  formEdicaoAdmin.motivo = ''
+  modalEditarAdminAberta.value = true
+}
+
+const salvarEdicaoAdmin = () => {
+  if (!osParaEdicaoAdmin.value) return
+  const id = osParaEdicaoAdmin.value.id || osParaEdicaoAdmin.value.Id
+  processandoEdicaoAdmin.value = true
+
+  formEdicaoAdmin.post(`/ordens/editar-admin/${id}`, {
+    preserveScroll: true,
+    onSuccess: () => {
+      processandoEdicaoAdmin.value = false
+      modalEditarAdminAberta.value = false
+      osParaEdicaoAdmin.value = null
+      alert('✅ Data de emissão da OS atualizada com sucesso!')
+    },
+    onError: (errors) => {
+      processandoEdicaoAdmin.value = false
+      alert(errors?.erro || 'Erro ao atualizar data de emissão.')
+    }
+  })
+}
 
 const formEntrega = ref({
   opcaoQuitacao: 'PAGO_RETIRADA',

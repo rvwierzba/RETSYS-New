@@ -415,7 +415,8 @@ namespace RETSYS.Web.Controllers
 
                 bool ehAdminOuGerente =
                     string.Equals(perfilClaim, "ADMIN", StringComparison.OrdinalIgnoreCase) ||
-                    string.Equals(perfilClaim, "GERENTE", StringComparison.OrdinalIgnoreCase);
+                    string.Equals(perfilClaim, "GERENTE", StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(perfilClaim, "SISTEMA", StringComparison.OrdinalIgnoreCase);
 
                 if (!ehAdminOuGerente &&
                     (!Guid.TryParse(usuarioIdClaim, out Guid usuarioLogadoId) ||
@@ -676,6 +677,22 @@ namespace RETSYS.Web.Controllers
                     ? formCollection["lojaVenda"].ToString()
                     : (string.IsNullOrEmpty(vendedor.FilialLoja) ? "Matriz" : vendedor.FilialLoja);
 
+                DateTime dataEntradaCalculada = DateTime.UtcNow;
+                if (ehAdminOuGerente)
+                {
+                    string? rawData = formCollection.ContainsKey("dataEmissao") && !string.IsNullOrWhiteSpace(formCollection["dataEmissao"].ToString())
+                        ? formCollection["dataEmissao"].ToString()
+                        : (formCollection.ContainsKey("dataEntrada") && !string.IsNullOrWhiteSpace(formCollection["dataEntrada"].ToString())
+                            ? formCollection["dataEntrada"].ToString()
+                            : null);
+
+                    if (!string.IsNullOrWhiteSpace(rawData) && DateTime.TryParse(rawData, out var dtParsed))
+                    {
+                        var horaAtual = DateTime.UtcNow.TimeOfDay;
+                        dataEntradaCalculada = DateTime.SpecifyKind(dtParsed.Date.Add(horaAtual), DateTimeKind.Utc);
+                    }
+                }
+
                 var novaOS = new OrdemServico
                 {
                     Id = Guid.NewGuid(),
@@ -684,7 +701,7 @@ namespace RETSYS.Web.Controllers
                     ClienteId = cliente.Id,
                     VendedorId = vendedor.Id,
                     LojaVenda = lojaVenda,
-                    DataEntrada = DateTime.UtcNow,
+                    DataEntrada = dataEntradaCalculada,
 
                     DataPrevistaEntrega = formCollection.ContainsKey("dataPrevistaEntrega") &&
                                           DateTime.TryParse(
@@ -1368,12 +1385,28 @@ namespace RETSYS.Web.Controllers
             var oticaId = ObterOticaId();
             var perfilClaim = User.FindFirst(ClaimTypes.Role)?.Value ?? "VENDEDOR";
             bool ehAdminOuGerente = string.Equals(perfilClaim, "ADMIN", StringComparison.OrdinalIgnoreCase) ||
-                                    string.Equals(perfilClaim, "GERENTE", StringComparison.OrdinalIgnoreCase);
+                                    string.Equals(perfilClaim, "GERENTE", StringComparison.OrdinalIgnoreCase) ||
+                                    string.Equals(perfilClaim, "SISTEMA", StringComparison.OrdinalIgnoreCase);
 
             if (!ehAdminOuGerente)
             {
                 Inertia.Share("erro", "Apenas Administradores ou Gerentes podem editar dados de lançamento de OS.");
                 return RedirectToAction(nameof(Index));
+            }
+
+            DateTime? dataAlvo = novaDataEntrada;
+            string? motivoAlvo = motivo;
+
+            if (!dataAlvo.HasValue && Request.HasFormContentType)
+            {
+                if (DateTime.TryParse(Request.Form["novaDataEntrada"].ToString(), out var dtForm))
+                {
+                    dataAlvo = dtForm;
+                }
+                if (string.IsNullOrWhiteSpace(motivoAlvo))
+                {
+                    motivoAlvo = Request.Form["motivo"].ToString();
+                }
             }
 
             var os = await _context.OrdensServico
@@ -1386,10 +1419,10 @@ namespace RETSYS.Web.Controllers
                 return NotFound();
             }
 
-            if (novaDataEntrada.HasValue && novaDataEntrada.Value.Date != os.DataEntrada.Date)
+            if (dataAlvo.HasValue && dataAlvo.Value.Date != os.DataEntrada.Date)
             {
                 string periodoAntigo = os.DataEntrada.ToString("yyyy-MM");
-                string periodoNovo = novaDataEntrada.Value.ToString("yyyy-MM");
+                string periodoNovo = dataAlvo.Value.ToString("yyyy-MM");
 
                 bool periodoBloqueado = await _context.FechamentosComissao
                     .Include(f => f.Vendedor)
@@ -1414,8 +1447,8 @@ namespace RETSYS.Web.Controllers
                     UsuarioId = usuarioLogadoId != Guid.Empty ? usuarioLogadoId : (os.VendedorId ?? Guid.Empty),
                     CampoAlterado = "DataEntrada",
                     ValorAntigo = os.DataEntrada.ToString("yyyy-MM-dd"),
-                    ValorNovo = novaDataEntrada.Value.ToString("yyyy-MM-dd"),
-                    Descricao = $"Data de entrada alterada por {usuarioNomeClaim}. Motivo: {motivo ?? "Ajuste administrativo"}"
+                    ValorNovo = dataAlvo.Value.ToString("yyyy-MM-dd"),
+                    Descricao = $"Data de entrada alterada por {usuarioNomeClaim}. Motivo: {motivoAlvo ?? "Ajuste administrativo"}"
                 };
                 _context.OsAuditoriaLogs.Add(log);
 
@@ -1424,7 +1457,8 @@ namespace RETSYS.Web.Controllers
                     os.DataEntradaOriginal = os.DataEntrada;
                 }
 
-                os.DataEntrada = DateTime.SpecifyKind(novaDataEntrada.Value, DateTimeKind.Utc);
+                var horaOriginal = os.DataEntrada.TimeOfDay;
+                os.DataEntrada = DateTime.SpecifyKind(dataAlvo.Value.Date.Add(horaOriginal), DateTimeKind.Utc);
                 os.DataAjustadaLog = $"data ajustada em {DateTime.UtcNow:dd/MM} por {usuarioNomeClaim}";
 
                 var comissoes = await _context.Comissoes.Where(c => c.OrdemServicoId == os.Id).ToListAsync();
