@@ -281,10 +281,18 @@
               </div>
             </div>
 
-            <div class="bg-white p-4 rounded-xl border border-slate-200 space-y-3 mt-4">
+            <!-- GRAU DE LONGE -->
+            <div class="bg-slate-50/70 p-4 rounded-xl border border-slate-200 space-y-3 mt-4">
+              <div class="flex items-center justify-between border-b pb-2">
+                <span class="text-xs font-black text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
+                  👓 Grau de Longe (Visão de Longe)
+                </span>
+                <span class="text-[10px] text-slate-400 font-medium">Refração clínica principal</span>
+              </div>
+
               <div class="grid grid-cols-4 gap-4 font-bold text-[11px] text-slate-400 uppercase tracking-wider text-center border-b pb-2">
                 <div>Olho</div>
-                <div>Esférico</div>
+                <div>Esférico Longe</div>
                 <div>Cilíndrico (-)</div>
                 <div>Eixo (0° a 180°)</div>
               </div>
@@ -292,31 +300,33 @@
               <div class="grid grid-cols-4 gap-4 items-center">
                 <div class="text-sm font-black text-slate-700 text-center">OD</div>
 
-                <input v-model.number="form.odEsferico" type="number" step="0.25" placeholder="0,00" @keydown.enter.prevent class="rounded-xl border-slate-200 text-sm text-center font-mono focus:border-teal-500" />
+                <input v-model.number="form.odEsferico" type="number" step="0.25" placeholder="0,00" @keydown.enter.prevent class="rounded-xl border-slate-200 text-sm text-center font-mono focus:border-teal-500 bg-white" />
 
-                <input v-model.number="form.odCilindrico" type="number" step="0.25" max="0" placeholder="-0,00" @input="validarCilindrico('odCilindrico')" @keydown.enter.prevent class="rounded-xl border-slate-200 text-sm text-center font-mono text-amber-700 font-bold focus:border-teal-500" />
+                <input v-model.number="form.odCilindrico" type="number" step="0.25" max="0" placeholder="-0,00" @input="validarCilindrico('odCilindrico')" @keydown.enter.prevent class="rounded-xl border-slate-200 text-sm text-center font-mono text-amber-700 font-bold focus:border-teal-500 bg-white" />
 
-                <input v-model.number="form.odEixo" type="number" min="0" max="180" step="1" placeholder="0" @input="validarEixo('odEixo')" @keydown.enter.prevent class="rounded-xl border-slate-200 text-sm text-center font-mono focus:border-teal-500" />
+                <input v-model.number="form.odEixo" type="number" min="0" max="180" step="1" placeholder="0" @input="validarEixo('odEixo')" @keydown.enter.prevent class="rounded-xl border-slate-200 text-sm text-center font-mono focus:border-teal-500 bg-white" />
               </div>
 
               <div class="grid grid-cols-4 gap-4 items-center">
                 <div class="text-sm font-black text-slate-700 text-center">OE</div>
 
-                <input v-model.number="form.oeEsferico" type="number" step="0.25" placeholder="0,00" @keydown.enter.prevent class="rounded-xl border-slate-200 text-sm text-center font-mono focus:border-teal-500" />
+                <input v-model.number="form.oeEsferico" type="number" step="0.25" placeholder="0,00" @keydown.enter.prevent class="rounded-xl border-slate-200 text-sm text-center font-mono focus:border-teal-500 bg-white" />
 
-                <input v-model.number="form.oeCilindrico" type="number" step="0.25" max="0" placeholder="-0,00" @input="validarCilindrico('oeCilindrico')" @keydown.enter.prevent class="rounded-xl border-slate-200 text-sm text-center font-mono text-amber-700 font-bold focus:border-teal-500" />
+                <input v-model.number="form.oeCilindrico" type="number" step="0.25" max="0" placeholder="-0,00" @input="validarCilindrico('oeCilindrico')" @keydown.enter.prevent class="rounded-xl border-slate-200 text-sm text-center font-mono text-amber-700 font-bold focus:border-teal-500 bg-white" />
 
-                <input v-model.number="form.oeEixo" type="number" min="0" max="180" step="1" placeholder="0" @input="validarEixo('oeEixo')" @keydown.enter.prevent class="rounded-xl border-slate-200 text-sm text-center font-mono focus:border-teal-500" />
+                <input v-model.number="form.oeEixo" type="number" min="0" max="180" step="1" placeholder="0" @input="validarEixo('oeEixo')" @keydown.enter.prevent class="rounded-xl border-slate-200 text-sm text-center font-mono focus:border-teal-500 bg-white" />
               </div>
             </div>
 
+            <!-- ADIÇÃO E RESPONSÁVEL -->
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4 items-center pt-2">
-              <div class="flex flex-col bg-teal-50/50 p-4 rounded-xl border border-teal-100">
+              <div class="flex flex-col bg-teal-50/60 p-4 rounded-xl border border-teal-100">
                 <label class="block text-xs font-bold uppercase text-teal-800 tracking-wider mb-1.5">
                   Adição (AD) <span class="text-[10px] text-teal-600">(Máx +3.50)</span>
                 </label>
 
                 <input v-model.number="form.adicao" type="number" step="0.25" min="0" max="3.5" placeholder="0.00" @input="validarAdicao" @keydown.enter.prevent class="w-full rounded-xl border-teal-200 text-sm focus:border-teal-500 focus:ring-teal-500 bg-white font-mono text-teal-900 font-bold" />
+                <span class="text-[10px] text-teal-700 mt-1">Calcula automaticamente os graus de perto abaixo.</span>
               </div>
 
               <div>
@@ -328,6 +338,45 @@
                     {{ v.nome || v.Nome }}
                   </option>
                 </select>
+              </div>
+            </div>
+
+            <!-- GRAU DE PERTO (CÁLCULO AUTOMÁTICO) -->
+            <div class="bg-teal-50/40 p-4 rounded-xl border border-teal-200/80 space-y-3 mt-4">
+              <div class="flex items-center justify-between border-b border-teal-100 pb-2">
+                <span class="text-xs font-black text-teal-900 uppercase tracking-wider flex items-center gap-1.5">
+                  🔍 Grau de Perto (Visão de Perto)
+                </span>
+                <span class="px-2 py-0.5 bg-teal-100 text-teal-800 rounded-md text-[10px] font-bold uppercase tracking-wider">
+                  ⚡ Calculado Automático (Longe + Adição)
+                </span>
+              </div>
+
+              <div class="grid grid-cols-4 gap-4 font-bold text-[11px] text-teal-800 uppercase tracking-wider text-center border-b border-teal-100 pb-2">
+                <div>Olho</div>
+                <div>Esférico Perto</div>
+                <div>Cilíndrico (-)</div>
+                <div>Eixo</div>
+              </div>
+
+              <div class="grid grid-cols-4 gap-4 items-center">
+                <div class="text-sm font-black text-teal-900 text-center">OD</div>
+
+                <input v-model.number="odEsfericoPertoComputed" type="number" step="0.25" placeholder="0,00" @keydown.enter.prevent class="rounded-xl border-teal-300 text-sm text-center font-mono text-teal-950 font-bold focus:border-teal-500 bg-white" />
+
+                <input :value="form.odCilindrico" type="number" step="0.25" placeholder="-0,00" disabled class="rounded-xl border-slate-200 text-sm text-center font-mono text-amber-700 font-bold bg-slate-100 cursor-not-allowed" />
+
+                <input :value="form.odEixo" type="number" placeholder="0" disabled class="rounded-xl border-slate-200 text-sm text-center font-mono text-slate-600 bg-slate-100 cursor-not-allowed" />
+              </div>
+
+              <div class="grid grid-cols-4 gap-4 items-center">
+                <div class="text-sm font-black text-slate-700 text-center">OE</div>
+
+                <input v-model.number="oeEsfericoPertoComputed" type="number" step="0.25" placeholder="0,00" @keydown.enter.prevent class="rounded-xl border-teal-300 text-sm text-center font-mono text-teal-950 font-bold focus:border-teal-500 bg-white" />
+
+                <input :value="form.oeCilindrico" type="number" step="0.25" placeholder="-0,00" disabled class="rounded-xl border-slate-200 text-sm text-center font-mono text-amber-700 font-bold bg-slate-100 cursor-not-allowed" />
+
+                <input :value="form.oeEixo" type="number" placeholder="0" disabled class="rounded-xl border-slate-200 text-sm text-center font-mono text-slate-600 bg-slate-100 cursor-not-allowed" />
               </div>
             </div>
           </div>
@@ -748,6 +797,34 @@ const formatarDataBR = (dataRaw) => {
 const valorLenteFormatado = computed(() => formatarMoeda(form.valorLente))
 const descontoReaisFormatado = computed(() => formatarMoeda(form.descontoReais))
 const valorEntradaFormatado = computed(() => formatarMoeda(form.valorEntrada))
+
+const odEsfericoPertoComputed = computed({
+  get() {
+    const longe = converterParaNumeroSeguro(form.odEsferico)
+    const adicao = converterParaNumeroSeguro(form.adicao)
+    return Number((longe + adicao).toFixed(2))
+  },
+  set(novoValor) {
+    const longe = converterParaNumeroSeguro(form.odEsferico)
+    const novoPerto = converterParaNumeroSeguro(novoValor)
+    const dif = Math.max(0, Math.min(3.5, Math.round((novoPerto - longe) * 100) / 100))
+    form.adicao = dif > 0 ? dif : null
+  }
+})
+
+const oeEsfericoPertoComputed = computed({
+  get() {
+    const longe = converterParaNumeroSeguro(form.oeEsferico)
+    const adicao = converterParaNumeroSeguro(form.adicao)
+    return Number((longe + adicao).toFixed(2))
+  },
+  set(novoValor) {
+    const longe = converterParaNumeroSeguro(form.oeEsferico)
+    const novoPerto = converterParaNumeroSeguro(novoValor)
+    const dif = Math.max(0, Math.min(3.5, Math.round((novoPerto - longe) * 100) / 100))
+    form.adicao = dif > 0 ? dif : null
+  }
+})
 
 const tratarInputValorLente = (event) => {
   const digitos = event.target.value.replace(/\D/g, '')

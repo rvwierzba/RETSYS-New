@@ -220,6 +220,13 @@ namespace RETSYS.Web.Controllers
                             os.Receita.CoOe,
                             os.Receita.ObsReceita,
 
+                            OdEsfericoPerto = os.Receita.OdEsferico + (os.Receita.Adicao ?? 0),
+                            OeEsfericoPerto = os.Receita.OeEsferico + (os.Receita.Adicao ?? 0),
+                            OdCilindricoPerto = os.Receita.OdCilindrico,
+                            OeCilindricoPerto = os.Receita.OeCilindrico,
+                            OdEixoPerto = os.Receita.OdEixo,
+                            OeEixoPerto = os.Receita.OeEixo,
+
                             EsfericoPertoDireito =
                                 os.Receita.OdEsferico +
                                 (os.Receita.Adicao ?? 0),

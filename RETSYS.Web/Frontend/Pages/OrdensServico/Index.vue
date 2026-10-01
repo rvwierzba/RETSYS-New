@@ -282,10 +282,15 @@
               </span>
             </h4>
 
+            <!-- Tabela Grau de Longe -->
             <div class="bg-white rounded-2xl border border-slate-200 overflow-hidden text-xs">
+              <div class="bg-slate-100 px-3 py-1.5 border-b text-[10px] font-bold uppercase tracking-wider text-slate-600 flex justify-between">
+                <span>👓 Grau de Longe</span>
+                <span v-if="receitaObj.adicao" class="text-teal-700 font-bold">Adição (AD): +{{ formatarGrau(receitaObj.adicao) }}</span>
+              </div>
               <table class="w-full text-center border-collapse">
                 <thead>
-                  <tr class="bg-slate-100 text-slate-500 text-[10px] font-bold uppercase tracking-wider border-b border-slate-200">
+                  <tr class="bg-slate-50 text-slate-500 text-[10px] font-bold uppercase tracking-wider border-b border-slate-200">
                     <th class="py-2">Olho</th>
                     <th class="py-2">Esférico</th>
                     <th class="py-2">Cilíndrico</th>
@@ -315,9 +320,36 @@
               </table>
             </div>
 
-            <div v-if="receitaObj.adicao" class="p-3 bg-teal-50 border border-teal-100 rounded-xl text-xs font-semibold text-teal-900 flex justify-between">
-              <span>Adição (AD): +{{ formatarGrau(receitaObj.adicao) }}</span>
-              <span>Esférico Perto OD: {{ formatarGrau(receitaObj.esfericoPertoDireito) }} | OE: {{ formatarGrau(receitaObj.esfericoPertoEsquerdo) }}</span>
+            <!-- Tabela Grau de Perto (Exibida quando há Adição) -->
+            <div v-if="receitaObj.adicao" class="bg-white rounded-2xl border border-teal-200 overflow-hidden text-xs">
+              <div class="bg-teal-50 px-3 py-1.5 border-b border-teal-100 text-[10px] font-bold uppercase tracking-wider text-teal-900 flex justify-between">
+                <span>🔍 Grau de Perto (Longe + Adição)</span>
+                <span class="text-teal-700">AD: +{{ formatarGrau(receitaObj.adicao) }}</span>
+              </div>
+              <table class="w-full text-center border-collapse font-mono">
+                <thead>
+                  <tr class="bg-teal-50/50 text-teal-800 text-[10px] font-bold uppercase tracking-wider border-b border-teal-100">
+                    <th class="py-2">Olho</th>
+                    <th class="py-2">Esférico Perto</th>
+                    <th class="py-2">Cilíndrico Perto</th>
+                    <th class="py-2">Eixo Perto</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr class="border-b border-teal-100/50">
+                    <td class="py-2.5 font-black text-slate-800">OD</td>
+                    <td class="py-2.5 font-bold text-teal-950">{{ formatarGrau(receitaObj.odEsfericoPerto ?? receitaObj.esfericoPertoDireito ?? (Number(receitaObj.odEsferico || 0) + Number(receitaObj.adicao || 0))) }}</td>
+                    <td class="py-2.5 font-bold text-amber-700">{{ formatarGrau(receitaObj.odCilindricoPerto ?? receitaObj.odCilindrico) }}</td>
+                    <td class="py-2.5 text-slate-700">{{ receitaObj.odEixoPerto ?? receitaObj.odEixo }}°</td>
+                  </tr>
+                  <tr>
+                    <td class="py-2.5 font-black text-slate-800">OE</td>
+                    <td class="py-2.5 font-bold text-teal-950">{{ formatarGrau(receitaObj.oeEsfericoPerto ?? receitaObj.esfericoPertoEsquerdo ?? (Number(receitaObj.oeEsferico || 0) + Number(receitaObj.adicao || 0))) }}</td>
+                    <td class="py-2.5 font-bold text-amber-700">{{ formatarGrau(receitaObj.oeCilindricoPerto ?? receitaObj.oeCilindrico) }}</td>
+                    <td class="py-2.5 text-slate-700">{{ receitaObj.oeEixoPerto ?? receitaObj.oeEixo }}°</td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
           </div>
 
