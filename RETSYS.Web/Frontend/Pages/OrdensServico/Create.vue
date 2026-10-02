@@ -281,13 +281,86 @@
               </div>
             </div>
 
-            <!-- GRAU DE LONGE -->
-            <div class="bg-slate-50/70 p-4 rounded-xl border border-slate-200 space-y-3 mt-4">
+            <!-- SELETOR MODERNO DE TIPO DE LENTE / FOCO -->
+            <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-2 mt-2">
+              <label class="block text-xs font-black uppercase text-slate-600 tracking-wider">
+                🎯 Tipo de Lente / Foco da Prescrição
+              </label>
+
+              <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                <button
+                  type="button"
+                  @click="selecionarTipoLente('MULTIFOCAL')"
+                  :class="[
+                    'p-3 rounded-xl border text-left transition-all flex flex-col gap-1',
+                    form.tipoLente === 'MULTIFOCAL'
+                      ? 'border-teal-500 bg-teal-50/70 text-teal-950 font-bold shadow-sm ring-2 ring-teal-500/20'
+                      : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
+                  ]"
+                >
+                  <span class="text-xs font-black flex items-center gap-1.5">
+                    🔬 Multifocal / Bifocal
+                  </span>
+                  <span class="text-[10px] text-slate-500 leading-tight">Longe + Perto com Adição</span>
+                </button>
+
+                <button
+                  type="button"
+                  @click="selecionarTipoLente('MEIA_DISTANCIA')"
+                  :class="[
+                    'p-3 rounded-xl border text-left transition-all flex flex-col gap-1',
+                    form.tipoLente === 'MEIA_DISTANCIA'
+                      ? 'border-teal-500 bg-teal-50/70 text-teal-950 font-bold shadow-sm ring-2 ring-teal-500/20'
+                      : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
+                  ]"
+                >
+                  <span class="text-xs font-black flex items-center gap-1.5">
+                    💻 Meia Distância
+                  </span>
+                  <span class="text-[10px] text-slate-500 leading-tight">Longe/Intermediário + Perto</span>
+                </button>
+
+                <button
+                  type="button"
+                  @click="selecionarTipoLente('SO_LONGE')"
+                  :class="[
+                    'p-3 rounded-xl border text-left transition-all flex flex-col gap-1',
+                    form.tipoLente === 'SO_LONGE'
+                      ? 'border-teal-500 bg-teal-50/70 text-teal-950 font-bold shadow-sm ring-2 ring-teal-500/20'
+                      : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
+                  ]"
+                >
+                  <span class="text-xs font-black flex items-center gap-1.5">
+                    👓 Só Longe
+                  </span>
+                  <span class="text-[10px] text-slate-500 leading-tight">Visão simples de longe</span>
+                </button>
+
+                <button
+                  type="button"
+                  @click="selecionarTipoLente('SO_PERTO')"
+                  :class="[
+                    'p-3 rounded-xl border text-left transition-all flex flex-col gap-1',
+                    form.tipoLente === 'SO_PERTO'
+                      ? 'border-teal-500 bg-teal-50/70 text-teal-950 font-bold shadow-sm ring-2 ring-teal-500/20'
+                      : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
+                  ]"
+                >
+                  <span class="text-xs font-black flex items-center gap-1.5">
+                    🔍 Só Perto
+                  </span>
+                  <span class="text-[10px] text-slate-500 leading-tight">Visão simples de perto</span>
+                </button>
+              </div>
+            </div>
+
+            <!-- GRAU DE LONGE (Exibido para Multifocal, Meia Distância e Só Longe) -->
+            <div v-if="form.tipoLente !== 'SO_PERTO'" class="bg-slate-50/70 p-4 rounded-xl border border-slate-200 space-y-3 mt-4">
               <div class="flex items-center justify-between border-b pb-2">
                 <span class="text-xs font-black text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
                   👓 Grau de Longe (Visão de Longe)
                 </span>
-                <span class="text-[10px] text-slate-400 font-medium">Refração clínica principal</span>
+                <span class="text-[10px] text-slate-400 font-medium">Refração clínica de longe</span>
               </div>
 
               <div class="grid grid-cols-4 gap-4 font-bold text-[11px] text-slate-400 uppercase tracking-wider text-center border-b pb-2">
@@ -318,18 +391,20 @@
               </div>
             </div>
 
-            <!-- ADIÇÃO E RESPONSÁVEL -->
+            <!-- ADIÇÃO E RESPONSÁVEL (Adição exibida para Multifocal e Meia Distância) -->
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4 items-center pt-2">
-              <div class="flex flex-col bg-teal-50/60 p-4 rounded-xl border border-teal-100">
+              <div v-if="form.tipoLente === 'MULTIFOCAL' || form.tipoLente === 'MEIA_DISTANCIA'" class="flex flex-col bg-teal-50/60 p-4 rounded-xl border border-teal-100">
                 <label class="block text-xs font-bold uppercase text-teal-800 tracking-wider mb-1.5">
                   Adição (AD) <span class="text-[10px] text-teal-600">(Máx +3.50)</span>
                 </label>
 
                 <input v-model.number="form.adicao" type="number" step="0.25" min="0" max="3.5" placeholder="0.00" @input="validarAdicao" @keydown.enter.prevent class="w-full rounded-xl border-teal-200 text-sm focus:border-teal-500 focus:ring-teal-500 bg-white font-mono text-teal-900 font-bold" />
-                <span class="text-[10px] text-teal-700 mt-1">Calcula automaticamente os graus de perto abaixo.</span>
+                <span class="text-[10px] text-teal-700 mt-1">
+                  {{ form.tipoLente === 'MEIA_DISTANCIA' ? 'Calculada automaticamente ao digitar Longe e Perto' : 'Calcula Perto (Longe + AD) ou preencher Perto gera a Adição' }}
+                </span>
               </div>
 
-              <div>
+              <div :class="{'md:col-span-2': form.tipoLente === 'SO_LONGE' || form.tipoLente === 'SO_PERTO'}">
                 <label class="block text-[11px] font-bold uppercase text-slate-400 tracking-wider mb-1.5">Atendente / Responsável *</label>
 
                 <select v-model="form.vendedorId" @keydown.enter.prevent class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500" required>
@@ -341,14 +416,17 @@
               </div>
             </div>
 
-            <!-- GRAU DE PERTO (CÁLCULO AUTOMÁTICO) -->
-            <div class="bg-teal-50/40 p-4 rounded-xl border border-teal-200/80 space-y-3 mt-4">
+            <!-- GRAU DE PERTO (Exibido para Multifocal, Meia Distância e Só Perto) -->
+            <div v-if="form.tipoLente !== 'SO_LONGE'" class="bg-teal-50/40 p-4 rounded-xl border border-teal-200/80 space-y-3 mt-4">
               <div class="flex items-center justify-between border-b border-teal-100 pb-2">
                 <span class="text-xs font-black text-teal-900 uppercase tracking-wider flex items-center gap-1.5">
                   🔍 Grau de Perto (Visão de Perto)
                 </span>
-                <span class="px-2 py-0.5 bg-teal-100 text-teal-800 rounded-md text-[10px] font-bold uppercase tracking-wider">
-                  ⚡ Calculado Automático (Longe + Adição)
+                <span v-if="form.tipoLente === 'SO_PERTO'" class="px-2 py-0.5 bg-teal-100 text-teal-800 rounded-md text-[10px] font-bold uppercase tracking-wider">
+                  👓 Visão Simples de Perto
+                </span>
+                <span v-else class="px-2 py-0.5 bg-teal-100 text-teal-800 rounded-md text-[10px] font-bold uppercase tracking-wider">
+                  ⚡ Preencher Esférico Perto gera a Adição automaticamente
                 </span>
               </div>
 
@@ -364,9 +442,11 @@
 
                 <input v-model.number="odEsfericoPertoComputed" type="number" step="0.25" placeholder="0,00" @keydown.enter.prevent class="rounded-xl border-teal-300 text-sm text-center font-mono text-teal-950 font-bold focus:border-teal-500 bg-white" />
 
-                <input :value="form.odCilindrico" type="number" step="0.25" placeholder="-0,00" disabled class="rounded-xl border-slate-200 text-sm text-center font-mono text-amber-700 font-bold bg-slate-100 cursor-not-allowed" />
+                <input v-if="form.tipoLente === 'SO_PERTO'" v-model.number="form.odCilindrico" type="number" step="0.25" max="0" placeholder="-0,00" @input="validarCilindrico('odCilindrico')" @keydown.enter.prevent class="rounded-xl border-slate-200 text-sm text-center font-mono text-amber-700 font-bold focus:border-teal-500 bg-white" />
+                <input v-else :value="form.odCilindrico" type="number" step="0.25" placeholder="-0,00" disabled class="rounded-xl border-slate-200 text-sm text-center font-mono text-amber-700 font-bold bg-slate-100 cursor-not-allowed" />
 
-                <input :value="form.odEixo" type="number" placeholder="0" disabled class="rounded-xl border-slate-200 text-sm text-center font-mono text-slate-600 bg-slate-100 cursor-not-allowed" />
+                <input v-if="form.tipoLente === 'SO_PERTO'" v-model.number="form.odEixo" type="number" min="0" max="180" step="1" placeholder="0" @input="validarEixo('odEixo')" @keydown.enter.prevent class="rounded-xl border-slate-200 text-sm text-center font-mono focus:border-teal-500 bg-white" />
+                <input v-else :value="form.odEixo" type="number" placeholder="0" disabled class="rounded-xl border-slate-200 text-sm text-center font-mono text-slate-600 bg-slate-100 cursor-not-allowed" />
               </div>
 
               <div class="grid grid-cols-4 gap-4 items-center">
@@ -374,9 +454,11 @@
 
                 <input v-model.number="oeEsfericoPertoComputed" type="number" step="0.25" placeholder="0,00" @keydown.enter.prevent class="rounded-xl border-teal-300 text-sm text-center font-mono text-teal-950 font-bold focus:border-teal-500 bg-white" />
 
-                <input :value="form.oeCilindrico" type="number" step="0.25" placeholder="-0,00" disabled class="rounded-xl border-slate-200 text-sm text-center font-mono text-amber-700 font-bold bg-slate-100 cursor-not-allowed" />
+                <input v-if="form.tipoLente === 'SO_PERTO'" v-model.number="form.oeCilindrico" type="number" step="0.25" max="0" placeholder="-0,00" @input="validarCilindrico('oeCilindrico')" @keydown.enter.prevent class="rounded-xl border-slate-200 text-sm text-center font-mono text-amber-700 font-bold focus:border-teal-500 bg-white" />
+                <input v-else :value="form.oeCilindrico" type="number" step="0.25" placeholder="-0,00" disabled class="rounded-xl border-slate-200 text-sm text-center font-mono text-amber-700 font-bold bg-slate-100 cursor-not-allowed" />
 
-                <input :value="form.oeEixo" type="number" placeholder="0" disabled class="rounded-xl border-slate-200 text-sm text-center font-mono text-slate-600 bg-slate-100 cursor-not-allowed" />
+                <input v-if="form.tipoLente === 'SO_PERTO'" v-model.number="form.oeEixo" type="number" min="0" max="180" step="1" placeholder="0" @input="validarEixo('oeEixo')" @keydown.enter.prevent class="rounded-xl border-slate-200 text-sm text-center font-mono focus:border-teal-500 bg-white" />
+                <input v-else :value="form.oeEixo" type="number" placeholder="0" disabled class="rounded-xl border-slate-200 text-sm text-center font-mono text-slate-600 bg-slate-100 cursor-not-allowed" />
               </div>
             </div>
           </div>
@@ -721,6 +803,7 @@ const fotoAnexaArquivo = ref(null)
 const rascunhoRestaurado = ref(false)
 
 const form = useForm({
+  tipoLente: 'MULTIFOCAL',
   numeroOS: props.ProximoNumeroOS || '',
   dataEmissao: new Date().toISOString().split('T')[0],
   lojaVenda: 'Matriz',
@@ -775,6 +858,13 @@ const form = useForm({
   formaPagamento: 'DINHEIRO'
 })
 
+const selecionarTipoLente = (tipo) => {
+  form.tipoLente = tipo
+  if (tipo === 'SO_LONGE' || tipo === 'SO_PERTO') {
+    form.adicao = null
+  }
+}
+
 const converterParaNumeroSeguro = (valor) => {
   const numero = Number(valor)
   return Number.isFinite(numero) ? numero : 0
@@ -800,11 +890,19 @@ const valorEntradaFormatado = computed(() => formatarMoeda(form.valorEntrada))
 
 const odEsfericoPertoComputed = computed({
   get() {
+    if (form.tipoLente === 'SO_PERTO') {
+      return converterParaNumeroSeguro(form.odEsferico)
+    }
     const longe = converterParaNumeroSeguro(form.odEsferico)
     const adicao = converterParaNumeroSeguro(form.adicao)
     return Number((longe + adicao).toFixed(2))
   },
   set(novoValor) {
+    if (form.tipoLente === 'SO_PERTO') {
+      form.odEsferico = converterParaNumeroSeguro(novoValor)
+      form.adicao = null
+      return
+    }
     const longe = converterParaNumeroSeguro(form.odEsferico)
     const novoPerto = converterParaNumeroSeguro(novoValor)
     const dif = Math.max(0, Math.min(3.5, Math.round((novoPerto - longe) * 100) / 100))
@@ -814,11 +912,19 @@ const odEsfericoPertoComputed = computed({
 
 const oeEsfericoPertoComputed = computed({
   get() {
+    if (form.tipoLente === 'SO_PERTO') {
+      return converterParaNumeroSeguro(form.oeEsferico)
+    }
     const longe = converterParaNumeroSeguro(form.oeEsferico)
     const adicao = converterParaNumeroSeguro(form.adicao)
     return Number((longe + adicao).toFixed(2))
   },
   set(novoValor) {
+    if (form.tipoLente === 'SO_PERTO') {
+      form.oeEsferico = converterParaNumeroSeguro(novoValor)
+      form.adicao = null
+      return
+    }
     const longe = converterParaNumeroSeguro(form.oeEsferico)
     const novoPerto = converterParaNumeroSeguro(novoValor)
     const dif = Math.max(0, Math.min(3.5, Math.round((novoPerto - longe) * 100) / 100))
