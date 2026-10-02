@@ -440,7 +440,8 @@
               <div class="grid grid-cols-4 gap-4 items-center">
                 <div class="text-sm font-black text-teal-900 text-center">OD</div>
 
-                <input v-model.number="odEsfericoPertoComputed" type="number" step="0.25" placeholder="0,00" @keydown.enter.prevent class="rounded-xl border-teal-300 text-sm text-center font-mono text-teal-950 font-bold focus:border-teal-500 bg-white" />
+                <input v-if="form.tipoLente === 'SO_PERTO'" v-model.number="form.odEsferico" type="number" step="0.25" placeholder="0,00" @keydown.enter.prevent class="rounded-xl border-teal-300 text-sm text-center font-mono text-teal-950 font-bold focus:border-teal-500 bg-white" />
+                <input v-else v-model.number="form.odEsfericoPerto" @input="calcularAdicaoOuPerto('pertoOd')" type="number" step="0.25" placeholder="0,00" @keydown.enter.prevent class="rounded-xl border-teal-300 text-sm text-center font-mono text-teal-950 font-bold focus:border-teal-500 bg-white" />
 
                 <input v-if="form.tipoLente === 'SO_PERTO'" v-model.number="form.odCilindrico" type="number" step="0.25" max="0" placeholder="-0,00" @input="validarCilindrico('odCilindrico')" @keydown.enter.prevent class="rounded-xl border-slate-200 text-sm text-center font-mono text-amber-700 font-bold focus:border-teal-500 bg-white" />
                 <input v-else :value="form.odCilindrico" type="number" step="0.25" placeholder="-0,00" disabled class="rounded-xl border-slate-200 text-sm text-center font-mono text-amber-700 font-bold bg-slate-100 cursor-not-allowed" />
@@ -452,7 +453,8 @@
               <div class="grid grid-cols-4 gap-4 items-center">
                 <div class="text-sm font-black text-slate-700 text-center">OE</div>
 
-                <input v-model.number="oeEsfericoPertoComputed" type="number" step="0.25" placeholder="0,00" @keydown.enter.prevent class="rounded-xl border-teal-300 text-sm text-center font-mono text-teal-950 font-bold focus:border-teal-500 bg-white" />
+                <input v-if="form.tipoLente === 'SO_PERTO'" v-model.number="form.oeEsferico" type="number" step="0.25" placeholder="0,00" @keydown.enter.prevent class="rounded-xl border-teal-300 text-sm text-center font-mono text-teal-950 font-bold focus:border-teal-500 bg-white" />
+                <input v-else v-model.number="form.oeEsfericoPerto" @input="calcularAdicaoOuPerto('pertoOe')" type="number" step="0.25" placeholder="0,00" @keydown.enter.prevent class="rounded-xl border-teal-300 text-sm text-center font-mono text-teal-950 font-bold focus:border-teal-500 bg-white" />
 
                 <input v-if="form.tipoLente === 'SO_PERTO'" v-model.number="form.oeCilindrico" type="number" step="0.25" max="0" placeholder="-0,00" @input="validarCilindrico('oeCilindrico')" @keydown.enter.prevent class="rounded-xl border-slate-200 text-sm text-center font-mono text-amber-700 font-bold focus:border-teal-500 bg-white" />
                 <input v-else :value="form.oeCilindrico" type="number" step="0.25" placeholder="-0,00" disabled class="rounded-xl border-slate-200 text-sm text-center font-mono text-amber-700 font-bold bg-slate-100 cursor-not-allowed" />
@@ -833,6 +835,8 @@ const form = useForm({
   oeEsferico: 0,
   oeCilindrico: 0,
   oeEixo: 0,
+  odEsfericoPerto: null,
+  oeEsfericoPerto: null,
   adicao: null,
   dnpOd: 0,
   dnpOe: 0,
@@ -862,6 +866,60 @@ const selecionarTipoLente = (tipo) => {
   form.tipoLente = tipo
   if (tipo === 'SO_LONGE' || tipo === 'SO_PERTO') {
     form.adicao = null
+    form.odEsfericoPerto = null
+    form.oeEsfericoPerto = null
+  }
+}
+
+const calcularAdicaoOuPerto = (origem) => {
+  if (form.tipoLente === 'SO_LONGE' || form.tipoLente === 'SO_PERTO') {
+    form.adicao = null
+    return
+  }
+
+  const longeOd = converterParaNumeroSeguro(form.odEsferico)
+  const longeOe = converterParaNumeroSeguro(form.oeEsferico)
+
+  if (origem === 'pertoOd') {
+    if (form.odEsfericoPerto !== null && form.odEsfericoPerto !== undefined && form.odEsfericoPerto !== '') {
+      const pertoOd = converterParaNumeroSeguro(form.odEsfericoPerto)
+      const dif = Math.max(0, Math.min(3.5, Math.round((pertoOd - longeOd) * 100) / 100))
+      form.adicao = dif > 0 ? dif : null
+
+      if (longeOe !== 0 && (form.oeEsfericoPerto === null || form.oeEsfericoPerto === undefined || form.oeEsfericoPerto === '')) {
+        form.oeEsfericoPerto = Number((longeOe + (form.adicao || 0)).toFixed(2))
+      }
+    }
+  } else if (origem === 'pertoOe') {
+    if (form.oeEsfericoPerto !== null && form.oeEsfericoPerto !== undefined && form.oeEsfericoPerto !== '') {
+      const pertoOe = converterParaNumeroSeguro(form.oeEsfericoPerto)
+      const dif = Math.max(0, Math.min(3.5, Math.round((pertoOe - longeOe) * 100) / 100))
+      form.adicao = dif > 0 ? dif : null
+
+      if (longeOd !== 0 && (form.odEsfericoPerto === null || form.odEsfericoPerto === undefined || form.odEsfericoPerto === '')) {
+        form.odEsfericoPerto = Number((longeOd + (form.adicao || 0)).toFixed(2))
+      }
+    }
+  } else if (origem === 'adicao') {
+    const add = converterParaNumeroSeguro(form.adicao)
+    if (add > 0) {
+      if (form.odEsferico !== null && form.odEsferico !== undefined) {
+        form.odEsfericoPerto = Number((longeOd + add).toFixed(2))
+      }
+      if (form.oeEsferico !== null && form.oeEsferico !== undefined) {
+        form.oeEsfericoPerto = Number((longeOe + add).toFixed(2))
+      }
+    }
+  } else if (origem === 'longe') {
+    const add = converterParaNumeroSeguro(form.adicao)
+    if (add > 0) {
+      form.odEsfericoPerto = Number((longeOd + add).toFixed(2))
+      form.oeEsfericoPerto = Number((longeOe + add).toFixed(2))
+    } else if (form.odEsfericoPerto !== null && form.odEsfericoPerto !== undefined && form.odEsfericoPerto !== '') {
+      const pertoOd = converterParaNumeroSeguro(form.odEsfericoPerto)
+      const dif = Math.max(0, Math.min(3.5, Math.round((pertoOd - longeOd) * 100) / 100))
+      form.adicao = dif > 0 ? dif : null
+    }
   }
 }
 

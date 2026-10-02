@@ -39,10 +39,12 @@ namespace RETSYS.Web.Controllers
             if (!string.IsNullOrWhiteSpace(busca))
             {
                 var termo = busca.Trim().ToLower();
+                var termoDigitos = new string(termo.Where(char.IsDigit).ToArray());
+
                 query = query.Where(c => 
                     c.Nome.ToLower().Contains(termo) || 
-                    (c.CPF != null && c.CPF.Contains(termo)) ||
-                    (c.Telefone != null && c.Telefone.Contains(termo))
+                    (c.CPF != null && (c.CPF.ToLower().Contains(termo) || (!string.IsNullOrEmpty(termoDigitos) && c.CPF.Contains(termoDigitos)))) ||
+                    (c.Telefone != null && (c.Telefone.ToLower().Contains(termo) || (!string.IsNullOrEmpty(termoDigitos) && c.Telefone.Contains(termoDigitos))))
                 );
             }
 
@@ -66,6 +68,15 @@ namespace RETSYS.Web.Controllers
                     c.Nome,
                     c.CPF,
                     c.Telefone,
+                    c.Email,
+                    c.Convenio,
+                    c.Cep,
+                    c.Logradouro,
+                    c.Numero,
+                    c.Bairro,
+                    c.Cidade,
+                    c.Estado,
+                    c.Observacoes,
                     
                     // Dados da OS mais recente
                     UltimaOs = c.OrdensServico.Where(os => os.OticaId == oticaId).OrderByDescending(os => os.DataEntrada).Select(os => os.NumeroOS).FirstOrDefault() ?? 
@@ -128,10 +139,27 @@ namespace RETSYS.Web.Controllers
 
         // 2. Gravação de Cliente com suporte a Cadastro Rápido e Ficha de Migração (CPF Opcional)
         [HttpPost("/clientes")]
-        public async Task<IActionResult> Store([FromForm] ClienteCadastroRequest model)
+        public async Task<IActionResult> Store(ClienteCadastroRequest model)
         {
+            if (string.IsNullOrWhiteSpace(model.Nome) && Request.HasFormContentType)
+            {
+                model.Nome = Request.Form["Nome"].ToString();
+                model.CPF = Request.Form["CPF"].ToString();
+                model.Telefone = Request.Form["Telefone"].ToString();
+                model.Email = Request.Form["Email"].ToString();
+                model.Convenio = Request.Form["Convenio"].ToString();
+                model.Cep = Request.Form["Cep"].ToString();
+                model.Logradouro = Request.Form["Logradouro"].ToString();
+                model.Numero = Request.Form["Numero"].ToString();
+                model.Bairro = Request.Form["Bairro"].ToString();
+                model.Cidade = Request.Form["Cidade"].ToString();
+                model.Estado = Request.Form["Estado"].ToString();
+                model.Observacoes = Request.Form["Observacoes"].ToString();
+            }
+
             if (string.IsNullOrWhiteSpace(model.Nome))
             {
+                Inertia.Share("erro", "Informe o nome completo do cliente.");
                 return RedirectToAction(nameof(Index));
             }
 
@@ -301,7 +329,66 @@ namespace RETSYS.Web.Controllers
             });
         }
 
-        // 5. Exclusão de Cliente
+        // 5. Edição de Cliente
+        [HttpPost("/clientes/editar/{id:guid}")]
+        public async Task<IActionResult> Editar(Guid id, ClienteCadastroRequest model)
+        {
+            if (string.IsNullOrWhiteSpace(model.Nome) && Request.HasFormContentType)
+            {
+                model.Nome = Request.Form["Nome"].ToString();
+                model.CPF = Request.Form["CPF"].ToString();
+                model.Telefone = Request.Form["Telefone"].ToString();
+                model.Email = Request.Form["Email"].ToString();
+                model.Convenio = Request.Form["Convenio"].ToString();
+                model.Cep = Request.Form["Cep"].ToString();
+                model.Logradouro = Request.Form["Logradouro"].ToString();
+                model.Numero = Request.Form["Numero"].ToString();
+                model.Bairro = Request.Form["Bairro"].ToString();
+                model.Cidade = Request.Form["Cidade"].ToString();
+                model.Estado = Request.Form["Estado"].ToString();
+                model.Observacoes = Request.Form["Observacoes"].ToString();
+            }
+
+            var oticaId = ObterOticaId();
+            var cliente = await _context.Clientes.FirstOrDefaultAsync(c => c.Id == id && c.OticaId == oticaId);
+            if (cliente == null)
+            {
+                Inertia.Share("erro", "Cliente não encontrado.");
+                return RedirectToAction(nameof(Index));
+            }
+
+            if (string.IsNullOrWhiteSpace(model.Nome))
+            {
+                Inertia.Share("erro", "Informe o nome completo do cliente.");
+                return RedirectToAction(nameof(Index));
+            }
+
+            string? cpfFinal = !string.IsNullOrWhiteSpace(model.CPF) 
+                ? new string(model.CPF.Where(char.IsDigit).ToArray()) 
+                : null;
+
+            cliente.Nome = model.Nome.Trim();
+            cliente.CPF = cpfFinal;
+            cliente.Telefone = model.Telefone ?? string.Empty;
+            cliente.Cep = model.Cep ?? string.Empty;
+            cliente.Logradouro = model.Logradouro ?? string.Empty;
+            cliente.Numero = model.Numero ?? string.Empty;
+            cliente.Bairro = model.Bairro ?? string.Empty;
+            cliente.Cidade = model.Cidade ?? string.Empty;
+            cliente.Estado = model.Estado ?? string.Empty;
+            cliente.Convenio = model.Convenio;
+            cliente.Email = model.Email;
+            if (!string.IsNullOrWhiteSpace(model.Observacoes))
+            {
+                cliente.Observacoes = model.Observacoes;
+            }
+            cliente.UpdatedAt = DateTime.UtcNow;
+
+            await _context.SaveChangesAsync();
+            return RedirectToAction(nameof(Index));
+        }
+
+        // 6. Exclusão de Cliente
         [HttpPost("/clientes/excluir/{id:guid}")]
         public async Task<IActionResult> Excluir(Guid id)
         {

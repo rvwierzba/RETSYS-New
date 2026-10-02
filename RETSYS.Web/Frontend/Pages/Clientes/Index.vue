@@ -351,16 +351,116 @@
                 </td>
                 
                 <td class="py-4 text-center">
-                  <Link 
-                    :href="`/clientes/${c.id}/historico`"
-                    class="bg-slate-950 hover:bg-slate-800 text-white text-xs font-bold px-3 py-1.5 rounded-lg transition shadow-sm font-mono"
-                  >
-                    Ficha Completa
-                  </Link>
+                  <div class="flex items-center justify-center gap-1.5">
+                    <Link 
+                      :href="`/clientes/${c.id}/historico`"
+                      class="bg-slate-950 hover:bg-slate-800 text-white text-[11px] font-bold px-2.5 py-1 rounded-lg transition shadow-sm font-mono"
+                      title="Prontuário e Histórico"
+                    >
+                      Ficha
+                    </Link>
+                    <button 
+                      @click="abrirEdicaoCliente(c)" 
+                      class="bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-bold px-2.5 py-1 rounded-lg transition font-mono border border-slate-200"
+                      title="Editar Dados"
+                    >
+                      Editar
+                    </button>
+                    <button 
+                      @click="excluirCliente(c)" 
+                      class="bg-rose-50 hover:bg-rose-100 text-rose-600 text-[11px] font-bold px-2.5 py-1 rounded-lg transition font-mono border border-rose-200"
+                      title="Excluir Cliente"
+                    >
+                      ✕
+                    </button>
+                  </div>
                 </td>
               </tr>
             </tbody>
           </table>
+        </div>
+      </div>
+
+      <!-- Modal de Edição de Cliente -->
+      <div v-if="exibirModalEdicao" class="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4">
+        <div class="bg-white w-full max-w-2xl rounded-2xl p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto border border-slate-200">
+          <div class="flex items-center justify-between border-b pb-3">
+            <div>
+              <h3 class="text-base font-black text-slate-950 uppercase font-mono">Editar Dados do Cliente</h3>
+              <p class="text-xs text-slate-500">Atualize informações de contato e endereço.</p>
+            </div>
+            <button @click="exibirModalEdicao = false" class="text-slate-400 hover:text-slate-600 font-bold text-lg">✕</button>
+          </div>
+
+          <form @submit.prevent="salvarEdicaoCliente" class="space-y-4 text-xs">
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+              <div class="md:col-span-2">
+                <label class="block font-bold uppercase text-slate-400 text-[10px] mb-1">Nome Completo *</label>
+                <input v-model="formEdicao.Nome" type="text" class="w-full rounded-xl border-slate-200 text-xs focus:border-teal-500" required />
+              </div>
+              <div>
+                <label class="block font-bold uppercase text-slate-400 text-[10px] mb-1">Convênio</label>
+                <input v-model="formEdicao.Convenio" type="text" class="w-full rounded-xl border-slate-200 text-xs focus:border-teal-500" />
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div>
+                <label class="block font-bold uppercase text-slate-400 text-[10px] mb-1">CPF</label>
+                <input v-model="formEdicao.CPF" type="text" class="w-full rounded-xl border-slate-200 text-xs focus:border-teal-500" />
+              </div>
+              <div>
+                <label class="block font-bold uppercase text-slate-400 text-[10px] mb-1">Telefone / WhatsApp</label>
+                <input v-model="formEdicao.Telefone" type="text" class="w-full rounded-xl border-slate-200 text-xs focus:border-teal-500" />
+              </div>
+              <div>
+                <label class="block font-bold uppercase text-slate-400 text-[10px] mb-1">E-mail</label>
+                <input v-model="formEdicao.Email" type="email" class="w-full rounded-xl border-slate-200 text-xs focus:border-teal-500" />
+              </div>
+            </div>
+
+            <div class="border-t border-slate-100 pt-3 grid grid-cols-1 sm:grid-cols-4 gap-3">
+              <div>
+                <label class="block font-bold text-teal-600 uppercase text-[10px] mb-1">CEP</label>
+                <input v-model="formEdicao.Cep" type="text" class="w-full rounded-xl border-slate-200 text-xs focus:border-teal-500 font-mono" />
+              </div>
+              <div class="sm:col-span-2">
+                <label class="block font-bold uppercase text-slate-400 text-[10px] mb-1">Logradouro</label>
+                <input v-model="formEdicao.Logradouro" type="text" class="w-full rounded-xl border-slate-200 text-xs focus:border-teal-500" />
+              </div>
+              <div>
+                <label class="block font-bold uppercase text-slate-400 text-[10px] mb-1">Número</label>
+                <input v-model="formEdicao.Numero" type="text" class="w-full rounded-xl border-slate-200 text-xs focus:border-teal-500 font-mono text-center" />
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div>
+                <label class="block font-bold uppercase text-slate-400 text-[10px] mb-1">Bairro</label>
+                <input v-model="formEdicao.Bairro" type="text" class="w-full rounded-xl border-slate-200 text-xs focus:border-teal-500" />
+              </div>
+              <div>
+                <label class="block font-bold uppercase text-slate-400 text-[10px] mb-1">Cidade</label>
+                <input v-model="formEdicao.Cidade" type="text" class="w-full rounded-xl border-slate-200 text-xs focus:border-teal-500" />
+              </div>
+              <div>
+                <label class="block font-bold uppercase text-slate-400 text-[10px] mb-1">UF</label>
+                <input v-model="formEdicao.Estado" type="text" maxlength="2" class="w-full rounded-xl border-slate-200 text-xs focus:border-teal-500 uppercase font-mono text-center" />
+              </div>
+            </div>
+
+            <div>
+              <label class="block font-bold uppercase text-slate-400 text-[10px] mb-1">Observações</label>
+              <textarea v-model="formEdicao.Observacoes" rows="2" class="w-full rounded-xl border-slate-200 text-xs focus:border-teal-500"></textarea>
+            </div>
+
+            <div class="flex justify-end gap-2 border-t pt-3">
+              <button type="button" @click="exibirModalEdicao = false" class="px-4 py-2 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700">Cancelar</button>
+              <button type="submit" :disabled="formEdicao.processing" class="px-5 py-2 rounded-xl text-xs font-bold bg-teal-600 hover:bg-teal-700 text-white shadow-sm">
+                {{ formEdicao.processing ? 'Salvando...' : 'Salvar Alterações' }}
+              </button>
+            </div>
+          </form>
         </div>
       </div>
 
@@ -402,11 +502,74 @@ const listaClientes = computed(() => {
     nome: c.Nome ?? c.nome ?? '',
     cpf: c.CPF ?? c.cpf ?? '',
     telefone: c.Telefone ?? c.telefone ?? '',
+    email: c.Email ?? c.email ?? '',
+    convenio: c.Convenio ?? c.convenio ?? '',
+    cep: c.Cep ?? c.cep ?? '',
+    logradouro: c.Logradouro ?? c.logradouro ?? '',
+    numero: c.Numero ?? c.numero ?? '',
+    bairro: c.Bairro ?? c.bairro ?? '',
+    cidade: c.Cidade ?? c.cidade ?? '',
+    estado: c.Estado ?? c.estado ?? '',
+    observacoes: c.Observacoes ?? c.observacoes ?? '',
     statusEntrega: c.StatusEntrega ?? c.statusEntrega ?? 'Nenhum',
     ultimaOs: c.UltimaOs ?? c.ultimaOs ?? 'Nenhuma',
     totalGasto: c.TotalGasto ?? c.totalGasto ?? 0
   }))
 })
+
+const clienteEditando = ref(null)
+const exibirModalEdicao = ref(false)
+
+const formEdicao = useForm({
+  Nome: '',
+  CPF: '',
+  Telefone: '',
+  Email: '',
+  Convenio: '',
+  Cep: '',
+  Logradouro: '',
+  Numero: '',
+  Bairro: '',
+  Cidade: '',
+  Estado: '',
+  Observacoes: ''
+})
+
+const abrirEdicaoCliente = (c) => {
+  clienteEditando.value = c
+  formEdicao.Nome = c.nome
+  formEdicao.CPF = c.cpf
+  formEdicao.Telefone = c.telefone
+  formEdicao.Email = c.email
+  formEdicao.Convenio = c.convenio
+  formEdicao.Cep = c.cep
+  formEdicao.Logradouro = c.logradouro
+  formEdicao.Numero = c.numero
+  formEdicao.Bairro = c.bairro
+  formEdicao.Cidade = c.cidade
+  formEdicao.Estado = c.estado
+  formEdicao.Observacoes = c.observacoes
+  exibirModalEdicao.value = true
+}
+
+const salvarEdicaoCliente = () => {
+  if (!clienteEditando.value) return
+  formEdicao.post(`/clientes/editar/${clienteEditando.value.id}`, {
+    forceFormData: true,
+    preserveScroll: true,
+    onSuccess: () => {
+      exibirModalEdicao.value = false
+      clienteEditando.value = null
+    }
+  })
+}
+
+const excluirCliente = (c) => {
+  if (!confirm(`Tem certeza que deseja excluir o cliente ${c.nome}?`)) return
+  router.post(`/clientes/excluir/${c.id}`, {}, {
+    preserveScroll: true
+  })
+}
 
 const meses = [
   'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
@@ -537,6 +700,7 @@ const generarLinkSampleWhatsapp = (telefoneRaw) => {
 
 const cadastrarCliente = () => {
   form.post('/clientes', {
+    forceFormData: true,
     preserveScroll: true,
     onSuccess: () => {
       form.reset()
