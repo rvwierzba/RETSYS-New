@@ -175,24 +175,36 @@ namespace RETSYS.Web.Controllers
                 cpfFinal = null;
             }
 
-            var novoCliente = new Cliente
+            Cliente? clienteExistente = null;
+            if (!string.IsNullOrEmpty(cpfFinal))
+            {
+                clienteExistente = await _context.Clientes.FirstOrDefaultAsync(c => c.OticaId == oticaId && c.CPF == cpfFinal);
+            }
+            if (clienteExistente == null && !string.IsNullOrWhiteSpace(model.Nome))
+            {
+                var nomeLower = model.Nome.Trim().ToLower();
+                clienteExistente = await _context.Clientes.FirstOrDefaultAsync(c => c.OticaId == oticaId && c.Nome.ToLower() == nomeLower);
+            }
+
+            var novoCliente = clienteExistente ?? new Cliente
             {
                 Id = Guid.NewGuid(),
                 OticaId = oticaId,
-                Nome = model.Nome.Trim(),
-                CPF = cpfFinal,
-                Telefone = model.Telefone ?? string.Empty,
-                Cep = model.Cep ?? string.Empty,
-                Logradouro = model.Logradouro ?? string.Empty,
-                Numero = model.Numero ?? string.Empty,
-                Bairro = model.Bairro ?? string.Empty,
-                Cidade = model.Cidade ?? string.Empty,
-                Estado = model.Estado ?? string.Empty,
-                Convenio = model.Convenio,
-                Email = model.Email,
-                CreatedAt = DateTime.UtcNow,
-                UpdatedAt = DateTime.UtcNow
+                CreatedAt = DateTime.UtcNow
             };
+
+            novoCliente.Nome = model.Nome.Trim();
+            novoCliente.CPF = cpfFinal;
+            novoCliente.Telefone = model.Telefone ?? string.Empty;
+            novoCliente.Cep = model.Cep ?? string.Empty;
+            novoCliente.Logradouro = model.Logradouro ?? string.Empty;
+            novoCliente.Numero = model.Numero ?? string.Empty;
+            novoCliente.Bairro = model.Bairro ?? string.Empty;
+            novoCliente.Cidade = model.Cidade ?? string.Empty;
+            novoCliente.Estado = model.Estado ?? string.Empty;
+            novoCliente.Convenio = model.Convenio;
+            novoCliente.Email = model.Email;
+            novoCliente.UpdatedAt = DateTime.UtcNow;
 
             // Se for cadastro de Ficha Antiga (Migração de Histórico)
             if (model.RegistrarHistorico && model.HistoricoData.HasValue)
@@ -234,7 +246,10 @@ namespace RETSYS.Web.Controllers
                 }
             }
 
-            _context.Clientes.Add(novoCliente);
+            if (clienteExistente == null)
+            {
+                _context.Clientes.Add(novoCliente);
+            }
             await _context.SaveChangesAsync();
             return RedirectToAction(nameof(Index));
         }

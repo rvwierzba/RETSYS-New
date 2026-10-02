@@ -483,6 +483,15 @@ namespace RETSYS.Web.Controllers
                             c.CPF.Replace(".", "").Replace("-", "") == cpfFinalOs);
                 }
 
+                if (cliente == null && !string.IsNullOrWhiteSpace(nomeClienteInformado))
+                {
+                    var nomeLower = nomeClienteInformado.Trim().ToLower();
+                    cliente = await _context.Clientes
+                        .FirstOrDefaultAsync(c =>
+                            c.OticaId == oticaId &&
+                            c.Nome.ToLower() == nomeLower);
+                }
+
                 if (cliente == null)
                 {
                     cliente = new Cliente
