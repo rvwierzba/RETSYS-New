@@ -132,17 +132,25 @@
                 </td>
 
                 <td class="py-4 text-center">
-                  <span 
+                  <select 
+                    :value="os.status === 'CANCELADA' ? 'CANCELADO' : (os.status || 'EM_ABERTO')"
+                    @change="alterarStatusOS(os.id || os.Id, $event.target.value)"
+                    :disabled="os.status === 'CANCELADO' || os.status === 'CANCELADA'"
                     :class="[
-                      (os.status === 'CANCELADO' || os.status === 'CANCELADA') ? 'bg-rose-50 text-rose-700 border-rose-200' :
+                      (os.status === 'CANCELADO' || os.status === 'CANCELADA') ? 'bg-rose-50 text-rose-700 border-rose-200 cursor-not-allowed' :
                       os.status === 'ENTREGUE' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
                       os.status === 'PRONTO' ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                      os.status === 'EM_LABORATORIO' ? 'bg-purple-50 text-purple-700 border-purple-200' :
                       'bg-amber-50 text-amber-700 border-amber-200'
                     ]"
-                    class="px-2.5 py-0.5 rounded-full text-[11px] font-bold border block w-fit mx-auto"
+                    class="px-2.5 py-1 rounded-xl text-[11px] font-black border uppercase font-mono cursor-pointer focus:ring-2 focus:ring-teal-500 transition"
                   >
-                    {{ (os.status === 'CANCELADO' || os.status === 'CANCELADA') ? 'CANCELADA' : (os.status || 'EM ABERTO') }}
-                  </span>
+                    <option value="EM_ABERTO">Em Aberto</option>
+                    <option value="EM_LABORATORIO">Em Laboratório</option>
+                    <option value="PRONTO">Pronto</option>
+                    <option value="ENTREGUE">Entregue</option>
+                    <option value="CANCELADO" disabled>Cancelada</option>
+                  </select>
                 </td>
 
                 <td class="py-4 text-right font-mono">
@@ -690,6 +698,20 @@ const marcarLentePedida = (id) => {
       }
     })
   }
+}
+
+const alterarStatusOS = (id, novoStatus) => {
+  if (!id || !novoStatus) return
+  if (novoStatus === 'ENTREGUE') {
+    const lista = props.Ordens ?? props.ordens ?? []
+    const os = lista.find(o => (o.id || o.Id) === id)
+    if (os) abrirModalEntrega(os)
+    return
+  }
+  router.post(`/ordens/alterar-status/${id}`, { novoStatus }, {
+    preserveScroll: true,
+    onSuccess: () => alert('Status da OS atualizado com sucesso!')
+  })
 }
 
 // SEÇÃO 3.1 & 6: QUITAÇÃO E ENTREGA

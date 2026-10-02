@@ -959,7 +959,7 @@ namespace RETSYS.Web.Controllers
 
         // --- SEÇÃO 3.1 E 6: MARCAR COMO ENTREGUE E QUITAR SALDO NA RETIRADA ---
         [HttpPost("/ordens/quitar-e-entregar/{id:guid}")]
-        public async Task<IActionResult> QuitarEEntregar(Guid id, [FromForm] IFormCollection form)
+        public async Task<IActionResult> QuitarEEntregar(Guid id, [FromBody] QuitarEEntregarRequest? jsonModel)
         {
             var oticaId = ObterOticaId();
 
@@ -983,14 +983,30 @@ namespace RETSYS.Web.Controllers
             var usuarioIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             Guid.TryParse(usuarioIdClaim, out Guid usuarioLogadoId);
 
-            string opcaoQuitacao = form["opcaoQuitacao"].ToString().Trim(); // "JA_PAGO" ou "PAGO_RETIRADA"
+            string opcaoQuitacao = "PAGO_RETIRADA";
+            string formaRetirada = "DINHEIRO";
+            int? parcelasRetirada = null;
+
+            if (jsonModel != null && !string.IsNullOrWhiteSpace(jsonModel.OpcaoQuitacao))
+            {
+                opcaoQuitacao = jsonModel.OpcaoQuitacao.Trim();
+                formaRetirada = jsonModel.FormaPagamentoRetirada?.ToUpper() ?? "DINHEIRO";
+                parcelasRetirada = jsonModel.ParcelasRetirada;
+            }
+            else if (Request.HasFormContentType)
+            {
+                opcaoQuitacao = Request.Form["opcaoQuitacao"].ToString().Trim();
+                formaRetirada = Request.Form["formaPagamentoRetirada"].ToString().ToUpper();
+                if (int.TryParse(Request.Form["parcelasRetirada"].ToString(), out int pRet))
+                {
+                    parcelasRetirada = pRet;
+                }
+            }
 
             if (ordem.Financeiro != null)
             {
                 if (opcaoQuitacao == "PAGO_RETIRADA")
                 {
-                    string formaRetirada = form["formaPagamentoRetirada"].ToString().ToUpper();
-
                     if (string.IsNullOrWhiteSpace(formaRetirada) || formaRetirada == "CONVENIO")
                     {
                         return BadRequest(new
@@ -999,12 +1015,9 @@ namespace RETSYS.Web.Controllers
                         });
                     }
 
-                    int? parcelasRetirada = null;
-
-                    if (formaRetirada == "CARTAO_CREDITO" &&
-                        int.TryParse(form["parcelasRetirada"].ToString(), out int pRet))
+                    if (formaRetirada != "CARTAO_CREDITO")
                     {
-                        parcelasRetirada = pRet;
+                        parcelasRetirada = null;
                     }
 
                     ordem.Financeiro.ValorRecebidoRetirada = ordem.Financeiro.ValorRestante;
@@ -1034,9 +1047,17 @@ namespace RETSYS.Web.Controllers
         [HttpPost("/ordens/alterar-status/{id:guid}")]
         public async Task<IActionResult> AlterarStatus(
             Guid id,
-            [FromQuery] string novoStatus)
+            [FromQuery] string? novoStatus,
+            [FromBody] AlterarStatusRequest? bodyModel)
         {
             var oticaId = ObterOticaId();
+
+            string statusAlvo = novoStatus ?? bodyModel?.NovoStatus ?? string.Empty;
+            if (string.IsNullOrWhiteSpace(statusAlvo) && Request.HasFormContentType)
+            {
+                statusAlvo = Request.Form["novoStatus"].ToString();
+            }
+            statusAlvo = statusAlvo.Trim().ToUpper();
 
             var ordem = await _context.OrdensServico
                 .Include(os => os.Financeiro)
@@ -1058,12 +1079,12 @@ namespace RETSYS.Web.Controllers
                 "CANCELADO"
             };
 
-            if (!statusValidos.Contains(novoStatus) || statusAnterior == novoStatus)
+            if (!statusValidos.Contains(statusAlvo) || statusAnterior == statusAlvo)
             {
                 return RedirectToAction(nameof(Index));
             }
 
-            if (novoStatus == "CANCELADO" &&
+            if (statusAlvo == "CANCELADO" &&
                 await OrdemPossuiComissaoPagaAsync(ordem.Id))
             {
                 Inertia.Share(
@@ -1074,7 +1095,7 @@ namespace RETSYS.Web.Controllers
                 return RedirectToAction(nameof(Index));
             }
 
-            if (novoStatus == "CANCELADO" &&
+            if (statusAlvo == "CANCELADO" &&
                 statusAnterior != "CANCELADO" &&
                 statusAnterior != "CANCELADA" &&
                 !ordem.IsRetroativa &&
@@ -1089,14 +1110,14 @@ namespace RETSYS.Web.Controllers
                 }
             }
 
-            if (novoStatus == "CANCELADO")
+            if (statusAlvo == "CANCELADO")
             {
                 await EstornarComissoesDaOrdemAsync(ordem.Id);
             }
 
-            ordem.Status = novoStatus;
+            ordem.Status = statusAlvo;
 
-            if (novoStatus == "ENTREGUE")
+            if (statusAlvo == "ENTREGUE")
             {
                 ordem.DataEntregaReal = DateTime.UtcNow;
             }
@@ -1386,8 +1407,7 @@ namespace RETSYS.Web.Controllers
         [HttpPost("/ordens/editar-admin/{id:guid}")]
         public async Task<IActionResult> EditarAdmin(
             Guid id,
-            [FromForm] DateTime? novaDataEntrada,
-            [FromForm] string? motivo)
+            [FromBody] EditarAdminRequest? jsonModel)
         {
             var oticaId = ObterOticaId();
             var perfilClaim = User.FindFirst(ClaimTypes.Role)?.Value ?? "VENDEDOR";
@@ -1401,8 +1421,8 @@ namespace RETSYS.Web.Controllers
                 return RedirectToAction(nameof(Index));
             }
 
-            DateTime? dataAlvo = novaDataEntrada;
-            string? motivoAlvo = motivo;
+            DateTime? dataAlvo = jsonModel?.NovaDataEntrada;
+            string? motivoAlvo = jsonModel?.Motivo;
 
             if (!dataAlvo.HasValue && Request.HasFormContentType)
             {
@@ -1480,5 +1500,23 @@ namespace RETSYS.Web.Controllers
 
             return RedirectToAction(nameof(Index));
         }
+    }
+
+    public class QuitarEEntregarRequest
+    {
+        public string OpcaoQuitacao { get; set; } = "PAGO_RETIRADA";
+        public string FormaPagamentoRetirada { get; set; } = "DINHEIRO";
+        public int ParcelasRetirada { get; set; } = 1;
+    }
+
+    public class EditarAdminRequest
+    {
+        public DateTime? NovaDataEntrada { get; set; }
+        public string? Motivo { get; set; }
+    }
+
+    public class AlterarStatusRequest
+    {
+        public string? NovoStatus { get; set; }
     }
 }
