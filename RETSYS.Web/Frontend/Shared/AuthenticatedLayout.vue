@@ -42,8 +42,8 @@
       <!-- Perfil do Utilizador, Seletor de Ótica (Modo Sistema) e Menu Suspenso -->
       <div class="relative flex items-center gap-3">
         
-        <!-- SELETOR DE ÓTICA PARA ADM / GERENTE / SISTEMA -->
-        <div v-if="temPermissaoAdmin && (oticasDisponiveis || []).length > 1" class="relative">
+        <!-- SELETOR DE ÓTICA (PERFIL SISTEMA / ADMIN / GERENTE) -->
+        <div v-if="ehSistema || temPermissaoAdmin" class="relative">
           <button 
             @click="menuOticasAberto = !menuOticasAberto" 
             class="flex items-center gap-2 bg-gradient-to-r from-purple-950/90 to-indigo-950/90 hover:from-purple-900 hover:to-indigo-900 border border-purple-500/50 px-3 py-1.5 rounded-xl text-left transition shadow-lg shadow-purple-950/30 group"
