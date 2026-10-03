@@ -40,6 +40,7 @@ namespace RETSYS.Web.Controllers
             var perfilClaim = User.FindFirst(ClaimTypes.Role)?.Value ?? "VENDEDOR";
 
             IQueryable<OrdemServico> query = _context.OrdensServico
+                .Include(os => os.Otica)
                 .Include(os => os.Cliente)
                 .Include(os => os.Vendedor)
                 .Include(os => os.Receita)
@@ -136,6 +137,7 @@ namespace RETSYS.Web.Controllers
                     os.DataPrevistaEntrega,
                     os.DataEntregaReal,
                     os.Status,
+                    os.LojaVenda,
                     Medico = os.MedicoNome,
                     os.MedicoCrm,
                     os.MedicoTipo,
@@ -689,9 +691,12 @@ namespace RETSYS.Web.Controllers
                     }
                 }
 
+                var oticaObj = await _context.Oticas.AsNoTracking().FirstOrDefaultAsync(o => o.Id == oticaId);
+                string oticaNomeAtual = oticaObj?.Nome ?? "Matriz";
+
                 string lojaVenda = formCollection.ContainsKey("lojaVenda") && !string.IsNullOrWhiteSpace(formCollection["lojaVenda"].ToString())
                     ? formCollection["lojaVenda"].ToString()
-                    : (string.IsNullOrEmpty(vendedor.FilialLoja) ? "Matriz" : vendedor.FilialLoja);
+                    : (!string.IsNullOrWhiteSpace(vendedor.FilialLoja) ? vendedor.FilialLoja : oticaNomeAtual);
 
                 DateTime dataEntradaCalculada = DateTime.UtcNow;
                 if (ehAdminOuGerente)

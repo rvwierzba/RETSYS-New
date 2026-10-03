@@ -124,6 +124,11 @@ app.Use(async (context, next) =>
     bool estaAutenticado = usuario?.Identity?.IsAuthenticated == true;
     var perfilClaim = estaAutenticado ? (usuario?.FindFirst(ClaimTypes.Role)?.Value ?? "Vendedor") : "Vendedor";
     bool ehSistema = string.Equals(perfilClaim, "Sistema", StringComparison.OrdinalIgnoreCase) || (usuario?.IsInRole("Sistema") == true);
+    bool ehAdminOuGerente = ehSistema || 
+                           string.Equals(perfilClaim, "Admin", StringComparison.OrdinalIgnoreCase) || 
+                           string.Equals(perfilClaim, "Gerente", StringComparison.OrdinalIgnoreCase) ||
+                           (usuario?.IsInRole("Admin") == true) || 
+                           (usuario?.IsInRole("Gerente") == true);
 
     Guid oticaAtivaId = Guid.Empty;
     string nomeOtica = "Ótica RETSYS";
@@ -132,7 +137,7 @@ app.Use(async (context, next) =>
     {
         var db = context.RequestServices.GetService<ApplicationDbContext>();
 
-        if (ehSistema)
+        if (ehAdminOuGerente)
         {
             var sessaoOticaId = context.Session.GetString("OticaAtivaId");
             if (!string.IsNullOrEmpty(sessaoOticaId) && Guid.TryParse(sessaoOticaId, out var oticaSessaoGuid) && oticaSessaoGuid != Guid.Empty)
@@ -161,7 +166,7 @@ app.Use(async (context, next) =>
     }
 
     object? oticasDisponiveis = null;
-    if (estaAutenticado && ehSistema)
+    if (estaAutenticado && ehAdminOuGerente)
     {
         var db = context.RequestServices.GetService<ApplicationDbContext>();
         if (db != null)

@@ -27,7 +27,7 @@ namespace RETSYS.Web.Controllers
         [HttpPost("/sistema/trocar-otica")]
         public async Task<IActionResult> TrocarOtica([FromBody] DtoTrocarOtica requisicao)
         {
-            if (!EhSistema())
+            if (!EhAdministrador())
             {
                 return Forbid();
             }

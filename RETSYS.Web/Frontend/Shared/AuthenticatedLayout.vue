@@ -42,20 +42,20 @@
       <!-- Perfil do Utilizador, Seletor de Ótica (Modo Sistema) e Menu Suspenso -->
       <div class="relative flex items-center gap-3">
         
-        <!-- SELETOR DE ÓTICA EXCLUSIVO PARA PERFIL SISTEMA -->
-        <div v-if="ehSistema" class="relative">
+        <!-- SELETOR DE ÓTICA PARA ADM / GERENTE / SISTEMA -->
+        <div v-if="temPermissaoAdmin && (oticasDisponiveis || []).length > 1" class="relative">
           <button 
             @click="menuOticasAberto = !menuOticasAberto" 
             class="flex items-center gap-2 bg-gradient-to-r from-purple-950/90 to-indigo-950/90 hover:from-purple-900 hover:to-indigo-900 border border-purple-500/50 px-3 py-1.5 rounded-xl text-left transition shadow-lg shadow-purple-950/30 group"
-            title="Alternar Ótica Ativa (Acesso Sistema)"
+            title="Alternar Ótica Ativa"
           >
             <span class="flex items-center justify-center w-5 h-5 rounded-md bg-purple-500/20 text-purple-300 text-xs font-black">
-              ⚡
+              🏢
             </span>
             <div class="hidden sm:block">
               <div class="flex items-center gap-1.5">
                 <span class="text-[9px] uppercase font-black tracking-widest text-purple-300 bg-purple-900/60 px-1.5 py-0.2 rounded border border-purple-700/60">
-                  SISTEMA
+                  {{ perfil }}
                 </span>
                 <span class="text-xs font-bold text-white max-w-[140px] truncate block">{{ nomeOtica }}</span>
               </div>

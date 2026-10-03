@@ -38,8 +38,8 @@ namespace RETSYS.Web.Controllers
         {
             var context = HttpContext.RequestServices.GetService<ApplicationDbContext>();
 
-            // Se for usuário do perfil Sistema, verifica se há uma Ótica selecionada na Sessão
-            if (EhSistema())
+            // Se for usuário do perfil Sistema, Admin ou Gerente, verifica se há uma Ótica selecionada na Sessão
+            if (EhSistema() || EhAdministrador())
             {
                 var sessaoOticaId = HttpContext.Session.GetString("OticaAtivaId");
                 if (Guid.TryParse(sessaoOticaId, out var oticaSessao) && oticaSessao != Guid.Empty)
