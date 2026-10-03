@@ -132,82 +132,10 @@ namespace RETSYS.Infrastructure.Data
                         oticasExistentes.Add(novaOtica);
                     }
                 }
-                await _context.SaveChangesAsync();
-
-                // B. Re-vincular Usuários às Óticas correspondentes à sua FilialLoja
-                foreach (var usuario in await _context.Usuarios.ToListAsync())
-                {
-                    if (!string.IsNullOrWhiteSpace(usuario.FilialLoja))
-                    {
-                        var oticaDaFilial = oticasExistentes.FirstOrDefault(o => o.Nome.Trim().Equals(usuario.FilialLoja.Trim(), StringComparison.OrdinalIgnoreCase));
-                        if (oticaDaFilial != null && usuario.OticaId != oticaDaFilial.Id)
-                        {
-                            usuario.OticaId = oticaDaFilial.Id;
-                        }
-                    }
-                }
-                await _context.SaveChangesAsync();
-
-                // C. Re-vincular OrdensServico à Ótica do Vendedor criador (ou à Ótica da LojaVenda)
-                var ordens = await _context.OrdensServico
-                    .Include(os => os.Vendedor)
-                    .ToListAsync();
-
-                foreach (var os in ordens)
-                {
-                    if (os.Vendedor != null && os.Vendedor.OticaId != Guid.Empty && os.OticaId != os.Vendedor.OticaId)
-                    {
-                        os.OticaId = os.Vendedor.OticaId;
-                        if (!string.IsNullOrWhiteSpace(os.Vendedor.FilialLoja))
-                        {
-                            os.LojaVenda = os.Vendedor.FilialLoja;
-                        }
-                    }
-                    else if (!string.IsNullOrWhiteSpace(os.LojaVenda))
-                    {
-                        var oticaDaLoja = oticasExistentes.FirstOrDefault(o => o.Nome.Trim().Equals(os.LojaVenda.Trim(), StringComparison.OrdinalIgnoreCase));
-                        if (oticaDaLoja != null && os.OticaId != oticaDaLoja.Id)
-                        {
-                            os.OticaId = oticaDaLoja.Id;
-                        }
-                    }
-                }
-                await _context.SaveChangesAsync();
-
-                // D. Re-vincular Armações (Estoque) às Óticas da sua LojaUnidade
-                var armacoes = await _context.Armacoes.ToListAsync();
-                foreach (var a in armacoes)
-                {
-                    if (!string.IsNullOrWhiteSpace(a.LojaUnidade))
-                    {
-                        var oticaDaLoja = oticasExistentes.FirstOrDefault(o => o.Nome.Trim().Equals(a.LojaUnidade.Trim(), StringComparison.OrdinalIgnoreCase));
-                        if (oticaDaLoja != null && a.OticaId != oticaDaLoja.Id)
-                        {
-                            a.OticaId = oticaDaLoja.Id;
-                        }
-                    }
-                }
-                await _context.SaveChangesAsync();
-
-                // E. Re-vincular Clientes à Ótica da sua última Ordem de Serviço
-                var clientes = await _context.Clientes
-                    .Include(c => c.OrdensServico)
-                    .ThenInclude(os => os.Vendedor)
-                    .ToListAsync();
-
-                foreach (var cliente in clientes)
-                {
-                    var ultimaOs = cliente.OrdensServico.OrderByDescending(os => os.DataEntrada).FirstOrDefault();
-                    if (ultimaOs != null && ultimaOs.OticaId != Guid.Empty && cliente.OticaId != ultimaOs.OticaId)
-                    {
-                        cliente.OticaId = ultimaOs.OticaId;
-                    }
-                }
-                await _context.SaveChangesAsync();
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[Re-vinculação Automática de Filiais Erro]: {ex.Message}");
+                Console.WriteLine($"[DatabaseSeeder Info]: {ex.Message}");
             }
         }
     }
