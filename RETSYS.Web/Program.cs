@@ -137,7 +137,7 @@ app.Use(async (context, next) =>
     {
         var db = context.RequestServices.GetService<ApplicationDbContext>();
 
-        if (ehAdminOuGerente)
+        if (ehSistema)
         {
             var sessaoOticaId = context.Session.GetString("OticaAtivaId");
             if (!string.IsNullOrEmpty(sessaoOticaId) && Guid.TryParse(sessaoOticaId, out var oticaSessaoGuid) && oticaSessaoGuid != Guid.Empty)
@@ -166,7 +166,7 @@ app.Use(async (context, next) =>
     }
 
     object? oticasDisponiveis = null;
-    if (estaAutenticado && ehAdminOuGerente)
+    if (estaAutenticado && ehSistema)
     {
         var db = context.RequestServices.GetService<ApplicationDbContext>();
         if (db != null)
