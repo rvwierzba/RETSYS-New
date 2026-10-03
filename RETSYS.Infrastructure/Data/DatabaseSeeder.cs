@@ -132,6 +132,26 @@ namespace RETSYS.Infrastructure.Data
                         oticasExistentes.Add(novaOtica);
                     }
                 }
+                await _context.SaveChangesAsync();
+
+                // Sincroniza o OticaId do usuário com a Ótica correspondente à sua FilialLoja
+                var todosUsuarios = await _context.Usuarios.ToListAsync();
+                foreach (var u in todosUsuarios)
+                {
+                    if (!string.IsNullOrWhiteSpace(u.FilialLoja))
+                    {
+                        var oticaFilial = oticasExistentes.FirstOrDefault(o =>
+                            o.Nome.Trim().Equals(u.FilialLoja.Trim(), StringComparison.OrdinalIgnoreCase) ||
+                            u.FilialLoja.Contains(o.Nome, StringComparison.OrdinalIgnoreCase) ||
+                            o.Nome.Contains(u.FilialLoja, StringComparison.OrdinalIgnoreCase));
+
+                        if (oticaFilial != null && u.OticaId != oticaFilial.Id)
+                        {
+                            u.OticaId = oticaFilial.Id;
+                        }
+                    }
+                }
+                await _context.SaveChangesAsync();
             }
             catch (Exception ex)
             {

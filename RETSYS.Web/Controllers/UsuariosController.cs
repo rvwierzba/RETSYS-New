@@ -95,14 +95,23 @@ public class UsuariosController : TenantController
 
         var hashSenha = _criptografia.CriptografarSenha(model.Senha);
 
+        var filialNome = string.IsNullOrWhiteSpace(model.FilialLoja) ? "Matriz" : model.FilialLoja.Trim();
+        var oticaAlvo = await _context.Oticas.FirstOrDefaultAsync(o => o.Nome.ToLower() == filialNome.ToLower());
+        if (oticaAlvo == null)
+        {
+            oticaAlvo = new Otica { Id = Guid.NewGuid(), Nome = filialNome, CriadoEm = DateTime.UtcNow };
+            _context.Oticas.Add(oticaAlvo);
+            await _context.SaveChangesAsync();
+        }
+
         var novoUsuario = new Usuario
         {
             Id = Guid.NewGuid(),
-            OticaId = ObterOticaId(),
+            OticaId = oticaAlvo.Id,
             Nome = model.Nome.Trim(),
             Email = model.Email.Trim().ToLower(),
             SenhaHash = hashSenha,
-            FilialLoja = string.IsNullOrWhiteSpace(model.FilialLoja) ? "Matriz" : model.FilialLoja.Trim(),
+            FilialLoja = filialNome,
             Perfil = model.Perfil,
             PercentualComissao = model.PercentualComissao > 0 ? model.PercentualComissao : 3.00m,
             Ativo = true,
@@ -147,9 +156,19 @@ public class UsuariosController : TenantController
             return RedirectToAction(nameof(Index));
         }
 
+        var filialEditada = string.IsNullOrWhiteSpace(model.FilialLoja) ? usuario.FilialLoja : model.FilialLoja.Trim();
+        var oticaFilial = await _context.Oticas.FirstOrDefaultAsync(o => o.Nome.ToLower() == filialEditada.ToLower());
+        if (oticaFilial == null)
+        {
+            oticaFilial = new Otica { Id = Guid.NewGuid(), Nome = filialEditada, CriadoEm = DateTime.UtcNow };
+            _context.Oticas.Add(oticaFilial);
+            await _context.SaveChangesAsync();
+        }
+
         usuario.Nome = model.Nome.Trim();
         usuario.Email = model.Email.Trim().ToLower();
-        usuario.FilialLoja = model.FilialLoja;
+        usuario.FilialLoja = filialEditada;
+        usuario.OticaId = oticaFilial.Id;
         usuario.Perfil = model.Perfil;
         usuario.Ativo = model.Ativo;
         usuario.PercentualComissao = model.PercentualComissao;
