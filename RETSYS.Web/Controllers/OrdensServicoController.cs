@@ -290,11 +290,35 @@ namespace RETSYS.Web.Controllers
 
         // 1.1 Painel Kanban de Acompanhamento de Produção e Status de OSs
         [HttpGet("/ordens/kanban")]
-        public async Task<IActionResult> Kanban([FromQuery] Guid? vendedorId, [FromQuery] string? busca)
+        public async Task<IActionResult> Kanban(
+            [FromQuery] Guid? oticaId,
+            [FromQuery] Guid? vendedorId, 
+            [FromQuery] string? busca)
         {
-            var oticaId = ObterOticaId();
-            var usuarioIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             var perfilClaim = User.FindFirst(ClaimTypes.Role)?.Value ?? "VENDEDOR";
+            bool ehAdminOuSistema = EhSistema() || EhAdministrador();
+
+            var oticaIdEfetivo = ObterOticaId();
+            if (oticaId.HasValue && oticaId.Value != Guid.Empty && ehAdminOuSistema)
+            {
+                var oticaEncontrada = await _context.Oticas.FirstOrDefaultAsync(o => o.Id == oticaId.Value);
+                if (oticaEncontrada != null)
+                {
+                    oticaIdEfetivo = oticaEncontrada.Id;
+                    if (EhSistema())
+                    {
+                        HttpContext.Session.SetString("OticaAtivaId", oticaIdEfetivo.ToString());
+                    }
+                }
+            }
+
+            var oticaAtual = await _context.Oticas.FirstOrDefaultAsync(o => o.Id == oticaIdEfetivo);
+            var oticasDisponiveis = await _context.Oticas
+                .OrderBy(o => o.Nome)
+                .Select(o => new { o.Id, o.Nome })
+                .ToListAsync();
+
+            var usuarioIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
 
             IQueryable<OrdemServico> query = _context.OrdensServico
                 .Include(os => os.Otica)
@@ -307,7 +331,7 @@ namespace RETSYS.Web.Controllers
                     .ThenInclude(f => f!.LentePreco)
                         .ThenInclude(lp => lp!.Lente)
                 .Include(os => os.PedidoLentePor)
-                .Where(os => os.Ativo && os.OticaId == oticaId);
+                .Where(os => os.Ativo && os.OticaId == oticaIdEfetivo);
 
             if (string.Equals(perfilClaim, "VENDEDOR", StringComparison.OrdinalIgnoreCase) &&
                 Guid.TryParse(usuarioIdClaim, out Guid vendedorLogadoId))
@@ -426,10 +450,10 @@ namespace RETSYS.Web.Controllers
                 os.DataPrevisaoLente.Value.Date < hoje &&
                 os.Status != "CANCELADO" && os.Status != "CANCELADA" && os.Status != "ENTREGUE");
 
-            var config = await _context.ConfiguracoesLoja.FirstOrDefaultAsync(c => c.OticaId == oticaId);
+            var config = await _context.ConfiguracoesLoja.FirstOrDefaultAsync(c => c.OticaId == oticaIdEfetivo);
 
             var vendedores = await _context.Usuarios
-                .Where(u => u.Ativo && u.OticaId == oticaId)
+                .Where(u => u.Ativo && u.OticaId == oticaIdEfetivo)
                 .OrderBy(u => u.Nome)
                 .Select(u => new { u.Id, u.Nome })
                 .ToListAsync();
@@ -457,7 +481,11 @@ namespace RETSYS.Web.Controllers
                 Vendedores = vendedores,
                 VendedorFiltro = vendedorId,
                 BuscaFiltro = busca ?? "",
-                LojaWhatsapp = config?.WhatsappNumero ?? ""
+                LojaWhatsapp = config?.WhatsappNumero ?? "",
+                OticasDisponiveis = oticasDisponiveis,
+                OticaIdAtual = oticaIdEfetivo,
+                NomeOticaAtual = oticaAtual?.Nome ?? "Ótica RETSYS",
+                EhAdminOuSistema = ehAdminOuSistema
             });
         }
 

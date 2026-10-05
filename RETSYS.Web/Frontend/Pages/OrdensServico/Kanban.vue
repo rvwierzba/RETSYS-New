@@ -1,6 +1,6 @@
 <template>
   <AuthenticatedLayout>
-    <div class="p-4 md:p-6 space-y-6 max-w-[1600px] mx-auto">
+    <div class="p-4 md:p-6 space-y-6 max-w-[1700px] mx-auto">
       
       <!-- Cabeçalho do Painel Kanban -->
       <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
@@ -8,11 +8,11 @@
           <div class="flex items-center gap-3">
             <h1 class="text-2xl font-black text-slate-950 font-mono tracking-tight">Esteira de Produção e Acompanhamento de OS</h1>
             <span class="bg-teal-50 text-teal-700 border border-teal-200 text-[11px] font-black uppercase px-2.5 py-0.5 rounded-full">
-              Kanban Ao Vivo
+              Kanban Interativo • Arraste os Cards ⇄
             </span>
           </div>
           <p class="text-xs text-slate-500 mt-1">
-            Acompanhe o ciclo completo de cada óculos: da confirmação ao pedido de lentes, montagem em laboratório, aviso via WhatsApp e entrega final.
+            Arraste os cards entre as colunas para atualizar os status em tempo real. Controle de lentes de laboratório, WhatsApp e entrega.
           </p>
         </div>
 
@@ -32,6 +32,36 @@
         </div>
       </div>
 
+      <!-- SELETOR DE ÓTICA ATIVA (SE HOUVER MAIS DE UMA ÓTICA OU PERFIL ADMIN/SISTEMA) -->
+      <div v-if="(OticasDisponiveis || oticasDisponiveis || []).length > 1 || EhAdminOuSistema" class="bg-gradient-to-r from-purple-950/90 to-indigo-950/90 p-4 rounded-2xl border border-purple-800 text-white shadow-lg flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div class="flex items-center gap-3">
+          <span class="w-9 h-9 rounded-xl bg-purple-500/20 text-purple-300 flex items-center justify-center text-lg font-black border border-purple-500/30">
+            🏬
+          </span>
+          <div>
+            <span class="text-[10px] font-black uppercase tracking-widest text-purple-300">Ambiente de Operação</span>
+            <h3 class="text-sm font-bold text-white flex items-center gap-2">
+              Ótica Selecionada: <span class="text-teal-400 font-mono underline">{{ NomeOticaAtual || nomeOticaAtual || 'Matriz' }}</span>
+            </h3>
+          </div>
+        </div>
+
+        <!-- Lista de Óticas para Alternar -->
+        <div class="flex flex-wrap items-center gap-2">
+          <button 
+            v-for="otica in (OticasDisponiveis || oticasDisponiveis || [])" 
+            :key="otica.id || otica.Id"
+            @click="trocarOticaKanban(otica.id || otica.Id)"
+            :class="(otica.id || otica.Id) === (OticaIdAtual || oticaIdAtual) ? 'bg-teal-500 text-slate-950 font-black shadow-md shadow-teal-500/20 scale-105' : 'bg-purple-900/60 hover:bg-purple-800 text-purple-200 border border-purple-700/50'"
+            class="px-3.5 py-1.5 rounded-xl text-xs font-bold transition flex items-center gap-1.5"
+          >
+            <span>🏢</span>
+            <span>{{ otica.nome || otica.Nome }}</span>
+            <span v-if="(otica.id || otica.Id) === (OticaIdAtual || oticaIdAtual)" class="text-xs">✓</span>
+          </button>
+        </div>
+      </div>
+
       <!-- Barra de Filtros e Alertas de Lentes -->
       <div class="space-y-4">
         
@@ -47,7 +77,7 @@
                   Lentes com Previsão para Chegada HOJE: {{ Estatisticas?.lentesChegamHoje || estatisticas?.LentesChegamHoje }}
                 </h4>
                 <p class="text-[11px] text-amber-700 mt-0.5">
-                  Verifique a entrega do motoboy/laboratório e mova as ordens para montagem.
+                  Verifique a entrega do motoboy/laboratório e arraste as ordens para a coluna de Montagem.
                 </p>
               </div>
             </div>
@@ -55,7 +85,7 @@
               @click="filtrarApenasLentesHoje" 
               class="bg-amber-500 hover:bg-amber-600 text-white font-bold text-xs px-3 py-1.5 rounded-xl transition shadow-sm"
             >
-              Filtrar
+              Ver Lentes de Hoje
             </button>
           </div>
 
@@ -128,38 +158,48 @@
 
           <!-- Totalizadores rápidos -->
           <div class="flex items-center gap-3 text-xs font-mono text-slate-500">
-            <span>Ativas no Fluxo: <b class="text-teal-600">{{ Estatisticas?.totalAtivas || estatisticas?.TotalAtivas || 0 }}</b></span>
+            <span>Ativas no Fluxo: <b class="text-teal-600">{{ totalAtivasComputado }}</b></span>
             <span>•</span>
-            <span>Entregues: <b class="text-slate-700">{{ Estatisticas?.totalEntregues || estatisticas?.TotalEntregues || 0 }}</b></span>
+            <span>Entregues: <b class="text-slate-700">{{ listaEntregues.length }}</b></span>
           </div>
         </div>
 
       </div>
 
-      <!-- QUADRO KANBAN (6 COLUNAS) -->
+      <!-- QUADRO KANBAN COM DRAG AND DROP (6 COLUNAS) -->
       <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4 items-start overflow-x-auto pb-6">
         
         <!-- COLUNA 1: OS LANÇADA -->
-        <div class="bg-slate-100/90 rounded-2xl p-3.5 border border-slate-200 space-y-3 min-w-[250px]">
+        <div 
+          @dragover.prevent="aoArrastarSobreColuna('LANCADA', $event)"
+          @dragleave="aoSairColuna('LANCADA')"
+          @drop="aoSoltarNaColuna('LANCADA')"
+          :class="colunaArrastandoSobre === 'LANCADA' ? 'bg-amber-100 ring-2 ring-amber-400 border-dashed border-amber-500' : 'bg-slate-100/90 border-slate-200'"
+          class="rounded-2xl p-3.5 border space-y-3 min-w-[250px] transition-all duration-200"
+        >
           <div class="flex items-center justify-between pb-2 border-b border-slate-200">
             <div class="flex items-center gap-2">
               <span class="w-2.5 h-2.5 rounded-full bg-amber-400"></span>
               <h3 class="text-xs font-black uppercase tracking-wider text-slate-800">1. Lançada</h3>
             </div>
             <span class="bg-amber-100 text-amber-900 text-[11px] font-mono font-bold px-2 py-0.5 rounded-full">
-              {{ (Lancadas || lancadas || []).length }}
+              {{ listaLancadas.length }}
             </span>
           </div>
 
-          <div class="space-y-3 max-h-[75vh] overflow-y-auto pr-1">
-            <div v-if="(Lancadas || lancadas || []).length === 0" class="text-center py-8 text-slate-400 text-xs border border-dashed border-slate-200 rounded-xl">
-              Nenhuma OS nesta etapa
+          <div class="space-y-3 min-h-[150px] max-h-[75vh] overflow-y-auto pr-1 custom-scrollbar">
+            <div v-if="listaLancadas.length === 0" class="text-center py-8 text-slate-400 text-xs border border-dashed border-slate-200 rounded-xl">
+              Arraste ou emita uma OS para cá
             </div>
 
             <div 
-              v-for="os in (Lancadas || lancadas || [])" 
+              v-for="os in listaLancadas" 
               :key="os.id || os.Id"
-              class="bg-white rounded-xl p-3.5 border border-slate-200 shadow-sm hover:shadow-md transition space-y-2.5"
+              draggable="true"
+              @dragstart="iniciarArrasto(os, 'LANCADA', $event)"
+              @dragend="finalizarArrasto"
+              :class="cardSendoArrastado?.id === (os.id || os.Id) ? 'opacity-40 scale-95' : 'opacity-100'"
+              class="bg-white rounded-xl p-3.5 border border-slate-200 shadow-sm hover:shadow-md hover:border-slate-400 transition cursor-grab active:cursor-grabbing space-y-2.5 select-none"
             >
               <div class="flex items-start justify-between gap-1">
                 <span class="font-mono text-xs font-bold bg-slate-100 text-slate-800 px-2 py-0.5 rounded">
@@ -225,26 +265,36 @@
         </div>
 
         <!-- COLUNA 2: OS CONFIRMADA -->
-        <div class="bg-sky-50/70 rounded-2xl p-3.5 border border-sky-200/80 space-y-3 min-w-[250px]">
+        <div 
+          @dragover.prevent="aoArrastarSobreColuna('CONFIRMADA', $event)"
+          @dragleave="aoSairColuna('CONFIRMADA')"
+          @drop="aoSoltarNaColuna('CONFIRMADA')"
+          :class="colunaArrastandoSobre === 'CONFIRMADA' ? 'bg-sky-100 ring-2 ring-sky-400 border-dashed border-sky-500' : 'bg-sky-50/70 border-sky-200/80'"
+          class="rounded-2xl p-3.5 border space-y-3 min-w-[250px] transition-all duration-200"
+        >
           <div class="flex items-center justify-between pb-2 border-b border-sky-200">
             <div class="flex items-center gap-2">
               <span class="w-2.5 h-2.5 rounded-full bg-sky-500"></span>
               <h3 class="text-xs font-black uppercase tracking-wider text-sky-950">2. Confirmada</h3>
             </div>
             <span class="bg-sky-200/70 text-sky-900 text-[11px] font-mono font-bold px-2 py-0.5 rounded-full">
-              {{ (Confirmadas || confirmadas || []).length }}
+              {{ listaConfirmadas.length }}
             </span>
           </div>
 
-          <div class="space-y-3 max-h-[75vh] overflow-y-auto pr-1">
-            <div v-if="(Confirmadas || confirmadas || []).length === 0" class="text-center py-8 text-sky-400 text-xs border border-dashed border-sky-200 rounded-xl">
+          <div class="space-y-3 min-h-[150px] max-h-[75vh] overflow-y-auto pr-1 custom-scrollbar">
+            <div v-if="listaConfirmadas.length === 0" class="text-center py-8 text-sky-400 text-xs border border-dashed border-sky-200 rounded-xl">
               Nenhuma OS nesta etapa
             </div>
 
             <div 
-              v-for="os in (Confirmadas || confirmadas || [])" 
+              v-for="os in listaConfirmadas" 
               :key="os.id || os.Id"
-              class="bg-white rounded-xl p-3.5 border border-sky-200 shadow-sm hover:shadow-md transition space-y-2.5"
+              draggable="true"
+              @dragstart="iniciarArrasto(os, 'CONFIRMADA', $event)"
+              @dragend="finalizarArrasto"
+              :class="cardSendoArrastado?.id === (os.id || os.Id) ? 'opacity-40 scale-95' : 'opacity-100'"
+              class="bg-white rounded-xl p-3.5 border border-sky-200 shadow-sm hover:shadow-md hover:border-sky-400 transition cursor-grab active:cursor-grabbing space-y-2.5 select-none"
             >
               <div class="flex items-start justify-between gap-1">
                 <span class="font-mono text-xs font-bold bg-sky-100 text-sky-900 px-2 py-0.5 rounded">
@@ -301,27 +351,39 @@
         </div>
 
         <!-- COLUNA 3: AGUARDANDO LENTE -->
-        <div class="bg-purple-50/70 rounded-2xl p-3.5 border border-purple-200/80 space-y-3 min-w-[250px]">
+        <div 
+          @dragover.prevent="aoArrastarSobreColuna('AGUARDANDO_LENTE', $event)"
+          @dragleave="aoSairColuna('AGUARDANDO_LENTE')"
+          @drop="aoSoltarNaColuna('AGUARDANDO_LENTE')"
+          :class="colunaArrastandoSobre === 'AGUARDANDO_LENTE' ? 'bg-purple-100 ring-2 ring-purple-400 border-dashed border-purple-500' : 'bg-purple-50/70 border-purple-200/80'"
+          class="rounded-2xl p-3.5 border space-y-3 min-w-[250px] transition-all duration-200"
+        >
           <div class="flex items-center justify-between pb-2 border-b border-purple-200">
             <div class="flex items-center gap-2">
               <span class="w-2.5 h-2.5 rounded-full bg-purple-500"></span>
               <h3 class="text-xs font-black uppercase tracking-wider text-purple-950">3. Aguard. Lente</h3>
             </div>
             <span class="bg-purple-200/70 text-purple-900 text-[11px] font-mono font-bold px-2 py-0.5 rounded-full">
-              {{ (AguardandoLente || aguardandoLente || []).length }}
+              {{ listaAguardandoLente.length }}
             </span>
           </div>
 
-          <div class="space-y-3 max-h-[75vh] overflow-y-auto pr-1">
-            <div v-if="(AguardandoLente || aguardandoLente || []).length === 0" class="text-center py-8 text-purple-400 text-xs border border-dashed border-purple-200 rounded-xl">
+          <div class="space-y-3 min-h-[150px] max-h-[75vh] overflow-y-auto pr-1 custom-scrollbar">
+            <div v-if="listaAguardandoLente.length === 0" class="text-center py-8 text-purple-400 text-xs border border-dashed border-purple-200 rounded-xl">
               Nenhuma OS aguardando lente
             </div>
 
             <div 
-              v-for="os in (AguardandoLente || aguardandoLente || [])" 
+              v-for="os in listaAguardandoLente" 
               :key="os.id || os.Id"
-              class="bg-white rounded-xl p-3.5 border shadow-sm hover:shadow-md transition space-y-2.5"
-              :class="obterStatusPrevisaoLente(os.dataPrevisaoLente || os.DataPrevisaoLente) === 'HOJE' ? 'border-amber-400 ring-2 ring-amber-200' : (obterStatusPrevisaoLente(os.dataPrevisaoLente || os.DataPrevisaoLente) === 'ATRASADA' ? 'border-rose-400 ring-2 ring-rose-200' : 'border-purple-200')"
+              draggable="true"
+              @dragstart="iniciarArrasto(os, 'AGUARDANDO_LENTE', $event)"
+              @dragend="finalizarArrasto"
+              :class="[
+                cardSendoArrastado?.id === (os.id || os.Id) ? 'opacity-40 scale-95' : 'opacity-100',
+                obterStatusPrevisaoLente(os.dataPrevisaoLente || os.DataPrevisaoLente) === 'HOJE' ? 'border-amber-400 ring-2 ring-amber-200' : (obterStatusPrevisaoLente(os.dataPrevisaoLente || os.DataPrevisaoLente) === 'ATRASADA' ? 'border-rose-400 ring-2 ring-rose-200' : 'border-purple-200')
+              ]"
+              class="bg-white rounded-xl p-3.5 border shadow-sm hover:shadow-md hover:border-purple-400 transition cursor-grab active:cursor-grabbing space-y-2.5 select-none"
             >
               <div class="flex items-start justify-between gap-1">
                 <span class="font-mono text-xs font-bold bg-purple-100 text-purple-900 px-2 py-0.5 rounded">
@@ -384,26 +446,36 @@
         </div>
 
         <!-- COLUNA 4: EM MONTAGEM -->
-        <div class="bg-indigo-50/70 rounded-2xl p-3.5 border border-indigo-200/80 space-y-3 min-w-[250px]">
+        <div 
+          @dragover.prevent="aoArrastarSobreColuna('EM_MONTAGEM', $event)"
+          @dragleave="aoSairColuna('EM_MONTAGEM')"
+          @drop="aoSoltarNaColuna('EM_MONTAGEM')"
+          :class="colunaArrastandoSobre === 'EM_MONTAGEM' ? 'bg-indigo-100 ring-2 ring-indigo-400 border-dashed border-indigo-500' : 'bg-indigo-50/70 border-indigo-200/80'"
+          class="rounded-2xl p-3.5 border space-y-3 min-w-[250px] transition-all duration-200"
+        >
           <div class="flex items-center justify-between pb-2 border-b border-indigo-200">
             <div class="flex items-center gap-2">
               <span class="w-2.5 h-2.5 rounded-full bg-indigo-500"></span>
               <h3 class="text-xs font-black uppercase tracking-wider text-indigo-950">4. Em Montagem</h3>
             </div>
             <span class="bg-indigo-200/70 text-indigo-900 text-[11px] font-mono font-bold px-2 py-0.5 rounded-full">
-              {{ (EmMontagem || emMontagem || []).length }}
+              {{ listaEmMontagem.length }}
             </span>
           </div>
 
-          <div class="space-y-3 max-h-[75vh] overflow-y-auto pr-1">
-            <div v-if="(EmMontagem || emMontagem || []).length === 0" class="text-center py-8 text-indigo-400 text-xs border border-dashed border-indigo-200 rounded-xl">
+          <div class="space-y-3 min-h-[150px] max-h-[75vh] overflow-y-auto pr-1 custom-scrollbar">
+            <div v-if="listaEmMontagem.length === 0" class="text-center py-8 text-indigo-400 text-xs border border-dashed border-indigo-200 rounded-xl">
               Nenhuma OS na bancada
             </div>
 
             <div 
-              v-for="os in (EmMontagem || emMontagem || [])" 
+              v-for="os in listaEmMontagem" 
               :key="os.id || os.Id"
-              class="bg-white rounded-xl p-3.5 border border-indigo-200 shadow-sm hover:shadow-md transition space-y-2.5"
+              draggable="true"
+              @dragstart="iniciarArrasto(os, 'EM_MONTAGEM', $event)"
+              @dragend="finalizarArrasto"
+              :class="cardSendoArrastado?.id === (os.id || os.Id) ? 'opacity-40 scale-95' : 'opacity-100'"
+              class="bg-white rounded-xl p-3.5 border border-indigo-200 shadow-sm hover:shadow-md hover:border-indigo-400 transition cursor-grab active:cursor-grabbing space-y-2.5 select-none"
             >
               <div class="flex items-start justify-between gap-1">
                 <span class="font-mono text-xs font-bold bg-indigo-100 text-indigo-900 px-2 py-0.5 rounded">
@@ -454,26 +526,36 @@
         </div>
 
         <!-- COLUNA 5: OS PRONTA (COM WHATSAPP) -->
-        <div class="bg-emerald-50/70 rounded-2xl p-3.5 border border-emerald-200/80 space-y-3 min-w-[250px]">
+        <div 
+          @dragover.prevent="aoArrastarSobreColuna('PRONTA', $event)"
+          @dragleave="aoSairColuna('PRONTA')"
+          @drop="aoSoltarNaColuna('PRONTA')"
+          :class="colunaArrastandoSobre === 'PRONTA' ? 'bg-emerald-100 ring-2 ring-emerald-400 border-dashed border-emerald-500' : 'bg-emerald-50/70 border-emerald-200/80'"
+          class="rounded-2xl p-3.5 border space-y-3 min-w-[250px] transition-all duration-200"
+        >
           <div class="flex items-center justify-between pb-2 border-b border-emerald-200">
             <div class="flex items-center gap-2">
               <span class="w-2.5 h-2.5 rounded-full bg-emerald-500"></span>
               <h3 class="text-xs font-black uppercase tracking-wider text-emerald-950">5. OS Pronta</h3>
             </div>
             <span class="bg-emerald-200/70 text-emerald-900 text-[11px] font-mono font-bold px-2 py-0.5 rounded-full">
-              {{ (Prontas || prontas || []).length }}
+              {{ listaProntas.length }}
             </span>
           </div>
 
-          <div class="space-y-3 max-h-[75vh] overflow-y-auto pr-1">
-            <div v-if="(Prontas || prontas || []).length === 0" class="text-center py-8 text-emerald-400 text-xs border border-dashed border-emerald-200 rounded-xl">
+          <div class="space-y-3 min-h-[150px] max-h-[75vh] overflow-y-auto pr-1 custom-scrollbar">
+            <div v-if="listaProntas.length === 0" class="text-center py-8 text-emerald-400 text-xs border border-dashed border-emerald-200 rounded-xl">
               Nenhuma OS aguardando retirada
             </div>
 
             <div 
-              v-for="os in (Prontas || prontas || [])" 
+              v-for="os in listaProntas" 
               :key="os.id || os.Id"
-              class="bg-white rounded-xl p-3.5 border border-emerald-300 shadow-sm hover:shadow-md transition space-y-2.5"
+              draggable="true"
+              @dragstart="iniciarArrasto(os, 'PRONTA', $event)"
+              @dragend="finalizarArrasto"
+              :class="cardSendoArrastado?.id === (os.id || os.Id) ? 'opacity-40 scale-95' : 'opacity-100'"
+              class="bg-white rounded-xl p-3.5 border border-emerald-300 shadow-sm hover:shadow-md hover:border-emerald-500 transition cursor-grab active:cursor-grabbing space-y-2.5 select-none"
             >
               <div class="flex items-start justify-between gap-1">
                 <span class="font-mono text-xs font-bold bg-emerald-100 text-emerald-900 px-2 py-0.5 rounded">
@@ -552,26 +634,36 @@
         </div>
 
         <!-- COLUNA 6: OS ENTREGUE -->
-        <div class="bg-slate-50 rounded-2xl p-3.5 border border-slate-200 space-y-3 min-w-[250px]">
+        <div 
+          @dragover.prevent="aoArrastarSobreColuna('ENTREGUE', $event)"
+          @dragleave="aoSairColuna('ENTREGUE')"
+          @drop="aoSoltarNaColuna('ENTREGUE')"
+          :class="colunaArrastandoSobre === 'ENTREGUE' ? 'bg-slate-200 ring-2 ring-slate-400 border-dashed border-slate-500' : 'bg-slate-50 border-slate-200'"
+          class="rounded-2xl p-3.5 border space-y-3 min-w-[250px] transition-all duration-200"
+        >
           <div class="flex items-center justify-between pb-2 border-b border-slate-200">
             <div class="flex items-center gap-2">
               <span class="w-2.5 h-2.5 rounded-full bg-slate-400"></span>
               <h3 class="text-xs font-black uppercase tracking-wider text-slate-700">6. Entregue</h3>
             </div>
             <span class="bg-slate-200 text-slate-700 text-[11px] font-mono font-bold px-2 py-0.5 rounded-full">
-              {{ (Entregues || entregues || []).length }}
+              {{ listaEntregues.length }}
             </span>
           </div>
 
-          <div class="space-y-3 max-h-[75vh] overflow-y-auto pr-1">
-            <div v-if="(Entregues || entregues || []).length === 0" class="text-center py-8 text-slate-400 text-xs border border-dashed border-slate-200 rounded-xl">
+          <div class="space-y-3 min-h-[150px] max-h-[75vh] overflow-y-auto pr-1 custom-scrollbar">
+            <div v-if="listaEntregues.length === 0" class="text-center py-8 text-slate-400 text-xs border border-dashed border-slate-200 rounded-xl">
               Nenhuma OS entregue recentemente
             </div>
 
             <div 
-              v-for="os in (Entregues || entregues || [])" 
+              v-for="os in listaEntregues" 
               :key="os.id || os.Id"
-              class="bg-white rounded-xl p-3.5 border border-slate-200 shadow-sm opacity-90 hover:opacity-100 transition space-y-2"
+              draggable="true"
+              @dragstart="iniciarArrasto(os, 'ENTREGUE', $event)"
+              @dragend="finalizarArrasto"
+              :class="cardSendoArrastado?.id === (os.id || os.Id) ? 'opacity-40 scale-95' : 'opacity-100'"
+              class="bg-white rounded-xl p-3.5 border border-slate-200 shadow-sm opacity-90 hover:opacity-100 transition cursor-grab active:cursor-grabbing space-y-2 select-none"
             >
               <div class="flex items-start justify-between gap-1">
                 <span class="font-mono text-xs font-bold bg-slate-100 text-slate-700 px-2 py-0.5 rounded">
@@ -951,7 +1043,7 @@
 </template>
 
 <script setup>
-import { ref } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { router, Link } from '@inertiajs/vue3'
 import axios from 'axios'
 import AuthenticatedLayout from '../../Shared/AuthenticatedLayout.vue'
@@ -978,12 +1070,136 @@ const props = defineProps({
   buscaFiltro: String,
   BuscaFiltro: String,
   lojaWhatsapp: String,
-  LojaWhatsapp: String
+  LojaWhatsapp: String,
+  oticasDisponiveis: Array,
+  OticasDisponiveis: Array,
+  oticaIdAtual: String,
+  OticaIdAtual: String,
+  nomeOticaAtual: String,
+  NomeOticaAtual: String,
+  ehAdminOuSistema: Boolean,
+  EhAdminOuSistema: Boolean
 })
+
+// Listas reativas locais para suporte imediato e suave a Drag and Drop
+const listaLancadas = ref([...(props.Lancadas || props.lancadas || [])])
+const listaConfirmadas = ref([...(props.Confirmadas || props.confirmadas || [])])
+const listaAguardandoLente = ref([...(props.AguardandoLente || props.aguardandoLente || [])])
+const listaEmMontagem = ref([...(props.EmMontagem || props.emMontagem || [])])
+const listaProntas = ref([...(props.Prontas || props.prontas || [])])
+const listaEntregues = ref([...(props.Entregues || props.entregues || [])])
+
+watch(() => props.Lancadas ?? props.lancadas, (val) => { listaLancadas.value = [...(val || [])] })
+watch(() => props.Confirmadas ?? props.confirmadas, (val) => { listaConfirmadas.value = [...(val || [])] })
+watch(() => props.AguardandoLente ?? props.aguardandoLente, (val) => { listaAguardandoLente.value = [...(val || [])] })
+watch(() => props.EmMontagem ?? props.emMontagem, (val) => { listaEmMontagem.value = [...(val || [])] })
+watch(() => props.Prontas ?? props.prontas, (val) => { listaProntas.value = [...(val || [])] })
+watch(() => props.Entregues ?? props.entregues, (val) => { listaEntregues.value = [...(val || [])] })
 
 const filtroVendedor = ref(props.VendedorFiltro || props.vendedorFiltro || '')
 const filtroBusca = ref(props.BuscaFiltro || props.buscaFiltro || '')
 const salvandoFluxo = ref(false)
+
+const totalAtivasComputado = computed(() => {
+  return listaLancadas.value.length +
+         listaConfirmadas.value.length +
+         listaAguardandoLente.value.length +
+         listaEmMontagem.value.length +
+         listaProntas.value.length
+})
+
+// =========================================================================
+// DRAG AND DROP LOGIC
+// =========================================================================
+const cardSendoArrastado = ref(null)
+const colunaOrigemArrasto = ref(null)
+const colunaArrastandoSobre = ref(null)
+
+const iniciarArrasto = (os, colunaOrigem, evento) => {
+  cardSendoArrastado.value = os
+  colunaOrigemArrasto.value = colunaOrigem
+  if (evento?.dataTransfer) {
+    evento.dataTransfer.effectAllowed = 'move'
+    evento.dataTransfer.setData('text/plain', JSON.stringify({ id: os.id || os.Id, origem: colunaOrigem }))
+  }
+}
+
+const finalizarArrasto = () => {
+  cardSendoArrastado.value = null
+  colunaOrigemArrasto.value = null
+  colunaArrastandoSobre.value = null
+}
+
+const aoArrastarSobreColuna = (chaveColuna, evento) => {
+  if (colunaArrastandoSobre.value !== chaveColuna) {
+    colunaArrastandoSobre.value = chaveColuna
+  }
+}
+
+const aoSairColuna = (chaveColuna) => {
+  if (colunaArrastandoSobre.value === chaveColuna) {
+    colunaArrastandoSobre.value = null
+  }
+}
+
+const aoSoltarNaColuna = async (colunaDestino) => {
+  const os = cardSendoArrastado.value
+  const origem = colunaOrigemArrasto.value
+  colunaArrastandoSobre.value = null
+
+  if (!os || origem === colunaDestino) {
+    finalizarArrasto()
+    return
+  }
+
+  // 1. Se for para AGUARDANDO_LENTE -> abre modal de data da lente
+  if (colunaDestino === 'AGUARDANDO_LENTE') {
+    abrirModalPedirLente(os)
+    finalizarArrasto()
+    return
+  }
+
+  // 2. Se for para ENTREGUE -> abre modal de quitação/entrega
+  if (colunaDestino === 'ENTREGUE') {
+    abrirModalEntrega(os)
+    finalizarArrasto()
+    return
+  }
+
+  // 3. Para outras colunas (LANCADA, CONFIRMADA, EM_MONTAGEM, PRONTA)
+  // Efetua a transição de status
+  const id = os.id || os.Id
+  try {
+    removerDeColunaLocal(origem, id)
+    adicionarEmColunaLocal(colunaDestino, { ...os, status: colunaDestino })
+
+    await axios.post(`/ordens/alterar-status/${id}?novoStatus=${colunaDestino}`)
+  } catch (err) {
+    alert(err.response?.data?.mensagem || 'Erro ao mover a ordem de serviço.')
+    router.reload({ preserveScroll: true })
+  } finally {
+    finalizarArrasto()
+  }
+}
+
+const removerDeColunaLocal = (coluna, id) => {
+  const filtrar = (lista) => lista.filter(item => (item.id || item.Id) !== id)
+  if (coluna === 'LANCADA') listaLancadas.value = filtrar(listaLancadas.value)
+  else if (coluna === 'CONFIRMADA') listaConfirmadas.value = filtrar(listaConfirmadas.value)
+  else if (coluna === 'AGUARDANDO_LENTE') listaAguardandoLente.value = filtrar(listaAguardandoLente.value)
+  else if (coluna === 'EM_MONTAGEM') listaEmMontagem.value = filtrar(listaEmMontagem.value)
+  else if (coluna === 'PRONTA') listaProntas.value = filtrar(listaProntas.value)
+  else if (coluna === 'ENTREGUE') listaEntregues.value = filtrar(listaEntregues.value)
+}
+
+const adicionarEmColunaLocal = (coluna, os) => {
+  if (coluna === 'LANCADA') listaLancadas.value.unshift(os)
+  else if (coluna === 'CONFIRMADA') listaConfirmadas.value.unshift(os)
+  else if (coluna === 'AGUARDANDO_LENTE') listaAguardandoLente.value.unshift(os)
+  else if (coluna === 'EM_MONTAGEM') listaEmMontagem.value.unshift(os)
+  else if (coluna === 'PRONTA') listaProntas.value.unshift(os)
+  else if (coluna === 'ENTREGUE') listaEntregues.value.unshift(os)
+}
 
 // Modais State
 const modalPedirLenteAberto = ref(false)
@@ -1052,8 +1268,20 @@ const obterTextoBadgePrevisao = (dataPrevisaoStr) => {
   return formatarDataCurta(dataPrevisaoStr)
 }
 
+const trocarOticaKanban = (oticaId) => {
+  router.get('/ordens/kanban', {
+    oticaId: oticaId,
+    vendedorId: filtroVendedor.value || undefined,
+    busca: filtroBusca.value || undefined
+  }, {
+    preserveState: false,
+    preserveScroll: true
+  })
+}
+
 const aplicarFiltros = () => {
   router.get('/ordens/kanban', {
+    oticaId: props.OticaIdAtual || props.oticaIdAtual || undefined,
     vendedorId: filtroVendedor.value || undefined,
     busca: filtroBusca.value || undefined
   }, {
@@ -1065,7 +1293,9 @@ const aplicarFiltros = () => {
 const limparFiltros = () => {
   filtroVendedor.value = ''
   filtroBusca.value = ''
-  router.get('/ordens/kanban')
+  router.get('/ordens/kanban', {
+    oticaId: props.OticaIdAtual || props.oticaIdAtual || undefined
+  })
 }
 
 const filtrarApenasLentesHoje = () => {
