@@ -17,6 +17,25 @@ namespace RETSYS.Web.Controllers
             _context = context;
         }
 
+        public const string TEMPLATE_CADASTRO_PADRAO = @"Olá {cliente}! 👋 A sua Ordem de Serviço *#{numero_os}* na *{otica}* foi registrada com sucesso!
+
+📋 *Resumo do Pedido:*
+{resumo_pedido}
+
+📅 *Previsão de Entrega:* {previsao_entrega}
+
+Seus óculos serão montados com toda a atenção e passarão por uma rigorosa conferência de qualidade. ✨
+Assim que estiverem prontos para retirada, te avisaremos por aqui no WhatsApp.
+
+Agradecemos imensamente pela preferência e confiança! 👓";
+
+        public const string TEMPLATE_PRONTO_PADRAO = @"Olá {cliente}! ✨ Ótimas notícias: Seus óculos da Ordem de Serviço *#{numero_os}* estão *PRONTOS* para retirada na *{otica}*! 👓🎉
+
+💳 *Situação do Pagamento:* {status_pagamento}
+{saldo_devedor}
+
+Você já pode passar em nossa loja para retirar seus óculos e realizar o ajuste facial. Aguardamos sua visita! 😊";
+
         [HttpGet("/configuracoes")]
         public async Task<IActionResult> Index()
         {
@@ -36,7 +55,10 @@ namespace RETSYS.Web.Controllers
                     OticaId = oticaId,
                     NomeLoja = nomeInicial,
                     Cnpj = "",
-                    PixApiKey = ""
+                    PixApiKey = "",
+                    WhatsappNumero = "",
+                    WhatsappMsgCadastroTemplate = TEMPLATE_CADASTRO_PADRAO,
+                    WhatsappMsgProntoTemplate = TEMPLATE_PRONTO_PADRAO
                 };
 
                 _context.ConfiguracoesLoja.Add(config);
@@ -47,7 +69,16 @@ namespace RETSYS.Web.Controllers
             {
                 NomeLoja = config.NomeLoja,
                 Cnpj = config.Cnpj ?? "",
-                PixApiKey = config.PixApiKey ?? ""
+                PixApiKey = config.PixApiKey ?? "",
+                WhatsappNumero = config.WhatsappNumero ?? "",
+                WhatsappMsgCadastroTemplate = string.IsNullOrWhiteSpace(config.WhatsappMsgCadastroTemplate)
+                    ? TEMPLATE_CADASTRO_PADRAO
+                    : config.WhatsappMsgCadastroTemplate,
+                WhatsappMsgProntoTemplate = string.IsNullOrWhiteSpace(config.WhatsappMsgProntoTemplate)
+                    ? TEMPLATE_PRONTO_PADRAO
+                    : config.WhatsappMsgProntoTemplate,
+                TemplatePadraoCadastro = TEMPLATE_CADASTRO_PADRAO,
+                TemplatePadraoPronto = TEMPLATE_PRONTO_PADRAO
             });
         }
 
@@ -67,7 +98,10 @@ namespace RETSYS.Web.Controllers
                     OticaId = oticaId,
                     NomeLoja = !string.IsNullOrWhiteSpace(dados.NomeLoja) ? dados.NomeLoja.Trim() : "Ótica RETSYS",
                     Cnpj = dados.Cnpj?.Trim() ?? "",
-                    PixApiKey = dados.PixApiKey?.Trim() ?? ""
+                    PixApiKey = dados.PixApiKey?.Trim() ?? "",
+                    WhatsappNumero = dados.WhatsappNumero?.Trim() ?? "",
+                    WhatsappMsgCadastroTemplate = dados.WhatsappMsgCadastroTemplate?.Trim(),
+                    WhatsappMsgProntoTemplate = dados.WhatsappMsgProntoTemplate?.Trim()
                 };
                 _context.ConfiguracoesLoja.Add(config);
             }
@@ -76,6 +110,9 @@ namespace RETSYS.Web.Controllers
                 if (!string.IsNullOrWhiteSpace(dados.NomeLoja)) config.NomeLoja = dados.NomeLoja.Trim();
                 config.Cnpj = dados.Cnpj?.Trim() ?? "";
                 config.PixApiKey = dados.PixApiKey?.Trim() ?? "";
+                config.WhatsappNumero = dados.WhatsappNumero?.Trim() ?? "";
+                config.WhatsappMsgCadastroTemplate = dados.WhatsappMsgCadastroTemplate?.Trim();
+                config.WhatsappMsgProntoTemplate = dados.WhatsappMsgProntoTemplate?.Trim();
                 _context.ConfiguracoesLoja.Update(config);
             }
 
@@ -87,5 +124,11 @@ namespace RETSYS.Web.Controllers
         }
     }
 
-    public record DtoConfigSalvar(string NomeLoja, string Cnpj, string? PixApiKey);
+    public record DtoConfigSalvar(
+        string NomeLoja, 
+        string Cnpj, 
+        string? PixApiKey, 
+        string? WhatsappNumero, 
+        string? WhatsappMsgCadastroTemplate, 
+        string? WhatsappMsgProntoTemplate);
 }

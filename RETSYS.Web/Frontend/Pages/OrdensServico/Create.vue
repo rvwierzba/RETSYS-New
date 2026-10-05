@@ -695,20 +695,33 @@
 
         <p class="text-sm text-slate-500">A Ordem de Serviço {{ osFaturadaResponse.numeroOS }} foi gravada de forma definitiva no sistema.</p>
 
-        <div class="flex flex-col sm:flex-row items-center justify-center gap-4 max-w-xl mx-auto pt-4">
-          <button @click="imprimirDocumento('completa')" class="w-full bg-slate-950 hover:bg-slate-800 text-white font-bold py-3.5 px-6 rounded-xl text-xs uppercase tracking-wider transition shadow-md flex items-center justify-center gap-2">
-            🖨️ Imprimir OS Completa (A4)
+        <!-- AÇÕES EM DESTAQUE: WHATSAPP E KANBAN -->
+        <div class="max-w-xl mx-auto space-y-3 pt-2">
+          <button 
+            @click="enviarWhatsAppCadastro" 
+            class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-black py-3.5 px-6 rounded-xl text-xs uppercase tracking-wider transition shadow-lg shadow-emerald-600/20 flex items-center justify-center gap-2 active:scale-95"
+          >
+            <span>📱</span> Enviar Confirmação via WhatsApp ao Cliente
           </button>
 
-          <!-- SEÇÃO 7: BOTÃO DE IMPRESSÃO DA GUIA DO CLIENTE -->
-          <button @click="imprimirDocumento('guia')" class="w-full bg-teal-600 hover:bg-teal-700 text-white font-bold py-3.5 px-6 rounded-xl text-xs uppercase tracking-wider transition shadow-md flex items-center justify-center gap-2">
-            📄 Imprimir Guia do Cliente (A4)
-          </button>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <button @click="imprimirDocumento('completa')" class="w-full bg-slate-950 hover:bg-slate-800 text-white font-bold py-3 px-4 rounded-xl text-xs uppercase tracking-wider transition shadow-md flex items-center justify-center gap-2">
+              🖨️ Imprimir OS Completa (A4)
+            </button>
+
+            <!-- SEÇÃO 7: BOTÃO DE IMPRESSÃO DA GUIA DO CLIENTE -->
+            <button @click="imprimirDocumento('guia')" class="w-full bg-teal-600 hover:bg-teal-700 text-white font-bold py-3 px-4 rounded-xl text-xs uppercase tracking-wider transition shadow-md flex items-center justify-center gap-2">
+              📄 Imprimir Guia do Cliente (A4)
+            </button>
+          </div>
         </div>
 
-        <div class="pt-6">
-          <button @click="voltarAoPainel" class="text-sm font-bold text-teal-600 hover:underline">
-            ← Voltar ao Dashboard Principal
+        <div class="pt-6 flex flex-col sm:flex-row items-center justify-center gap-4">
+          <Link href="/ordens/kanban" class="text-xs font-bold text-purple-600 hover:text-purple-800 bg-purple-50 hover:bg-purple-100 border border-purple-200 px-4 py-2 rounded-xl transition">
+            📊 Acompanhar na Esteira Kanban
+          </Link>
+          <button @click="voltarAoPainel" class="text-xs font-bold text-slate-500 hover:text-slate-800 transition">
+            ← Voltar à Lista de Ordens
           </button>
         </div>
       </div>
@@ -1380,6 +1393,7 @@ const salvarOrdemServico = async () => {
     localStorage.removeItem(CHAVE_RASCUNHO)
 
     osFaturadaResponse.value = {
+      id: data.id,
       numeroOS: data.numeroOS || form.numeroOS || 'OS-FINALIZADA'
     }
 
@@ -1391,6 +1405,26 @@ const salvarOrdemServico = async () => {
       'Erro ao emitir a Ordem de Serviço.'
   } finally {
     salvandoOS.value = false
+  }
+}
+
+const enviarWhatsAppCadastro = async () => {
+  const osId = osFaturadaResponse.value?.id
+  if (!osId) {
+    alert('Ordem emitida com sucesso. Acesse a lista de ordens ou Kanban para enviar WhatsApp.')
+    return
+  }
+
+  try {
+    const { data } = await axios.get(`/api/ordens/${osId}/whatsapp-info?tipo=cadastro`)
+    if (data.urlWhatsApp) {
+      window.open(data.urlWhatsApp, '_blank')
+      await axios.post(`/api/ordens/${osId}/marcar-whatsapp-enviado`, { tipo: 'cadastro' })
+    } else {
+      alert(`Cliente não possui telefone válido para WhatsApp cadastrado.\n\nMensagem gerada:\n\n${data.mensagem}`)
+    }
+  } catch (err) {
+    alert('Erro ao carregar informações de WhatsApp.')
   }
 }
 

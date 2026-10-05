@@ -16,5 +16,12 @@ namespace RETSYS.Domain.Entities
         public string? PixApiKey { get; set; }
 
         public bool PixAtivo => !string.IsNullOrWhiteSpace(PixApiKey);
+
+        // =========================================================================
+        // CONFIGURAÇÕES DE WHATSAPP DA ÓTICA E TEMPLATES DE MENSAGENS
+        // =========================================================================
+        public string? WhatsappNumero { get; set; }
+        public string? WhatsappMsgCadastroTemplate { get; set; }
+        public string? WhatsappMsgProntoTemplate { get; set; }
     }
 }

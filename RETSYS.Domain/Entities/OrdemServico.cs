@@ -68,5 +68,15 @@ namespace RETSYS.Domain.Entities
         // Auditoria e log de ajuste de data (Ex: "data ajustada em 05/09 por Admin")
         public string? DataAjustadaLog { get; set; }
         public DateTime? DataEntradaOriginal { get; set; }
+
+        // =========================================================================
+        // NOVO FLUXO DE ACOMPANHAMENTO DE OS E INTEGRAÇÃO WHATSAPP
+        // =========================================================================
+        public DateTime? DataPrevisaoLente { get; set; }
+        public bool LenteChegou { get; set; } = false;
+        public DateTime? DataChegadaLente { get; set; }
+
+        public bool WhatsAppNotificadoCriacao { get; set; } = false;
+        public bool WhatsAppNotificadoPronto { get; set; } = false;
     }
 }

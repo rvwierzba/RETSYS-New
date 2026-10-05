@@ -144,10 +144,21 @@ namespace RETSYS.Web.Controllers
                     os.Observacoes,
                     os.IsRetroativa,
 
-                    // Controle de Lentes Pedidas (Seção 3.2)
+                    // Controle de Lentes Pedidas e Novo Fluxo
                     os.LentePedida,
                     os.DataPedidoLente,
                     PedidoLentePorNome = os.PedidoLentePor != null ? os.PedidoLentePor.Nome : null,
+                    os.DataPrevisaoLente,
+                    os.LenteChegou,
+                    os.DataChegadaLente,
+                    os.WhatsAppNotificadoCriacao,
+                    os.WhatsAppNotificadoPronto,
+                    LenteDescricao = os.Financeiro != null && os.Financeiro.LentePreco != null && os.Financeiro.LentePreco.Lente != null
+                        ? os.Financeiro.LentePreco.Lente.Tipo
+                        : (!string.IsNullOrEmpty(os.LenteDescricaoManual) ? os.LenteDescricaoManual : ""),
+                    ArmacaoDescricao = os.Financeiro != null && os.Financeiro.Armacao != null
+                        ? (os.Financeiro.Armacao.ModeloReferencia + (!string.IsNullOrEmpty(os.Financeiro.Armacao.CodigoSku) ? " (" + os.Financeiro.Armacao.CodigoSku + ")" : ""))
+                        : (!string.IsNullOrEmpty(os.ArmacaoModeloManual) ? os.ArmacaoModeloManual : ""),
 
                     VendedorNome = os.Vendedor != null
                         ? os.Vendedor.Nome
@@ -175,6 +186,10 @@ namespace RETSYS.Web.Controllers
                     ClienteNome = os.Cliente != null
                         ? os.Cliente.Nome
                         : "Cliente não identificado",
+
+                    ClienteTelefone = os.Cliente != null
+                        ? os.Cliente.Telefone
+                        : "",
 
                     ValorTotal = os.Financeiro != null
                         ? os.Financeiro.ValorTotalLiquido
@@ -270,6 +285,179 @@ namespace RETSYS.Web.Controllers
                 FiltroLentePedida = filtroLentePedida ?? "",
                 VendedorFiltro = vendedorId,
                 TotalFiltroAtivo = totalFiltroAtivo
+            });
+        }
+
+        // 1.1 Painel Kanban de Acompanhamento de Produção e Status de OSs
+        [HttpGet("/ordens/kanban")]
+        public async Task<IActionResult> Kanban([FromQuery] Guid? vendedorId, [FromQuery] string? busca)
+        {
+            var oticaId = ObterOticaId();
+            var usuarioIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            var perfilClaim = User.FindFirst(ClaimTypes.Role)?.Value ?? "VENDEDOR";
+
+            IQueryable<OrdemServico> query = _context.OrdensServico
+                .Include(os => os.Otica)
+                .Include(os => os.Cliente)
+                .Include(os => os.Vendedor)
+                .Include(os => os.Receita)
+                .Include(os => os.Financeiro)
+                    .ThenInclude(f => f!.Armacao)
+                .Include(os => os.Financeiro)
+                    .ThenInclude(f => f!.LentePreco)
+                        .ThenInclude(lp => lp!.Lente)
+                .Include(os => os.PedidoLentePor)
+                .Where(os => os.Ativo && os.OticaId == oticaId);
+
+            if (string.Equals(perfilClaim, "VENDEDOR", StringComparison.OrdinalIgnoreCase) &&
+                Guid.TryParse(usuarioIdClaim, out Guid vendedorLogadoId))
+            {
+                query = query.Where(os => os.VendedorId == vendedorLogadoId);
+            }
+            else if (vendedorId.HasValue && vendedorId.Value != Guid.Empty)
+            {
+                query = query.Where(os => os.VendedorId == vendedorId.Value);
+            }
+
+            if (!string.IsNullOrWhiteSpace(busca))
+            {
+                var termo = busca.Trim().ToLower();
+                query = query.Where(os =>
+                    os.NumeroOS.ToLower().Contains(termo) ||
+                    (os.Cliente != null && os.Cliente.Nome.ToLower().Contains(termo)) ||
+                    (os.Cliente != null && os.Cliente.CPF != null && os.Cliente.CPF.Contains(termo)));
+            }
+
+            var todasOrdens = await query
+                .OrderByDescending(os => os.DataEntrada)
+                .Select(os => new
+                {
+                    os.Id,
+                    os.NumeroOS,
+                    os.DataEntrada,
+                    os.DataPrevistaEntrega,
+                    os.DataEntregaReal,
+                    os.Status,
+                    os.LojaVenda,
+                    os.Observacoes,
+
+                    os.LentePedida,
+                    os.DataPedidoLente,
+                    PedidoLentePorNome = os.PedidoLentePor != null ? os.PedidoLentePor.Nome : null,
+                    os.DataPrevisaoLente,
+                    os.LenteChegou,
+                    os.DataChegadaLente,
+                    os.WhatsAppNotificadoCriacao,
+                    os.WhatsAppNotificadoPronto,
+
+                    LenteDescricao = os.Financeiro != null && os.Financeiro.LentePreco != null && os.Financeiro.LentePreco.Lente != null
+                        ? os.Financeiro.LentePreco.Lente.Tipo
+                        : (!string.IsNullOrEmpty(os.LenteDescricaoManual) ? os.LenteDescricaoManual : ""),
+
+                    ArmacaoDescricao = os.Financeiro != null && os.Financeiro.Armacao != null
+                        ? (os.Financeiro.Armacao.ModeloReferencia + (!string.IsNullOrEmpty(os.Financeiro.Armacao.CodigoSku) ? " (" + os.Financeiro.Armacao.CodigoSku + ")" : ""))
+                        : (!string.IsNullOrEmpty(os.ArmacaoModeloManual) ? os.ArmacaoModeloManual : ""),
+
+                    VendedorNome = os.Vendedor != null ? os.Vendedor.Nome : "Não informado",
+                    os.VendedorId,
+
+                    ClienteId = os.Cliente != null ? (Guid?)os.Cliente.Id : null,
+                    ClienteNome = os.Cliente != null ? os.Cliente.Nome : "Cliente não identificado",
+                    ClienteTelefone = os.Cliente != null ? os.Cliente.Telefone : "",
+                    ClienteCpf = os.Cliente != null ? os.Cliente.CPF : "",
+
+                    ValorTotal = os.Financeiro != null ? os.Financeiro.ValorTotalLiquido : 0m,
+                    ValorRestante = os.Financeiro != null ? os.Financeiro.ValorRestante : 0m,
+                    FormaPagamento = os.Financeiro != null ? os.Financeiro.FormaPagamento : "",
+                    ValorEntrada = os.Financeiro != null ? os.Financeiro.ValorEntrada : 0m,
+                    DataQuitacao = os.Financeiro != null ? os.Financeiro.DataQuitacao : null,
+
+                    Receita = os.Receita != null ? new
+                    {
+                        os.Receita.OdEsferico,
+                        os.Receita.OdCilindrico,
+                        os.Receita.OdEixo,
+                        os.Receita.OeEsferico,
+                        os.Receita.OeCilindrico,
+                        os.Receita.OeEixo,
+                        os.Receita.Adicao
+                    } : null
+                })
+                .ToListAsync();
+
+            var hoje = DateTime.UtcNow.Date;
+
+            // Categorização do Kanban
+            var lancadas = todasOrdens
+                .Where(os => os.Status == "LANCADA" || os.Status == "EM_ABERTO")
+                .ToList();
+
+            var confirmadas = todasOrdens
+                .Where(os => os.Status == "CONFIRMADA")
+                .ToList();
+
+            var aguardandoLente = todasOrdens
+                .Where(os => os.Status == "AGUARDANDO_LENTE")
+                .ToList();
+
+            var emMontagem = todasOrdens
+                .Where(os => os.Status == "EM_MONTAGEM" || os.Status == "EM_LABORATORIO")
+                .ToList();
+
+            var prontas = todasOrdens
+                .Where(os => os.Status == "PRONTA" || os.Status == "PRONTO")
+                .ToList();
+
+            var entregues = todasOrdens
+                .Where(os => os.Status == "ENTREGUE")
+                .Take(25) // Limitar entregues recentes
+                .ToList();
+
+            // Métricas e Alertas
+            int totalLentesHoje = todasOrdens.Count(os =>
+                (os.Status == "AGUARDANDO_LENTE" || !os.LenteChegou) &&
+                os.DataPrevisaoLente.HasValue &&
+                os.DataPrevisaoLente.Value.Date == hoje &&
+                os.Status != "CANCELADO" && os.Status != "CANCELADA" && os.Status != "ENTREGUE");
+
+            int totalLentesAtrasadas = todasOrdens.Count(os =>
+                (os.Status == "AGUARDANDO_LENTE" || !os.LenteChegou) &&
+                os.DataPrevisaoLente.HasValue &&
+                os.DataPrevisaoLente.Value.Date < hoje &&
+                os.Status != "CANCELADO" && os.Status != "CANCELADA" && os.Status != "ENTREGUE");
+
+            var config = await _context.ConfiguracoesLoja.FirstOrDefaultAsync(c => c.OticaId == oticaId);
+
+            var vendedores = await _context.Usuarios
+                .Where(u => u.Ativo && u.OticaId == oticaId)
+                .OrderBy(u => u.Nome)
+                .Select(u => new { u.Id, u.Nome })
+                .ToListAsync();
+
+            return Inertia.Render("OrdensServico/Kanban", new
+            {
+                Lancadas = lancadas,
+                Confirmadas = confirmadas,
+                AguardandoLente = aguardandoLente,
+                EmMontagem = emMontagem,
+                Prontas = prontas,
+                Entregues = entregues,
+                Estatisticas = new
+                {
+                    TotalLancadas = lancadas.Count,
+                    TotalConfirmadas = confirmadas.Count,
+                    TotalAguardandoLente = aguardandoLente.Count,
+                    TotalEmMontagem = emMontagem.Count,
+                    TotalProntas = prontas.Count,
+                    TotalEntregues = entregues.Count,
+                    LentesChegamHoje = totalLentesHoje,
+                    LentesAtrasadas = totalLentesAtrasadas,
+                    TotalAtivas = lancadas.Count + confirmadas.Count + aguardandoLente.Count + emMontagem.Count + prontas.Count
+                },
+                Vendedores = vendedores,
+                VendedorFiltro = vendedorId,
+                BuscaFiltro = busca ?? "",
+                LojaWhatsapp = config?.WhatsappNumero ?? ""
             });
         }
 
@@ -921,6 +1109,7 @@ namespace RETSYS.Web.Controllers
 
                 return Ok(new
                 {
+                    id = novaOS.Id,
                     numeroOS = novaOS.NumeroOS
                 });
             }
@@ -1057,6 +1246,213 @@ namespace RETSYS.Web.Controllers
             return RedirectToAction(nameof(Index));
         }
 
+        // --- NOVO FLUXO DE PRODUÇÃO E ACOMPANHAMENTO ---
+
+        // Ação 1: Confirmar OS (após aprovação do pagamento ou conferência)
+        [HttpPost("/ordens/confirmar/{id:guid}")]
+        public async Task<IActionResult> ConfirmarOrdem(Guid id)
+        {
+            var oticaId = ObterOticaId();
+            var ordem = await _context.OrdensServico
+                .FirstOrDefaultAsync(os => os.Id == id && os.OticaId == oticaId && os.Ativo);
+
+            if (ordem == null) return NotFound();
+
+            ordem.Status = "CONFIRMADA";
+            await _context.SaveChangesAsync();
+
+            return Ok(new { sucesso = true, novoStatus = "CONFIRMADA" });
+        }
+
+        // Ação 2: Confirmar pedido de lente com data prevista de entrega do laboratório
+        [HttpPost("/ordens/pedir-lente/{id:guid}")]
+        public async Task<IActionResult> PedirLente(Guid id, [FromBody] PedirLenteRequest? dados)
+        {
+            var oticaId = ObterOticaId();
+            var ordem = await _context.OrdensServico
+                .Include(os => os.Financeiro)
+                .FirstOrDefaultAsync(os => os.Id == id && os.OticaId == oticaId && os.Ativo);
+
+            if (ordem == null) return NotFound();
+
+            var usuarioIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            Guid.TryParse(usuarioIdClaim, out Guid usuarioLogadoId);
+
+            ordem.LentePedida = true;
+            ordem.DataPedidoLente = DateTime.UtcNow;
+            ordem.PedidoLentePorId = usuarioLogadoId != Guid.Empty ? usuarioLogadoId : null;
+
+            if (dados != null && dados.DataPrevisaoLente.HasValue)
+            {
+                ordem.DataPrevisaoLente = DateTime.SpecifyKind(dados.DataPrevisaoLente.Value.Date, DateTimeKind.Utc);
+            }
+            else if (Request.HasFormContentType && DateTime.TryParse(Request.Form["dataPrevisaoLente"].ToString(), out DateTime dt))
+            {
+                ordem.DataPrevisaoLente = DateTime.SpecifyKind(dt.Date, DateTimeKind.Utc);
+            }
+
+            ordem.Status = "AGUARDANDO_LENTE";
+            await _context.SaveChangesAsync();
+
+            return Ok(new { sucesso = true, novoStatus = "AGUARDANDO_LENTE", dataPrevisaoLente = ordem.DataPrevisaoLente });
+        }
+
+        // Ação 3: Marcar que a lente chegou e avançar para fila de Montagem
+        [HttpPost("/ordens/lente-chegou/{id:guid}")]
+        public async Task<IActionResult> LenteChegou(Guid id)
+        {
+            var oticaId = ObterOticaId();
+            var ordem = await _context.OrdensServico
+                .FirstOrDefaultAsync(os => os.Id == id && os.OticaId == oticaId && os.Ativo);
+
+            if (ordem == null) return NotFound();
+
+            ordem.LenteChegou = true;
+            ordem.DataChegadaLente = DateTime.UtcNow;
+            ordem.Status = "EM_MONTAGEM";
+
+            await _context.SaveChangesAsync();
+
+            return Ok(new { sucesso = true, novoStatus = "EM_MONTAGEM" });
+        }
+
+        // Ação 4: Concluir a montagem dos óculos e avançar para OS Pronta
+        [HttpPost("/ordens/concluir-montagem/{id:guid}")]
+        public async Task<IActionResult> ConcluirMontagem(Guid id)
+        {
+            var oticaId = ObterOticaId();
+            var ordem = await _context.OrdensServico
+                .FirstOrDefaultAsync(os => os.Id == id && os.OticaId == oticaId && os.Ativo);
+
+            if (ordem == null) return NotFound();
+
+            ordem.Status = "PRONTA";
+            await _context.SaveChangesAsync();
+
+            return Ok(new { sucesso = true, novoStatus = "PRONTA" });
+        }
+
+        // --- INTEGRAÇÃO WHATSAPP ---
+        [HttpGet("/api/ordens/{id:guid}/whatsapp-info")]
+        public async Task<IActionResult> ObterInfoWhatsApp(Guid id, [FromQuery] string tipo = "cadastro")
+        {
+            var oticaId = ObterOticaId();
+            var ordem = await _context.OrdensServico
+                .Include(os => os.Cliente)
+                .Include(os => os.Financeiro)
+                    .ThenInclude(f => f!.LentePreco)
+                        .ThenInclude(lp => lp!.Lente)
+                .Include(os => os.Financeiro)
+                    .ThenInclude(f => f!.Armacao)
+                .Include(os => os.Otica)
+                .FirstOrDefaultAsync(os => os.Id == id && os.OticaId == oticaId && os.Ativo);
+
+            if (ordem == null) return NotFound(new { mensagem = "Ordem de serviço não localizada." });
+
+            var config = await _context.ConfiguracoesLoja.FirstOrDefaultAsync(c => c.OticaId == oticaId);
+
+            string nomeCliente = ordem.Cliente?.Nome ?? "Cliente";
+            string primeiroNome = nomeCliente.Split(' ')[0];
+            string numeroOs = ordem.NumeroOS;
+            string nomeOtica = !string.IsNullOrWhiteSpace(config?.NomeLoja) ? config.NomeLoja : (ordem.Otica?.Nome ?? "Ótica RETSYS");
+
+            string armacaoTexto = !string.IsNullOrWhiteSpace(ordem.Financeiro?.Armacao?.ModeloReferencia)
+                ? ordem.Financeiro.Armacao.ModeloReferencia
+                : (!string.IsNullOrWhiteSpace(ordem.ArmacaoModeloManual) ? ordem.ArmacaoModeloManual : "Armação Própria / Balcão");
+
+            string lenteTexto = !string.IsNullOrWhiteSpace(ordem.Financeiro?.LentePreco?.Lente?.Tipo)
+                ? ordem.Financeiro.LentePreco.Lente.Tipo
+                : (!string.IsNullOrWhiteSpace(ordem.LenteDescricaoManual) ? ordem.LenteDescricaoManual : "Lentes Graduadas");
+
+            string resumoPedido = $"👓 *Armação:* {armacaoTexto}\n🔬 *Lentes:* {lenteTexto}";
+
+            string previsaoEntrega = ordem.DataPrevistaEntrega != default
+                ? ordem.DataPrevistaEntrega.ToString("dd/MM/yyyy")
+                : "A combinar";
+
+            decimal valorRestante = ordem.Financeiro?.ValorRestante ?? 0m;
+            string statusPagamento = valorRestante <= 0
+                ? "Totalmente Quitado ✅"
+                : $"Pendente (Saldo de R$ {valorRestante:N2}) ⏳";
+
+            string saldoDevedorTexto = valorRestante > 0
+                ? $"*Valor a acertar na retirada:* R$ {valorRestante:N2}"
+                : "Nenhum valor pendente. Seu pedido já está 100% quitado!";
+
+            string template;
+            if (string.Equals(tipo, "pronto", StringComparison.OrdinalIgnoreCase))
+            {
+                template = !string.IsNullOrWhiteSpace(config?.WhatsappMsgProntoTemplate)
+                    ? config.WhatsappMsgProntoTemplate
+                    : ConfiguracoesController.TEMPLATE_PRONTO_PADRAO;
+            }
+            else
+            {
+                template = !string.IsNullOrWhiteSpace(config?.WhatsappMsgCadastroTemplate)
+                    ? config.WhatsappMsgCadastroTemplate
+                    : ConfiguracoesController.TEMPLATE_CADASTRO_PADRAO;
+            }
+
+            string mensagem = template
+                .Replace("{cliente}", primeiroNome)
+                .Replace("{cliente_completo}", nomeCliente)
+                .Replace("{numero_os}", numeroOs)
+                .Replace("{otica}", nomeOtica)
+                .Replace("{resumo_pedido}", resumoPedido)
+                .Replace("{previsao_entrega}", previsaoEntrega)
+                .Replace("{status_pagamento}", statusPagamento)
+                .Replace("{saldo_devedor}", saldoDevedorTexto);
+
+            string telefoneLimpo = FormatarTelefoneWhatsApp(ordem.Cliente?.Telefone);
+            string urlWhatsApp = !string.IsNullOrEmpty(telefoneLimpo)
+                ? $"https://api.whatsapp.com/send?phone={telefoneLimpo}&text={Uri.EscapeDataString(mensagem)}"
+                : "";
+
+            return Ok(new
+            {
+                telefone = telefoneLimpo,
+                telefoneFormatado = ordem.Cliente?.Telefone ?? "",
+                clienteNome = nomeCliente,
+                numeroOS = numeroOs,
+                mensagem,
+                urlWhatsApp,
+                notificadoCriacao = ordem.WhatsAppNotificadoCriacao,
+                notificadoPronto = ordem.WhatsAppNotificadoPronto
+            });
+        }
+
+        [HttpPost("/api/ordens/{id:guid}/marcar-whatsapp-enviado")]
+        public async Task<IActionResult> MarcarWhatsAppEnviado(Guid id, [FromBody] MarcarWhatsAppRequest? request)
+        {
+            var oticaId = ObterOticaId();
+            var ordem = await _context.OrdensServico.FirstOrDefaultAsync(os => os.Id == id && os.OticaId == oticaId);
+            if (ordem == null) return NotFound();
+
+            string tipo = request?.Tipo ?? "cadastro";
+            if (string.Equals(tipo, "pronto", StringComparison.OrdinalIgnoreCase))
+            {
+                ordem.WhatsAppNotificadoPronto = true;
+            }
+            else
+            {
+                ordem.WhatsAppNotificadoCriacao = true;
+            }
+
+            await _context.SaveChangesAsync();
+            return Ok(new { sucesso = true });
+        }
+
+        private static string FormatarTelefoneWhatsApp(string? tel)
+        {
+            if (string.IsNullOrWhiteSpace(tel)) return string.Empty;
+            var digitos = new string(tel.Where(char.IsDigit).ToArray());
+            if (digitos.Length == 10 || digitos.Length == 11)
+            {
+                digitos = "55" + digitos;
+            }
+            return digitos;
+        }
+
         // 5. Alteração de status padrão.
         [HttpPost("/ordens/alterar-status/{id:guid}")]
         public async Task<IActionResult> AlterarStatus(
@@ -1086,10 +1482,16 @@ namespace RETSYS.Web.Controllers
 
             var statusValidos = new[]
             {
+                "LANCADA",
                 "EM_ABERTO",
+                "CONFIRMADA",
+                "AGUARDANDO_LENTE",
+                "EM_MONTAGEM",
                 "EM_LABORATORIO",
+                "PRONTA",
                 "PRONTO",
                 "ENTREGUE",
+                "CANCELADA",
                 "CANCELADO"
             };
 
@@ -1098,7 +1500,7 @@ namespace RETSYS.Web.Controllers
                 return RedirectToAction(nameof(Index));
             }
 
-            if (statusAlvo == "CANCELADO" &&
+            if ((statusAlvo == "CANCELADO" || statusAlvo == "CANCELADA") &&
                 await OrdemPossuiComissaoPagaAsync(ordem.Id))
             {
                 Inertia.Share(
@@ -1109,7 +1511,7 @@ namespace RETSYS.Web.Controllers
                 return RedirectToAction(nameof(Index));
             }
 
-            if (statusAlvo == "CANCELADO" &&
+            if ((statusAlvo == "CANCELADO" || statusAlvo == "CANCELADA") &&
                 statusAnterior != "CANCELADO" &&
                 statusAnterior != "CANCELADA" &&
                 !ordem.IsRetroativa &&
@@ -1124,7 +1526,7 @@ namespace RETSYS.Web.Controllers
                 }
             }
 
-            if (statusAlvo == "CANCELADO")
+            if (statusAlvo == "CANCELADO" || statusAlvo == "CANCELADA")
             {
                 await EstornarComissoesDaOrdemAsync(ordem.Id);
             }
@@ -1532,5 +1934,15 @@ namespace RETSYS.Web.Controllers
     public class AlterarStatusRequest
     {
         public string? NovoStatus { get; set; }
+    }
+
+    public class PedirLenteRequest
+    {
+        public DateTime? DataPrevisaoLente { get; set; }
+    }
+
+    public class MarcarWhatsAppRequest
+    {
+        public string? Tipo { get; set; } // "cadastro" ou "pronto"
     }
 }

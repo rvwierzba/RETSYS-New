@@ -330,6 +330,9 @@ namespace RETSYS.Infrastructure.Data
                 b.Property(c => c.NomeLoja).HasMaxLength(100).IsRequired();
                 b.Property(c => c.Cnpj).HasMaxLength(20);
                 b.Property(c => c.PixApiKey).HasMaxLength(500);
+                b.Property(c => c.WhatsappNumero).HasMaxLength(30);
+                b.Property(c => c.WhatsappMsgCadastroTemplate).HasColumnType("text");
+                b.Property(c => c.WhatsappMsgProntoTemplate).HasColumnType("text");
 
                 b.HasOne(c => c.Otica)
                  .WithMany()

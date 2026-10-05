@@ -19,6 +19,7 @@
         
         <Link href="/dashboard" class="hover:text-teal-400 transition">Dashboard</Link>
         <Link href="/ordens" class="hover:text-teal-400 transition">Ordens de Serviço</Link>
+        <Link href="/ordens/kanban" class="text-teal-400 hover:text-teal-300 transition font-bold">Kanban OS</Link>
         <Link v-if="temPermissaoAdmin" href="/caixa" class="hover:text-teal-400 transition">Caixa</Link>
         <Link href="/clientes" class="hover:text-teal-400 transition">Clientes</Link>
         <Link href="/estoque" class="hover:text-teal-400 transition">Armações</Link>

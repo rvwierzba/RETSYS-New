@@ -8,12 +8,20 @@
           <h1 class="text-2xl font-black text-slate-950 font-mono tracking-tight">Painel de Ordens de Serviço</h1>
           <p class="text-xs text-slate-500 mt-1">Consulte receitas, acompanhe o pedido de lentes, entregue produtos com quitação de saldo e gerencie a esteira comercial.</p>
         </div>
-        <button 
-          @click="irParaNovaOrdem"
-          class="bg-teal-600 hover:bg-teal-700 text-white font-bold py-2.5 px-6 rounded-xl text-xs transition shadow-sm uppercase tracking-wider h-fit"
-        >
-          + Emitir Nova OS
-        </button>
+        <div class="flex items-center gap-3">
+          <Link 
+            href="/ordens/kanban" 
+            class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2.5 px-5 rounded-xl text-xs transition shadow-sm uppercase tracking-wider flex items-center gap-1.5"
+          >
+            <span>📊</span> Quadro Kanban
+          </Link>
+          <button 
+            @click="irParaNovaOrdem"
+            class="bg-teal-600 hover:bg-teal-700 text-white font-bold py-2.5 px-6 rounded-xl text-xs transition shadow-sm uppercase tracking-wider h-fit"
+          >
+            + Emitir Nova OS
+          </button>
+        </div>
       </div>
 
       <!-- Barra de Filtros e Faturamento -->
@@ -139,15 +147,19 @@
                     :class="[
                       (os.status === 'CANCELADO' || os.status === 'CANCELADA') ? 'bg-rose-50 text-rose-700 border-rose-200 cursor-not-allowed' :
                       os.status === 'ENTREGUE' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
-                      os.status === 'PRONTO' ? 'bg-blue-50 text-blue-700 border-blue-200' :
-                      os.status === 'EM_LABORATORIO' ? 'bg-purple-50 text-purple-700 border-purple-200' :
+                      (os.status === 'PRONTA' || os.status === 'PRONTO') ? 'bg-blue-50 text-blue-700 border-blue-200' :
+                      (os.status === 'EM_MONTAGEM' || os.status === 'EM_LABORATORIO') ? 'bg-indigo-50 text-indigo-700 border-indigo-200' :
+                      os.status === 'AGUARDANDO_LENTE' ? 'bg-purple-50 text-purple-700 border-purple-200' :
+                      os.status === 'CONFIRMADA' ? 'bg-sky-50 text-sky-700 border-sky-200' :
                       'bg-amber-50 text-amber-700 border-amber-200'
                     ]"
                     class="px-2.5 py-1 rounded-xl text-[11px] font-black border uppercase font-mono cursor-pointer focus:ring-2 focus:ring-teal-500 transition"
                   >
-                    <option value="EM_ABERTO">Em Aberto</option>
-                    <option value="EM_LABORATORIO">Em Laboratório</option>
-                    <option value="PRONTO">Pronto</option>
+                    <option value="LANCADA">Lançada</option>
+                    <option value="CONFIRMADA">Confirmada</option>
+                    <option value="AGUARDANDO_LENTE">Aguard. Lente</option>
+                    <option value="EM_MONTAGEM">Em Montagem</option>
+                    <option value="PRONTA">Pronta</option>
                     <option value="ENTREGUE">Entregue</option>
                     <option value="CANCELADO" disabled>Cancelada</option>
                   </select>
@@ -174,6 +186,16 @@
                     <span>👁️</span> OS
                   </button>
 
+                  <!-- WHATSAPP DIRETO -->
+                  <button 
+                    v-if="os.status !== 'CANCELADO' && os.status !== 'CANCELADA'"
+                    @click="abrirWhatsAppOS(os)"
+                    class="bg-emerald-50 hover:bg-emerald-100 text-emerald-700 border border-emerald-200 text-xs font-bold px-2 py-1.5 rounded-lg transition shadow-sm font-mono flex items-center gap-1"
+                    title="Enviar WhatsApp ao Cliente"
+                  >
+                    <span>💬</span>
+                  </button>
+
                   <!-- EDIÇÃO ADMIN DA DATA DE EMISSÃO -->
                   <button 
                     v-if="eAdmin && os.status !== 'CANCELADO' && os.status !== 'CANCELADA'"
@@ -181,7 +203,7 @@
                     class="bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 text-xs font-bold px-2 py-1.5 rounded-lg transition shadow-sm font-mono"
                     title="Editar Data de Emissão (Exclusivo Admin)"
                   >
-                    ✏️ Admin
+                    ✏️
                   </button>
 
                   <!-- SEÇÃO 3.1 & 6: MARCAR COMO ENTREGUE / QUITAR SALDO -->
@@ -742,6 +764,25 @@ const confirmarEntregaEQuitacao = () => {
       processandoEntrega.value = false
     }
   })
+}
+
+// ENVIAR WHATSAPP DIRETO DA TABELA
+const abrirWhatsAppOS = async (os) => {
+  const id = os.id || os.Id
+  const statusAtual = (os.status || '').toUpperCase()
+  const tipo = (statusAtual === 'PRONTA' || statusAtual === 'PRONTO') ? 'pronto' : 'cadastro'
+
+  try {
+    const { data } = await axios.get(`/api/ordens/${id}/whatsapp-info?tipo=${tipo}`)
+    if (data.urlWhatsApp) {
+      window.open(data.urlWhatsApp, '_blank')
+      await axios.post(`/api/ordens/${id}/marcar-whatsapp-enviado`, { tipo })
+    } else {
+      alert(`Cliente não possui telefone válido para WhatsApp cadastrado.\nMensagem gerada:\n\n${data.mensagem}`)
+    }
+  } catch (err) {
+    alert('Erro ao gerar mensagem de WhatsApp.')
+  }
 }
 
 // SUBISTITUIÇÃO DE EXCLUSÃO POR CANCELAMENTO AUDITÁVEL
