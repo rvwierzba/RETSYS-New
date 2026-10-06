@@ -171,10 +171,16 @@ app.Use(async (context, next) =>
         var db = context.RequestServices.GetService<ApplicationDbContext>();
         if (db != null)
         {
-            oticasDisponiveis = db.Oticas
+            var todas = db.Oticas
                 .AsNoTracking()
                 .OrderBy(o => o.Nome)
                 .Select(o => new { id = o.Id.ToString(), nome = o.Nome })
+                .ToList();
+
+            oticasDisponiveis = todas
+                .Where(o => !string.Equals(o.nome.Trim(), "Matriz", StringComparison.OrdinalIgnoreCase))
+                .GroupBy(o => o.nome.Trim().ToLower())
+                .Select(g => g.First())
                 .ToList();
         }
     }
@@ -262,6 +268,43 @@ using (var escopo = app.Services.CreateScope())
     
     var seeder = new DatabaseSeeder(contexto, criptografia);
     await seeder.SemearDadosAsync();
+
+    try
+    {
+        using var comandoLimpeza = contexto.Database.GetDbConnection().CreateCommand();
+        await contexto.Database.OpenConnectionAsync();
+        comandoLimpeza.CommandText = """
+            UPDATE "oticas" SET "Nome" = 'Ótica Matriz' 
+            WHERE LOWER(TRIM("Nome")) = 'matriz' 
+              AND NOT EXISTS (SELECT 1 FROM "oticas" WHERE "Nome" = 'Ótica Matriz');
+
+            DO $$
+            DECLARE
+                v_destino uuid;
+                v_origem uuid;
+            BEGIN
+                SELECT "Id" INTO v_destino FROM "oticas" WHERE "Nome" = 'Ótica Matriz' LIMIT 1;
+                IF v_destino IS NOT NULL THEN
+                    FOR v_origem IN SELECT "Id" FROM "oticas" WHERE LOWER(TRIM("Nome")) = 'matriz' AND "Id" != v_destino LOOP
+                        UPDATE "usuarios" SET "OticaId" = v_destino WHERE "OticaId" = v_origem;
+                        UPDATE "marcas" SET "OticaId" = v_destino WHERE "OticaId" = v_origem;
+                        UPDATE "armacoes" SET "OticaId" = v_destino WHERE "OticaId" = v_origem;
+                        UPDATE "lentes" SET "OticaId" = v_destino WHERE "OticaId" = v_origem;
+                        UPDATE "clientes" SET "OticaId" = v_destino WHERE "OticaId" = v_origem;
+                        UPDATE "ordens_servico" SET "OticaId" = v_destino WHERE "OticaId" = v_origem;
+                        UPDATE "configuracoes_loja" SET "OticaId" = v_destino WHERE "OticaId" = v_origem;
+                        UPDATE "os_auditoria_logs" SET "OticaId" = v_destino WHERE "OticaId" = v_origem;
+                        DELETE FROM "oticas" WHERE "Id" = v_origem;
+                    END LOOP;
+                END IF;
+            END $$;
+        """;
+        await comandoLimpeza.ExecuteNonQueryAsync();
+    }
+    catch (Exception ex)
+    {
+        Console.WriteLine($"[Limpeza SQL Matriz]: {ex.Message}");
+    }
 }    
 
 app.Run();

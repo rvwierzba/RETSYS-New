@@ -517,7 +517,15 @@ const nomeUsuario = computed(() => authData.value.usuarioNome || 'Colaborador')
 const fotoPerfil = computed(() => authData.value.usuarioFoto || null)
 const nomeOtica = computed(() => authData.value.oticaNome || 'Ótica RETSYS')
 const oticaIdAtual = computed(() => authData.value.oticaId || null)
-const oticasDisponiveis = computed(() => authData.value.oticasDisponiveis || [])
+const oticasDisponiveis = computed(() => {
+  const lista = authData.value.oticasDisponiveis || []
+  return lista
+    .filter(o => o && o.nome && o.nome.trim().toLowerCase() !== 'matriz')
+    .map(o => ({
+      ...o,
+      nome: o.nome.trim()
+    }))
+})
 
 const itemClasses = (href, exact = false, excludes = []) => {
   const currentUrl = page.url || ''
