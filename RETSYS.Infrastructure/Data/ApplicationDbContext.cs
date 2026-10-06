@@ -152,6 +152,7 @@ namespace RETSYS.Infrastructure.Data
                 b.Property(c => c.Observacoes).HasColumnType("text");
 
                 // Campos de migração (legado, opcionais)
+                b.Property(c => c.NumeroOsAntiga).HasMaxLength(50);
                 b.Property(c => c.ValorGasto).HasPrecision(10, 2);
                 b.Property(c => c.ProdutoAdquirido).HasMaxLength(150);
 

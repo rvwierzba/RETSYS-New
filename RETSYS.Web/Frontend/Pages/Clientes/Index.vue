@@ -151,6 +151,11 @@
             <div class="space-y-4 pt-3 border-t border-amber-200/50">
               <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
                 <div>
+                  <label class="block font-bold text-amber-900 uppercase mb-1.5">Nº OS / Ficha Antiga</label>
+                  <input v-model="form.HistoricoNumeroOs" type="text" placeholder="Ex: 1042 / Antiga-01" @keydown.enter.prevent class="w-full rounded-xl border-amber-200 bg-white font-mono font-bold" />
+                </div>
+
+                <div>
                   <label class="block font-bold text-amber-900 uppercase mb-1.5">Data da Última Compra</label>
                   <input v-model="form.HistoricoData" type="date" @keydown.enter.prevent class="w-full rounded-xl border-amber-200 bg-white" />
                 </div>
@@ -170,7 +175,7 @@
                   </div>
                 </div>
 
-                <div class="md:col-span-2">
+                <div>
                   <label class="block font-bold text-amber-900 uppercase mb-1.5">Produto Adquirido (Armação/Lente)</label>
                   <input v-model="form.HistoricoLente" type="text" placeholder="Ex: Ray-Ban + Bifocal Tomada AR" @keydown.enter.prevent class="w-full rounded-xl border-amber-200 bg-white" />
                 </div>
@@ -592,6 +597,7 @@ const form = useForm({
   Email: '',
   
   RegistrarHistorico: false,
+  HistoricoNumeroOs: '',
   HistoricoData: '',
   HistoricoValor: 0,
   HistoricoLente: '',

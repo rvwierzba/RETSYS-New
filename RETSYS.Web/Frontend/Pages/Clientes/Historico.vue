@@ -22,12 +22,21 @@
         </div>
       </div>
 
-      <div v-if="infoCliente.dataUltimaCompra || infoCliente.valorGasto" class="bg-amber-50/40 border border-amber-200 rounded-2xl p-6 space-y-4">
-        <div class="flex items-center gap-2 text-amber-900 font-bold font-mono text-xs uppercase border-b border-amber-200/60 pb-2">
-          <span>📝 Registro Informativo de Ficha Física Antiga (Migração CRM)</span>
+      <div v-if="infoCliente.dataUltimaCompra || infoCliente.valorGasto || infoCliente.numeroOsAntiga" class="bg-amber-50/40 border border-amber-200 rounded-2xl p-6 space-y-4">
+        <div class="flex items-center justify-between border-b border-amber-200/60 pb-2">
+          <div class="flex items-center gap-2 text-amber-900 font-bold font-mono text-xs uppercase">
+            <span>📝 Registro Informativo de Ficha Física Antiga (Migração CRM)</span>
+          </div>
+          <span v-if="infoCliente.numeroOsAntiga" class="text-xs font-mono font-black bg-amber-200/80 text-amber-950 px-2.5 py-0.5 rounded-lg border border-amber-300">
+            OS Legada: #{{ infoCliente.numeroOsAntiga }}
+          </span>
         </div>
         
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+        <div class="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4 text-xs">
+          <div class="bg-white p-3 rounded-xl border border-amber-200/60">
+            <p class="text-slate-400 font-bold text-[10px] uppercase">Nº OS / Ficha Antiga</p>
+            <p class="font-black text-amber-900 font-mono mt-0.5">{{ infoCliente.numeroOsAntiga || 'Não inf.' }}</p>
+          </div>
           <div class="bg-white p-3 rounded-xl border border-amber-200/40">
             <p class="text-slate-400 font-bold text-[10px] uppercase">Último Produto Adquirido</p>
             <p class="font-bold text-slate-800 mt-0.5">{{ infoCliente.produtoAdquirido || 'Não especificado na ficha' }}</p>

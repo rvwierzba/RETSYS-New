@@ -29,6 +29,7 @@ namespace RETSYS.Domain.Entities
         public string? Observacoes { get; set; }
 
         // --- Campos de histórico de MIGRAÇÃO (dados legados, apenas informativos) ---
+        public string? NumeroOsAntiga { get; set; }
         public decimal? ValorGasto { get; set; }
         public string? ProdutoAdquirido { get; set; }
         public DateTime? DataUltimaCompra { get; set; }

@@ -80,7 +80,7 @@ namespace RETSYS.Web.Controllers
                     
                     // Dados da OS mais recente
                     UltimaOs = c.OrdensServico.Where(os => os.OticaId == oticaId).OrderByDescending(os => os.DataEntrada).Select(os => os.NumeroOS).FirstOrDefault() ?? 
-                               (c.DataUltimaCompra.HasValue ? "MIGRAÇÃO (CRM)" : "Nenhuma"),
+                               (!string.IsNullOrEmpty(c.NumeroOsAntiga) ? $"OS {c.NumeroOsAntiga} (Ficha)" : (c.DataUltimaCompra.HasValue ? "MIGRAÇÃO (CRM)" : "Nenhuma")),
 
                     // Mapeamento de Status de Entrega da OS mais recente
                     StatusEntrega = c.OrdensServico.Where(os => os.OticaId == oticaId).OrderByDescending(os => os.DataEntrada).Select(os => 
@@ -207,12 +207,18 @@ namespace RETSYS.Web.Controllers
             novoCliente.UpdatedAt = DateTime.UtcNow;
 
             // Se for cadastro de Ficha Antiga (Migração de Histórico)
-            if (model.RegistrarHistorico && model.HistoricoData.HasValue)
+            if (model.RegistrarHistorico && (model.HistoricoData.HasValue || !string.IsNullOrWhiteSpace(model.HistoricoNumeroOs) || !string.IsNullOrWhiteSpace(model.NumeroOsFichaAntiga)))
             {
+                novoCliente.NumeroOsAntiga = !string.IsNullOrWhiteSpace(model.HistoricoNumeroOs) 
+                    ? model.HistoricoNumeroOs.Trim() 
+                    : (!string.IsNullOrWhiteSpace(model.NumeroOsFichaAntiga) ? model.NumeroOsFichaAntiga.Trim() : null);
                 novoCliente.ValorGasto = model.HistoricoValor; 
                 novoCliente.ProdutoAdquirido = model.HistoricoLente; 
-                novoCliente.DataUltimaCompra = DateTime.SpecifyKind(model.HistoricoData.Value, DateTimeKind.Utc); 
-                novoCliente.DataReceita = DateTime.SpecifyKind(model.HistoricoData.Value, DateTimeKind.Utc); 
+                if (model.HistoricoData.HasValue)
+                {
+                    novoCliente.DataUltimaCompra = DateTime.SpecifyKind(model.HistoricoData.Value, DateTimeKind.Utc); 
+                    novoCliente.DataReceita = DateTime.SpecifyKind(model.HistoricoData.Value, DateTimeKind.Utc); 
+                } 
 
                 novoCliente.UltimaOdEsferico = model.UltimaOdEsferico; 
                 novoCliente.UltimaOdCilindrico = model.UltimaOdCilindrico; 
@@ -443,6 +449,8 @@ namespace RETSYS.Web.Controllers
         public string? Observacoes { get; set; }
 
         public bool RegistrarHistorico { get; set; }
+        public string? HistoricoNumeroOs { get; set; }
+        public string? NumeroOsFichaAntiga { get; set; }
         public DateTime? HistoricoData { get; set; }
         public decimal? HistoricoValor { get; set; }
         public string? HistoricoLente { get; set; }
