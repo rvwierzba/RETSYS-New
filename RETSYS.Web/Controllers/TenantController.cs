@@ -101,7 +101,7 @@ namespace RETSYS.Web.Controllers
                         oticaExistente = new Otica
                         {
                             Id = Guid.NewGuid(),
-                            Nome = "Ótica RETSYS",
+                            Nome = "Ótica Matriz",
                             CriadoEm = DateTime.UtcNow
                         };
                         context.Oticas.Add(oticaExistente);

@@ -131,7 +131,7 @@ app.Use(async (context, next) =>
                            (usuario?.IsInRole("Gerente") == true);
 
     Guid oticaAtivaId = Guid.Empty;
-    string nomeOtica = "Ótica RETSYS";
+    string nomeOtica = "Ótica Matriz";
 
     if (estaAutenticado)
     {

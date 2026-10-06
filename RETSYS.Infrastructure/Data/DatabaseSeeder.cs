@@ -29,7 +29,12 @@ namespace RETSYS.Infrastructure.Data
                 var oticaZero = await _context.Oticas.FirstOrDefaultAsync(o => o.Id == Guid.Empty);
                 string nome = (oticaZero != null && !string.IsNullOrWhiteSpace(oticaZero.Nome) && !oticaZero.Nome.Equals("Ótica Padrão", StringComparison.OrdinalIgnoreCase)) 
                     ? oticaZero.Nome 
-                    : "Ótica RETSYS";
+                    : "Ótica Matriz";
+
+                if (nome.Equals("Matriz", StringComparison.OrdinalIgnoreCase) || nome.Equals("Ótica RETSYS", StringComparison.OrdinalIgnoreCase))
+                {
+                    nome = "Ótica Matriz";
+                }
 
                 oticaPadrao = new Otica
                 {
@@ -41,7 +46,44 @@ namespace RETSYS.Infrastructure.Data
                 await _context.SaveChangesAsync();
             }
 
-            // 2. Sincronização e aglutinação automática de todos os dados legados com Guid.Empty para a Ótica válida
+            // 2. Normalização de nomes e aglutinação de duplicatas de 'Matriz' para 'Ótica Matriz'
+            try
+            {
+                var oticaMatrizSemPrefixo = await _context.Oticas.FirstOrDefaultAsync(o => o.Nome == "Matriz");
+                var oticaMatrizComPrefixo = await _context.Oticas.FirstOrDefaultAsync(o => o.Nome == "Ótica Matriz");
+
+                if (oticaMatrizSemPrefixo != null && oticaMatrizComPrefixo != null && oticaMatrizSemPrefixo.Id != oticaMatrizComPrefixo.Id)
+                {
+                    string idOrigem = oticaMatrizSemPrefixo.Id.ToString();
+                    string idDestino = oticaMatrizComPrefixo.Id.ToString();
+
+                    using var comandoMerge = _context.Database.GetDbConnection().CreateCommand();
+                    await _context.Database.OpenConnectionAsync();
+                    comandoMerge.CommandText = $"""
+                        UPDATE "usuarios" SET "OticaId" = '{idDestino}' WHERE "OticaId" = '{idOrigem}';
+                        UPDATE "marcas" SET "OticaId" = '{idDestino}' WHERE "OticaId" = '{idOrigem}';
+                        UPDATE "armacoes" SET "OticaId" = '{idDestino}' WHERE "OticaId" = '{idOrigem}';
+                        UPDATE "lentes" SET "OticaId" = '{idDestino}' WHERE "OticaId" = '{idOrigem}';
+                        UPDATE "clientes" SET "OticaId" = '{idDestino}' WHERE "OticaId" = '{idOrigem}';
+                        UPDATE "ordens_servico" SET "OticaId" = '{idDestino}' WHERE "OticaId" = '{idOrigem}';
+                        UPDATE "configuracoes_loja" SET "OticaId" = '{idDestino}' WHERE "OticaId" = '{idOrigem}';
+                        UPDATE "os_auditoria_logs" SET "OticaId" = '{idDestino}' WHERE "OticaId" = '{idOrigem}';
+                        DELETE FROM "oticas" WHERE "Id" = '{idOrigem}';
+                    """;
+                    await comandoMerge.ExecuteNonQueryAsync();
+                }
+                else if (oticaMatrizSemPrefixo != null && oticaMatrizComPrefixo == null)
+                {
+                    oticaMatrizSemPrefixo.Nome = "Ótica Matriz";
+                    await _context.SaveChangesAsync();
+                }
+            }
+            catch (Exception ex)
+            {
+                Console.WriteLine($"[Auto-Sync Deduplicação Ótica Matriz]: {ex.Message}");
+            }
+
+            // 3. Sincronização e aglutinação automática de todos os dados legados com Guid.Empty para a Ótica válida
             try
             {
                 using var comando = _context.Database.GetDbConnection().CreateCommand();

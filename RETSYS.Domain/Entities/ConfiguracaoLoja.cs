@@ -10,7 +10,7 @@ namespace RETSYS.Domain.Entities
         public Guid OticaId { get; set; }
         public Otica? Otica { get; set; }
 
-        public string NomeLoja { get; set; } = "Matriz";
+        public string NomeLoja { get; set; } = "Ótica Matriz";
         public string Cnpj { get; set; } = string.Empty;
 
         public string? PixApiKey { get; set; }
