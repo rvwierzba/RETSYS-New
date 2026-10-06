@@ -250,13 +250,10 @@ namespace RETSYS.Web.Controllers
         {
             var oticaId = ObterOticaId();
 
-            var perfilClaim = User.FindFirst(ClaimTypes.Role)?.Value ?? "VENDEDOR";
-            bool isAdminOuGerente = string.Equals(perfilClaim, "ADMIN", StringComparison.OrdinalIgnoreCase) ||
-                                    string.Equals(perfilClaim, "GERENTE", StringComparison.OrdinalIgnoreCase);
-
-            if (!isAdminOuGerente)
+            if (!EhAdministrador())
             {
-                return StatusCode(StatusCodes.Status403Forbidden, new { mensagem = "Acesso exclusivo para administradores e gerentes." });
+                Inertia.Share("erro", "Acesso exclusivo para administradores e gerentes.");
+                return Redirect("/caixa");
             }
 
             DateTime hoje = DateTime.UtcNow.Date;
@@ -439,13 +436,10 @@ namespace RETSYS.Web.Controllers
         {
             var oticaId = ObterOticaId();
 
-            var perfilClaim = User.FindFirst(ClaimTypes.Role)?.Value ?? "VENDEDOR";
-            bool isAdminOuGerente = string.Equals(perfilClaim, "ADMIN", StringComparison.OrdinalIgnoreCase) ||
-                                    string.Equals(perfilClaim, "GERENTE", StringComparison.OrdinalIgnoreCase);
-
-            if (!isAdminOuGerente)
+            if (!EhAdministrador())
             {
-                return StatusCode(StatusCodes.Status403Forbidden, new { mensagem = "Apenas gerentes ou administradores podem conferir pagamentos." });
+                Inertia.Share("erro", "Apenas gerentes ou administradores podem conferir pagamentos.");
+                return RedirectToAction(nameof(Fechamento));
             }
 
             var financeiro = await _context.OsFinanceiros

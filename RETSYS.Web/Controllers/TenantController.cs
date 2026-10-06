@@ -27,10 +27,14 @@ namespace RETSYS.Web.Controllers
         {
             var perfilClaim = User.FindFirst(ClaimTypes.Role)?.Value ?? "";
             return string.Equals(perfilClaim, nameof(PerfilUsuario.Admin), StringComparison.OrdinalIgnoreCase)
+                || string.Equals(perfilClaim, "ADMIN", StringComparison.OrdinalIgnoreCase)
                 || string.Equals(perfilClaim, "GERENTE", StringComparison.OrdinalIgnoreCase)
+                || string.Equals(perfilClaim, "Gerente", StringComparison.OrdinalIgnoreCase)
                 || string.Equals(perfilClaim, nameof(PerfilUsuario.Sistema), StringComparison.OrdinalIgnoreCase)
+                || string.Equals(perfilClaim, "SISTEMA", StringComparison.OrdinalIgnoreCase)
                 || User.IsInRole("Admin")
                 || User.IsInRole("Administrador")
+                || User.IsInRole("Gerente")
                 || User.IsInRole("Sistema");
         }
 
