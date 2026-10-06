@@ -1,78 +1,173 @@
 <template>
-  <div class="bg-white border border-slate-200 rounded-2xl p-4 shadow-sm max-w-sm w-full transition-all duration-300">
-    
-    <div v-if="!estaConectado" class="flex items-center justify-between gap-3">
-      <div class="flex items-center gap-2.5">
-        <span class="text-xl">🎵</span>
-        <div>
-          <h4 class="text-xs font-bold text-slate-800">Som da Loja Desativado</h4>
-          <p class="text-[10px] text-slate-400 leading-tight">Conecte uma conta Spotify Premium nas configurações.</p>
-        </div>
-      </div>
-      <Link 
-        v-if="eAdmin"
-        href="/configuracoes" 
-        class="text-[10px] font-bold text-teal-600 bg-teal-50 hover:bg-teal-100 border border-teal-100 px-2.5 py-1.5 rounded-lg transition shrink-0 uppercase tracking-wider"
+  <div>
+    <!-- ESTADO 1: TOTALMENTE FECHADO (Exibe apenas um mini botão discreto para reabrir) -->
+    <div v-if="fechado" class="animate-fadeIn">
+      <button 
+        @click="reabrir" 
+        class="w-10 h-10 rounded-full bg-slate-950/90 hover:bg-slate-900 text-teal-400 border border-slate-800 shadow-xl flex items-center justify-center transition-all hover:scale-110 active:scale-95 group"
+        title="Abrir Som da Loja (Spotify)"
       >
-        Conectar
-      </Link>
+        <span class="text-base group-hover:animate-bounce">🎵</span>
+      </button>
     </div>
 
-    <div v-else class="space-y-3">
+    <!-- ESTADO 2: MINIMIZADO (Pílula compacta e elegante) -->
+    <div 
+      v-else-if="minimizado" 
+      class="bg-slate-950/95 backdrop-blur-md text-white border border-slate-800 rounded-full px-3.5 py-2 shadow-2xl flex items-center gap-2.5 transition-all duration-300 hover:border-teal-500/50 animate-fadeIn select-none"
+    >
+      <span class="text-sm">🎵</span>
       
-      <div class="flex items-center gap-3">
-        <div class="w-12 h-12 rounded-lg bg-slate-100 border border-slate-200 overflow-hidden shrink-0 flex items-center justify-center relative group">
-          <img 
-            v-if="musicaAtual.capaUrl" 
-            :src="musicaAtual.capaUrl" 
-            alt="Capa do Álbum" 
-            class="w-full h-full object-cover" 
-          />
-          <span v-else class="text-lg">📻</span>
-        </div>
-        
-        <div class="overflow-hidden flex-1">
-          <p class="text-xs font-bold text-slate-800 truncate" :title="musicaAtual.titulo">
-            {{ musicaAtual.titulo || (playerLocalPronto ? 'Som da Ótica Conectado' : 'Nenhuma faixa tocando') }}
-          </p>
-          <p class="text-[10px] text-slate-400 truncate">
-            {{ musicaAtual.artista || (playerLocalPronto ? 'Pronto para tocar nesta aba' : 'Abra o Spotify para sintonizar') }}
-          </p>
-        </div>
-
+      <div class="flex items-center gap-1.5 max-w-[150px]">
         <span 
-          class="w-2 h-2 rounded-full shrink-0 transition-colors"
-          :class="playerLocalPronto ? 'bg-emerald-500 animate-pulse' : 'bg-amber-400'"
-          :title="playerLocalPronto ? 'Reprodutor de Áudio Ativo no Navegador' : 'Conectando Reprodutor Local...'"
-        ></span>
+          v-if="estaConectado && musicaAtual.titulo" 
+          class="text-xs font-bold text-teal-300 truncate"
+          :title="`${musicaAtual.titulo} - ${musicaAtual.artista}`"
+        >
+          {{ musicaAtual.titulo }}
+        </span>
+        <span v-else class="text-xs font-medium text-slate-300">
+          {{ estaConectado ? 'Spotify Pronto' : 'Spotify Desativado' }}
+        </span>
       </div>
 
-      <div class="flex items-center justify-center gap-4 bg-slate-50 py-1.5 px-3 rounded-xl border border-slate-100">
-        <button 
-          @click="controlarMidia('anterior')" 
-          class="text-slate-500 hover:text-slate-800 transition active:scale-90 text-sm font-bold"
-          title="Música Anterior"
-        >
-          ⏮️
-        </button>
+      <!-- Play / Pause rápido no modo minimizado -->
+      <button 
+        v-if="estaConectado"
+        @click.stop="alternarPlayPause" 
+        class="text-xs p-1 hover:text-teal-400 transition"
+        :title="musicaAtual.tocando ? 'Pausar' : 'Tocar'"
+      >
+        {{ musicaAtual.tocando ? '⏸️' : '▶️' }}
+      </button>
+
+      <!-- Botão Expandir -->
+      <button 
+        @click.stop="expandir" 
+        class="text-xs text-slate-400 hover:text-teal-300 p-1 rounded-full hover:bg-slate-800 transition"
+        title="Expandir Player"
+      >
+        ▲
+      </button>
+
+      <!-- Botão Fechar -->
+      <button 
+        @click.stop="fechar" 
+        class="text-xs text-slate-400 hover:text-red-400 p-1 rounded-full hover:bg-slate-800 transition"
+        title="Fechar Balão"
+      >
+        ✕
+      </button>
+    </div>
+
+    <!-- ESTADO 3: EXPANDIDO / COMPLETO -->
+    <div 
+      v-else 
+      class="bg-white border border-slate-200 rounded-2xl p-4 shadow-xl max-w-sm w-full transition-all duration-300 animate-fadeIn select-none"
+    >
+      <!-- Barra de Controle Superior do Balão (Minimizar & Fechar) -->
+      <div class="flex items-center justify-between pb-2 mb-3 border-b border-slate-100">
+        <div class="flex items-center gap-1.5">
+          <span class="text-xs">🎵</span>
+          <span class="text-[10px] font-mono font-bold uppercase tracking-wider text-slate-400">Som da Loja</span>
+        </div>
         
-        <button 
-          @click="alternarPlayPause" 
-          class="w-8 h-8 rounded-full bg-slate-950 hover:bg-slate-800 text-white flex items-center justify-center transition active:scale-90 text-xs shadow-sm"
-          :title="musicaAtual.tocando ? 'Pausar' : 'Tocar'"
+        <div class="flex items-center gap-1">
+          <!-- Botão Minimizar -->
+          <button 
+            @click="minimizar" 
+            class="w-5 h-5 rounded-md flex items-center justify-center text-slate-400 hover:text-slate-800 hover:bg-slate-100 transition text-xs font-bold"
+            title="Minimizar Balão"
+          >
+            —
+          </button>
+          
+          <!-- Botão Fechar -->
+          <button 
+            @click="fechar" 
+            class="w-5 h-5 rounded-md flex items-center justify-center text-slate-400 hover:text-red-600 hover:bg-red-50 transition text-xs font-bold"
+            title="Fechar Balão"
+          >
+            ✕
+          </button>
+        </div>
+      </div>
+      
+      <!-- Conteúdo Quando Desconectado -->
+      <div v-if="!estaConectado" class="flex items-center justify-between gap-3">
+        <div class="flex items-center gap-2.5">
+          <span class="text-xl">🎵</span>
+          <div>
+            <h4 class="text-xs font-bold text-slate-800">Som da Loja Desativado</h4>
+            <p class="text-[10px] text-slate-400 leading-tight">Conecte uma conta Spotify Premium nas configurações.</p>
+          </div>
+        </div>
+        <Link 
+          v-if="eAdmin"
+          href="/configuracoes" 
+          class="text-[10px] font-bold text-teal-600 bg-teal-50 hover:bg-teal-100 border border-teal-100 px-2.5 py-1.5 rounded-lg transition shrink-0 uppercase tracking-wider"
         >
-          {{ musicaAtual.tocando ? '⏸️' : '▶️' }}
-        </button>
-        
-        <button 
-          @click="controlarMidia('proxima')" 
-          class="text-slate-500 hover:text-slate-800 transition active:scale-90 text-sm font-bold"
-          title="Próxima Música"
-        >
-          ⏭️
-        </button>
+          Conectar
+        </Link>
       </div>
 
+      <!-- Conteúdo Quando Conectado -->
+      <div v-else class="space-y-3">
+        
+        <div class="flex items-center gap-3">
+          <div class="w-12 h-12 rounded-lg bg-slate-100 border border-slate-200 overflow-hidden shrink-0 flex items-center justify-center relative group">
+            <img 
+              v-if="musicaAtual.capaUrl" 
+              :src="musicaAtual.capaUrl" 
+              alt="Capa do Álbum" 
+              class="w-full h-full object-cover" 
+            />
+            <span v-else class="text-lg">📻</span>
+          </div>
+          
+          <div class="overflow-hidden flex-1">
+            <p class="text-xs font-bold text-slate-800 truncate" :title="musicaAtual.titulo">
+              {{ musicaAtual.titulo || (playerLocalPronto ? 'Som da Ótica Conectado' : 'Nenhuma faixa tocando') }}
+            </p>
+            <p class="text-[10px] text-slate-400 truncate">
+              {{ musicaAtual.artista || (playerLocalPronto ? 'Pronto para tocar nesta aba' : 'Abra o Spotify para sintonizar') }}
+            </p>
+          </div>
+
+          <span 
+            class="w-2 h-2 rounded-full shrink-0 transition-colors"
+            :class="playerLocalPronto ? 'bg-emerald-500 animate-pulse' : 'bg-amber-400'"
+            :title="playerLocalPronto ? 'Reprodutor de Áudio Ativo no Navegador' : 'Conectando Reprodutor Local...'"
+          ></span>
+        </div>
+
+        <div class="flex items-center justify-center gap-4 bg-slate-50 py-1.5 px-3 rounded-xl border border-slate-100">
+          <button 
+            @click="controlarMidia('anterior')" 
+            class="text-slate-500 hover:text-slate-800 transition active:scale-90 text-sm font-bold"
+            title="Música Anterior"
+          >
+            ⏮️
+          </button>
+          
+          <button 
+            @click="alternarPlayPause" 
+            class="w-8 h-8 rounded-full bg-slate-950 hover:bg-slate-800 text-white flex items-center justify-center transition active:scale-90 text-xs shadow-sm"
+            :title="musicaAtual.tocando ? 'Pausar' : 'Tocar'"
+          >
+            {{ musicaAtual.tocando ? '⏸️' : '▶️' }}
+          </button>
+          
+          <button 
+            @click="controlarMidia('proxima')" 
+            class="text-slate-500 hover:text-slate-800 transition active:scale-90 text-sm font-bold"
+            title="Próxima Música"
+          >
+            ⏭️
+          </button>
+        </div>
+
+      </div>
     </div>
   </div>
 </template>
@@ -85,6 +180,44 @@ const page = usePage()
 
 const eAdmin = computed(() => ['Admin', 'Sistema', 'Gerente'].includes(page.props.auth?.usuarioPerfil))
 const estaConectado = computed(() => !!page.props.auth?.spotifyTokenAtivo)
+
+// Controle de Visibilidade do Balão (Minimizado e Fechado)
+const minimizado = ref(false)
+const fechado = ref(false)
+
+const minimizar = () => {
+  minimizado.value = true
+  fechado.value = false
+  try {
+    localStorage.setItem('retsys_spotify_minimizado', 'true')
+    localStorage.removeItem('retsys_spotify_fechado')
+  } catch (e) {}
+}
+
+const expandir = () => {
+  minimizado.value = false
+  fechado.value = false
+  try {
+    localStorage.removeItem('retsys_spotify_minimizado')
+    localStorage.removeItem('retsys_spotify_fechado')
+  } catch (e) {}
+}
+
+const fechar = () => {
+  fechado.value = true
+  try {
+    localStorage.setItem('retsys_spotify_fechado', 'true')
+  } catch (e) {}
+}
+
+const reabrir = () => {
+  fechado.value = false
+  minimizado.value = false
+  try {
+    localStorage.removeItem('retsys_spotify_fechado')
+    localStorage.removeItem('retsys_spotify_minimizado')
+  } catch (e) {}
+}
 
 const intervaloStatus = ref(null)
 const playerLocalPronto = ref(false)
@@ -191,6 +324,14 @@ const alternarPlayPause = () => {
 }
 
 onMounted(() => {
+  try {
+    if (localStorage.getItem('retsys_spotify_fechado') === 'true') {
+      fechado.value = true
+    } else if (localStorage.getItem('retsys_spotify_minimizado') === 'true') {
+      minimizado.value = true
+    }
+  } catch (e) {}
+
   if (estaConectado.value) {
     buscarStatusReproducao()
     carregarEInicializarSDK()
