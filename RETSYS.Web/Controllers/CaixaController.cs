@@ -59,6 +59,29 @@ namespace RETSYS.Web.Controllers
                 query = query.Where(os => os.Financeiro != null && os.Financeiro.ValorRestante > 0);
             }
 
+            if (!string.IsNullOrWhiteSpace(periodo) && !string.Equals(periodo, "todos", StringComparison.OrdinalIgnoreCase))
+            {
+                switch (periodo.ToLower())
+                {
+                    case "hoje":
+                    case "dia":
+                        DateTime pInicioHoje = DateTime.SpecifyKind(hoje, DateTimeKind.Utc);
+                        DateTime pFimHoje = DateTime.SpecifyKind(hoje.AddDays(1), DateTimeKind.Utc);
+                        query = query.Where(os => os.DataEntrada >= pInicioHoje && os.DataEntrada < pFimHoje);
+                        break;
+                    case "semana":
+                        DateTime pInicioSemana = DateTime.SpecifyKind(hoje.AddDays(-(int)hoje.DayOfWeek), DateTimeKind.Utc);
+                        DateTime pFimSemana = pInicioSemana.AddDays(7);
+                        query = query.Where(os => os.DataEntrada >= pInicioSemana && os.DataEntrada < pFimSemana);
+                        break;
+                    case "mes":
+                        DateTime pInicioMes = new DateTime(hoje.Year, hoje.Month, 1, 0, 0, 0, DateTimeKind.Utc);
+                        DateTime pFimMes = pInicioMes.AddMonths(1);
+                        query = query.Where(os => os.DataEntrada >= pInicioMes && os.DataEntrada < pFimMes);
+                        break;
+                }
+            }
+
             if (!string.IsNullOrWhiteSpace(formaPagamento))
             {
                 var fPadrao = formaPagamento.Trim().ToUpper();
@@ -257,8 +280,12 @@ namespace RETSYS.Web.Controllers
             }
 
             DateTime hoje = DateTime.UtcNow.Date;
-            DateTime inicio = dataInicio?.Date ?? hoje;
-            DateTime fim = dataFim?.Date.AddDays(1).AddTicks(-1) ?? hoje.AddDays(1).AddTicks(-1);
+            DateTime inicio = dataInicio.HasValue 
+                ? DateTime.SpecifyKind(dataInicio.Value.Date, DateTimeKind.Utc) 
+                : DateTime.SpecifyKind(hoje, DateTimeKind.Utc);
+            DateTime fim = dataFim.HasValue 
+                ? DateTime.SpecifyKind(dataFim.Value.Date.AddDays(1), DateTimeKind.Utc) 
+                : DateTime.SpecifyKind(hoje.AddDays(1), DateTimeKind.Utc);
 
             if (!string.IsNullOrEmpty(tipoPeriodo))
             {
@@ -266,16 +293,17 @@ namespace RETSYS.Web.Controllers
                 {
                     case "hoje":
                     case "dia":
-                        inicio = hoje;
-                        fim = hoje.AddDays(1).AddTicks(-1);
+                        inicio = DateTime.SpecifyKind(hoje, DateTimeKind.Utc);
+                        fim = DateTime.SpecifyKind(hoje.AddDays(1), DateTimeKind.Utc);
                         break;
                     case "semana":
-                        inicio = hoje.AddDays(-(int)hoje.DayOfWeek);
-                        fim = inicio.AddDays(7).AddTicks(-1);
+                        DateTime inicioSemana = hoje.AddDays(-(int)hoje.DayOfWeek);
+                        inicio = DateTime.SpecifyKind(inicioSemana, DateTimeKind.Utc);
+                        fim = DateTime.SpecifyKind(inicioSemana.AddDays(7), DateTimeKind.Utc);
                         break;
                     case "mes":
                         inicio = new DateTime(hoje.Year, hoje.Month, 1, 0, 0, 0, DateTimeKind.Utc);
-                        fim = inicio.AddMonths(1).AddTicks(-1);
+                        fim = inicio.AddMonths(1);
                         break;
                 }
             }
@@ -286,7 +314,7 @@ namespace RETSYS.Web.Controllers
                 .Include(os => os.Financeiro)
                     .ThenInclude(f => f!.ConferidoPor)
                 .Include(os => os.Receita)
-                .Where(os => os.Ativo && os.OticaId == oticaId && os.DataEntrada >= inicio && os.DataEntrada <= fim)
+                .Where(os => os.Ativo && os.OticaId == oticaId && os.DataEntrada >= inicio && os.DataEntrada < fim)
                 .ToListAsync();
 
             var ordensValidas = ordensPeriodo

@@ -42,11 +42,14 @@ namespace RETSYS.Web.Controllers
             int anoFiltro = ano ?? DateTime.UtcNow.Year;
             DateTime hoje = DateTime.UtcNow.Date;
 
+            DateTime inicioMes = new DateTime(anoFiltro, mesFiltro, 1, 0, 0, 0, DateTimeKind.Utc);
+            DateTime fimMes = inicioMes.AddMonths(1);
+
             // Base query por Ótica (Tenant único)
             var baseQueryOs = _context.OrdensServico.Where(os => os.OticaId == oticaId && os.Ativo);
 
             // OS Emitidas Hoje
-            var queryOsHoje = baseQueryOs.Where(os => os.DataEntrada.Date == hoje && os.Status != "CANCELADO" && os.Status != "CANCELADA");
+            var queryOsHoje = baseQueryOs.Where(os => os.DataEntrada >= DateTime.SpecifyKind(hoje, DateTimeKind.Utc) && os.DataEntrada < DateTime.SpecifyKind(hoje.AddDays(1), DateTimeKind.Utc) && os.Status != "CANCELADO" && os.Status != "CANCELADA");
             if (!isAdmin) queryOsHoje = queryOsHoje.Where(os => os.VendedorId == vendedorIdFiltro);
             int osHojeCount = await queryOsHoje.CountAsync();
 
@@ -74,22 +77,22 @@ namespace RETSYS.Web.Controllers
 
             DateTime dataLimite1Dia = hoje.AddDays(-1);
             int osLentesNaoPedidasCriticas = await queryLentesNaoPedidas
-                .Where(os => os.DataEntrada.Date <= dataLimite1Dia)
+                .Where(os => os.DataEntrada <= DateTime.SpecifyKind(dataLimite1Dia, DateTimeKind.Utc))
                 .CountAsync();
 
             // UNIFICAÇÃO DE ATRASOS: "Serviços atrasados"
             var queryServicosAtrasados = baseQueryOs
-                .Where(os => os.DataPrevistaEntrega.Date < hoje && os.Status != "ENTREGUE" && os.Status != "CANCELADO" && os.Status != "CANCELADA");
+                .Where(os => os.DataPrevistaEntrega < DateTime.SpecifyKind(hoje, DateTimeKind.Utc) && os.Status != "ENTREGUE" && os.Status != "CANCELADO" && os.Status != "CANCELADA");
             if (!isAdmin) queryServicosAtrasados = queryServicosAtrasados.Where(os => os.VendedorId == vendedorIdFiltro);
             int osServicosAtrasadosCount = await queryServicosAtrasados.CountAsync();
 
-            // CARD DINÂMICO DE COMISSÃO
-            string periodoAtual = hoje.ToString("yyyy-MM"); 
+            // CARD DINÂMICO DE COMISSÃO (Respeita o mês e ano do filtro)
+            string periodoFiltro = $"{anoFiltro:D4}-{mesFiltro:D2}";
 
             var queryComissaoMes = _context.Comissoes
                 .Include(c => c.OrdemServico)
-                .Where(c => c.PeriodoReferencia == periodoAtual 
-                         && (c.Status == "PENDENTE" || c.Status == "PAGO")
+                .Where(c => c.PeriodoReferencia == periodoFiltro 
+                         && (c.Status == "PENDENTE" || c.Status == "PAGO" || c.Status == "FECHADO")
                          && c.OrdemServico.OticaId == oticaId); 
 
             if (!isAdmin)
@@ -103,7 +106,7 @@ namespace RETSYS.Web.Controllers
             var dataLimite30Dias = hoje.AddDays(-30);
             var queryGrafico = baseQueryOs
                 .Include(os => os.Financeiro)
-                .Where(os => os.DataEntrada.Date >= dataLimite30Dias && os.DataEntrada.Date <= hoje && os.Status != "CANCELADO" && os.Status != "CANCELADA");
+                .Where(os => os.DataEntrada >= DateTime.SpecifyKind(dataLimite30Dias, DateTimeKind.Utc) && os.DataEntrada < DateTime.SpecifyKind(hoje.AddDays(1), DateTimeKind.Utc) && os.Status != "CANCELADO" && os.Status != "CANCELADA");
             
             if (!isAdmin) queryGrafico = queryGrafico.Where(os => os.VendedorId == vendedorIdFiltro);
 
@@ -159,7 +162,7 @@ namespace RETSYS.Web.Controllers
 
             var queryAlertasVencidos = baseQueryOs
                 .Include(os => os.Cliente)
-                .Where(os => os.DataPrevistaEntrega.Date < hoje && os.Status != "ENTREGUE" && os.Status != "CANCELADO" && os.Status != "CANCELADA");
+                .Where(os => os.DataPrevistaEntrega < DateTime.SpecifyKind(hoje, DateTimeKind.Utc) && os.Status != "ENTREGUE" && os.Status != "CANCELADO" && os.Status != "CANCELADA");
 
             if (!isAdmin) queryAlertasVencidos = queryAlertasVencidos.Where(os => os.VendedorId == vendedorIdFiltro);
 
@@ -173,7 +176,7 @@ namespace RETSYS.Web.Controllers
 
             var queryTotalFaturado = baseQueryOs
                 .Include(os => os.Financeiro)
-                .Where(os => os.DataEntrada.Month == mesFiltro && os.DataEntrada.Year == anoFiltro && os.Status != "CANCELADO" && os.Status != "CANCELADA");
+                .Where(os => os.DataEntrada >= inicioMes && os.DataEntrada < fimMes && os.Status != "CANCELADO" && os.Status != "CANCELADA");
 
             if (!isAdmin) queryTotalFaturado = queryTotalFaturado.Where(os => os.VendedorId == vendedorIdFiltro);
 
@@ -188,7 +191,7 @@ namespace RETSYS.Web.Controllers
                 rankingVendedores = await baseQueryOs
                     .Include(os => os.Vendedor)
                     .Include(os => os.Financeiro)
-                    .Where(os => os.DataEntrada.Month == mesFiltro && os.DataEntrada.Year == anoFiltro && os.Status != "CANCELADO" && os.Status != "CANCELADA")
+                    .Where(os => os.DataEntrada >= inicioMes && os.DataEntrada < fimMes && os.Status != "CANCELADO" && os.Status != "CANCELADA")
                     .GroupBy(os => os.Vendedor != null ? os.Vendedor.Nome : "Sem Vendedor")
                     .Select(g => new VendedorRankingDto { VendedorNome = g.Key, TotalVendas = g.Sum(os => os.Financeiro != null ? os.Financeiro.ValorTotalLiquido : 0), QuantidadeOS = g.Count() })
                     .OrderByDescending(v => v.TotalVendas)

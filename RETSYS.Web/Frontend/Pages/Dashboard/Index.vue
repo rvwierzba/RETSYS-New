@@ -350,7 +350,7 @@
 </template>
 
 <script setup>
-import { reactive, computed } from 'vue'
+import { reactive, computed, watch } from 'vue'
 import { router, usePage } from '@inertiajs/vue3'
 import AuthenticatedLayout from '../../Shared/AuthenticatedLayout.vue'
 
@@ -381,6 +381,15 @@ const filtros = reactive({
   ano: props.AnoFiltro ?? props.anoFiltro ?? new Date().getFullYear()
 })
 
+watch(() => [props.MesFiltro, props.mesFiltro, props.AnoFiltro, props.anoFiltro], () => {
+  if ((props.MesFiltro ?? props.mesFiltro) !== undefined) {
+    filtros.mes = props.MesFiltro ?? props.mesFiltro
+  }
+  if ((props.AnoFiltro ?? props.anoFiltro) !== undefined) {
+    filtros.ano = props.AnoFiltro ?? props.anoFiltro
+  }
+})
+
 const eAdmin = computed(() => props.IsAdmin ?? props.isAdmin ?? ['admin', 'sistema', 'gerente'].includes((props.PerfilUsuario ?? props.perfilUsuario ?? page.props.auth?.usuarioPerfil ?? '').toLowerCase()))
 const kpisHoje = computed(() => props.ResumoHoje ?? props.resumoHoje ?? { osHoje: 0, faturadoHoje: 0, osProntas: 0, osVencidas: 0, servicosAtrasados: 0, lentesNaoPedidas: 0, lentesNaoPedidasCriticas: 0 })
 const comissaoMes = computed(() => props.MinhaComissaoMes ?? props.minhaComissaoMes ?? 0)
@@ -397,7 +406,7 @@ const meses = [
 ]
 
 const atualizarDashboard = () => {
-  router.get('/dashboard', { mes: filtros.mes, ano: filtros.ano }, { preserveState: true })
+  router.get('/dashboard', { mes: filtros.mes, ano: filtros.ano })
 }
 
 const irParaLentesNaoPedidas = () => {

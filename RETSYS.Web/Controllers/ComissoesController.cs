@@ -46,20 +46,32 @@ namespace RETSYS.Web.Controllers
 
             var vendedor = await _context.Usuarios
                 .AsNoTracking()
-                .FirstOrDefaultAsync(u => u.Id == vendedorId && u.OticaId == oticaId);
+                .FirstOrDefaultAsync(u => u.Id == vendedorId);
+
+            if (vendedor == null)
+            {
+                var emailClaim = User.FindFirst(ClaimTypes.Email)?.Value;
+                if (!string.IsNullOrEmpty(emailClaim))
+                {
+                    vendedor = await _context.Usuarios
+                        .AsNoTracking()
+                        .FirstOrDefaultAsync(u => u.Email == emailClaim);
+                }
+            }
 
             if (vendedor == null)
             {
                 return Redirect("/login");
             }
 
+            vendedorId = vendedor.Id;
+
             var comissoes = await _context.Comissoes
                 .AsNoTracking()
                 .Include(c => c.OrdemServico)
                 .Where(c =>
                     c.VendedorId == vendedorId &&
-                    c.PeriodoReferencia == periodoAlvo &&
-                    c.OrdemServico.OticaId == oticaId)
+                    c.PeriodoReferencia == periodoAlvo)
                 .OrderByDescending(c => c.DataGeracao)
                 .ToListAsync();
 
@@ -79,7 +91,7 @@ namespace RETSYS.Web.Controllers
             var fechamentos = await _context.FechamentosComissao
                 .AsNoTracking()
                 .Include(f => f.Vendedor)
-                .Where(f => f.VendedorId == vendedorId && f.Vendedor.OticaId == oticaId)
+                .Where(f => f.VendedorId == vendedorId)
                 .OrderByDescending(f => f.PeriodoReferencia)
                 .ToListAsync();
 

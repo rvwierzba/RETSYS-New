@@ -193,6 +193,25 @@ namespace RETSYS.Infrastructure.Data
                         }
                     }
                 }
+
+                // Sincroniza o OticaId das Ordens de Serviço com a Ótica correspondente à sua LojaVenda
+                var todasOS = await _context.OrdensServico.ToListAsync();
+                foreach (var os in todasOS)
+                {
+                    if (!string.IsNullOrWhiteSpace(os.LojaVenda))
+                    {
+                        var oticaFilial = oticasExistentes.FirstOrDefault(o =>
+                            o.Nome.Trim().Equals(os.LojaVenda.Trim(), StringComparison.OrdinalIgnoreCase) ||
+                            os.LojaVenda.Contains(o.Nome, StringComparison.OrdinalIgnoreCase) ||
+                            o.Nome.Contains(os.LojaVenda, StringComparison.OrdinalIgnoreCase));
+
+                        if (oticaFilial != null && os.OticaId != oticaFilial.Id)
+                        {
+                            os.OticaId = oticaFilial.Id;
+                        }
+                    }
+                }
+
                 await _context.SaveChangesAsync();
             }
             catch (Exception ex)
