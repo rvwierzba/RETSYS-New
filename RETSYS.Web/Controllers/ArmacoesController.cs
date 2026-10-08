@@ -23,6 +23,7 @@ public class ArmacoesController : TenantController
     public async Task<IActionResult> Index()
     {
         var oticaId = ObterOticaId();
+        bool isAdmin = EhAdministrador();
 
         var armacoes = await _context.Armacoes
             .Include(a => a.Marca)
@@ -42,7 +43,7 @@ public class ArmacoesController : TenantController
                 a.Fornecedor,
                 a.QuantidadeEstoque,
                 a.QuantidadeMinima,
-                a.PrecoCusto,
+                PrecoCusto = isAdmin ? a.PrecoCusto : 0m,
                 PrecoFinal = a.PrecoVenda,
                 a.Ativo,
                 a.CriadoEm
@@ -56,7 +57,7 @@ public class ArmacoesController : TenantController
             .Select(m => new { m.Id, m.Nome })
             .ToListAsync();
 
-        return Inertia.Render("Estoque/Index", new { Armacoes = armacoes, Marcas = marcas });
+        return Inertia.Render("Estoque/Index", new { Armacoes = armacoes, Marcas = marcas, IsAdmin = isAdmin });
     }
 
     // POST: /armacoes

@@ -144,37 +144,30 @@ namespace RETSYS.Infrastructure.Data
                 await _context.SaveChangesAsync();
             }
 
-            // 4. Re-vincular registros de Filiais (Travessa Itália, Parque, etc.) às Óticas corretas com base no criador / filial do usuário
+            // 4. Configurar a Hierarquia Matriz e Filiais (Travessa Itália, Parque, etc. como filiais da Ótica Matriz)
             try
             {
-                var nomesFiliais = await _context.Usuarios
-                    .Select(u => u.FilialLoja)
-                    .Union(_context.OrdensServico.Select(os => os.LojaVenda))
-                    .Union(_context.Armacoes.Select(a => a.LojaUnidade))
-                    .Where(n => !string.IsNullOrWhiteSpace(n))
-                    .Distinct()
-                    .ToListAsync();
-
                 var oticasExistentes = await _context.Oticas.ToListAsync();
+                var matriz = oticasExistentes.FirstOrDefault(o => o.Nome.Equals("Ótica Matriz", StringComparison.OrdinalIgnoreCase)) 
+                             ?? oticaPadrao;
 
-                foreach (var nomeFilial in nomesFiliais)
+                if (matriz != null)
                 {
-                    if (string.IsNullOrWhiteSpace(nomeFilial)) continue;
+                    matriz.MatrizId = null; // A Matriz não tem MatrizId
 
-                    var oticaExiste = oticasExistentes.FirstOrDefault(o => o.Nome.Trim().Equals(nomeFilial.Trim(), StringComparison.OrdinalIgnoreCase));
-                    if (oticaExiste == null)
+                    foreach (var otica in oticasExistentes)
                     {
-                        var novaOtica = new Otica
+                        if (otica.Id != matriz.Id)
                         {
-                            Id = Guid.NewGuid(),
-                            Nome = nomeFilial.Trim(),
-                            CriadoEm = DateTime.UtcNow
-                        };
-                        _context.Oticas.Add(novaOtica);
-                        oticasExistentes.Add(novaOtica);
+                            // Filiais apontam para a Matriz
+                            if (!otica.MatrizId.HasValue || otica.MatrizId == Guid.Empty)
+                            {
+                                otica.MatrizId = matriz.Id;
+                            }
+                        }
                     }
+                    await _context.SaveChangesAsync();
                 }
-                await _context.SaveChangesAsync();
 
                 // Sincroniza o OticaId do usuário com a Ótica correspondente à sua FilialLoja
                 var todosUsuarios = await _context.Usuarios.ToListAsync();
@@ -213,6 +206,26 @@ namespace RETSYS.Infrastructure.Data
                 }
 
                 await _context.SaveChangesAsync();
+
+                // Garantir que exista um usuário com perfil Sistema para testes globais
+                var usuarioSistema = await _context.Usuarios.FirstOrDefaultAsync(u => u.Email == "sistema@otica.com" || u.Perfil == PerfilUsuario.Sistema);
+                if (usuarioSistema == null && matriz != null)
+                {
+                    usuarioSistema = new Usuario
+                    {
+                        Id = Guid.NewGuid(),
+                        OticaId = matriz.Id,
+                        Nome = "Administrador do Sistema (Deus)",
+                        Email = "sistema@otica.com",
+                        SenhaHash = _criptografia.CriptografarSenha("Sistema@2026"),
+                        FilialLoja = matriz.Nome,
+                        Perfil = PerfilUsuario.Sistema,
+                        Ativo = true,
+                        CriadoEm = DateTime.UtcNow
+                    };
+                    _context.Usuarios.Add(usuarioSistema);
+                    await _context.SaveChangesAsync();
+                }
             }
             catch (Exception ex)
             {

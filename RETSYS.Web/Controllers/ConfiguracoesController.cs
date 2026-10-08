@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using InertiaCore;
@@ -8,6 +9,7 @@ using System;
 
 namespace RETSYS.Web.Controllers
 {
+    [Authorize]
     public class ConfiguracoesController : TenantController
     {
         private readonly ApplicationDbContext _context;
@@ -39,6 +41,11 @@ Você já pode passar em nossa loja para retirar seus óculos e realizar o ajust
         [HttpGet("/configuracoes")]
         public async Task<IActionResult> Index()
         {
+            if (!EhAdministrador())
+            {
+                return Forbid();
+            }
+
             var oticaId = ObterOticaId();
 
             var config = await _context.ConfiguracoesLoja
@@ -85,6 +92,11 @@ Você já pode passar em nossa loja para retirar seus óculos e realizar o ajust
         [HttpPost("/configuracoes")]
         public async Task<IActionResult> Salvar([FromBody] DtoConfigSalvar dados)
         {
+            if (!EhAdministrador())
+            {
+                return Forbid();
+            }
+
             var oticaId = ObterOticaId();
 
             var config = await _context.ConfiguracoesLoja

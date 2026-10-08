@@ -80,4 +80,42 @@ Este documento atua como o registro de **Memória Incremental** do projeto RETSY
 ### 4. Riscos / Notas para Próximas Sessões
 - As próximas migrations do EF Core ao rodar no ambiente de desenvolvimento/produção irão criar as novas colunas e a tabela `os_auditoria_logs`.
 
+---
+
+## [LOG-003] - 2026-10-08: Reestruturação Multi-Tenancy, Hierarquia Matriz/Filiais e Perfil Dono
+- **Autor/Agente**: Arquiteto de Software & Assistente de IA Avançado (Antigravity)
+- **Módulos Afetados**: `RETSYS.Domain` (`Otica`, `PerfilUsuario`), `RETSYS.Infrastructure` (`ApplicationDbContext`, `DatabaseSeeder`, Migrations), `RETSYS.Web` (`TenantController`, `Program.cs`, `OrdensServicoController`, `DashboardController`, `LentesController`, `UsuariosController`, `ArmacoesController`, `ConfiguracoesController`, `ComissoesController`, `SistemaController`, `AuthenticatedLayout.vue`, `Users/Index.vue`)
+- **Contexto & Solicitante**: Auditoria e correção de vazamentos de dados entre óticas, implementação do modelo hierárquico Matriz/Filiais, suporte ao Perfil Dono (gestão multi-loja de rede), compartilhamento de tabela de preços de lentes entre matriz e filiais, transferência de colaboradores entre lojas da rede, proteção de preços de custo e restrição de visualizações para vendedores.
+
+### 1. Resumo das Alterações
+- **Isolamento de Tenant Rigoroso**:
+  - `Admin` e `Vendedor` têm suas lojas resolvidas exclusivamente pelo vínculo direto do usuário (`Usuario.OticaId`). Trava absoluta contra adulterações via query string ou parâmetros forjados.
+  - Perfil `Sistema` ("Deus"/teste) pode alternar livremente entre qualquer ótica via seletor de sessão (`Session["OticaAtivaId"]`).
+  - Perfil `Dono` pode alternar entre a Matriz e todas as filiais da sua rede através do seletor de sessão.
+- **Hierarquia Matriz e Filiais**:
+  - Adicionado campo `MatrizId` auto-referenciado na entidade `Otica` com navegação `Matriz` e coleção `Filiais`.
+  - Herança de lentes e tabela de preços: filiais visualizam e vendem automaticamente as lentes cadastradas na sua Matriz (`lp.Lente.OticaId == oticaId || lp.Lente.OticaId == matrizId`).
+  - Transferência de colaboradores: Administradores e Donos podem realocar funcionários (`OticaId` e `FilialLoja`) entre lojas da mesma rede.
+- **Privacidade & Segurança de Acesso**:
+  - `Vendedor`: Visualiza todas as OSs da loja para suporte no balcão, porém os nomes de outros vendedores aparecem mascarados como *"Outro Vendedor"*. Preço de custo de armações e lentes é omitido (`0.00`). No Dashboard e Comissões, vê exclusivamente suas próprias métricas e metas.
+  - `Admin`: Gestão completa de vendas, equipe e configurações da sua respectiva loja.
+  - `Dono`: Gestão consolidada e por loja de toda a rede de óticas subordinadas.
+  - `Sistema`: Acesso irrestrito a todas as entidades e funcionalidades para suporte e homologação.
+- **Frontend**:
+  - `AuthenticatedLayout.vue`: Seletor de ótica no topo habilitado dinamicamente para usuários `Sistema` (badge `SISTEMA ⚡`) e `Dono` (badge `REDE 🏢`), exibindo apenas as filiais pertencentes ao seu escopo.
+  - `Users/Index.vue`: Adicionado suporte ao perfil `Dono`, listagem com badge da loja e dropdown de seleção de unidade para transferência de funcionários da rede.
+
+### 2. Impacto no Banco de Dados / Entidades
+- `Otica`: Adicionada coluna `MatrizId` (Guid, Nullable, FK para `oticas(Id)` com `OnDelete(DeleteBehavior.Restrict)`).
+- `PerfilUsuario`: Adicionado valor `Dono = 4`.
+- Migration EF Core gerada: `AdicionaHierarquiaMatrizFiliaisEPerfilDono`.
+
+### 3. Validação e Verificação
+- Backend: `dotnet build` executado com sucesso (0 erros, 1 warning inócuo de nullable em Razor).
+- Frontend: `npm run build` executado com sucesso via Vite.
+
+### 4. Riscos / Notas para Próximas Sessões
+- Executar a migration no PostgreSQL via Docker na VPS e rodar o script de associação cirúrgica de dados para amarrar a Matriz às filiais (Travessa Itália e Parque).
+
+
 

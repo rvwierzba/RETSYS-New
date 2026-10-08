@@ -22,12 +22,12 @@ namespace RETSYS.Web.Controllers
         }
 
         /// <summary>
-        /// Alterna a ótica ativa em contexto de sessão para usuários com perfil Sistema.
+        /// Alterna a ótica ativa em contexto de sessão para usuários com perfil Sistema ou Dono (dentro da sua rede).
         /// </summary>
         [HttpPost("/sistema/trocar-otica")]
         public async Task<IActionResult> TrocarOtica([FromBody] DtoTrocarOtica requisicao)
         {
-            if (!EhSistema())
+            if (!EhSistema() && !EhDono())
             {
                 return Forbid();
             }
@@ -43,6 +43,19 @@ namespace RETSYS.Web.Controllers
             {
                 Inertia.Share("erro", "A ótica selecionada não foi encontrada.");
                 return RedirecionarRetorno();
+            }
+
+            // Se for Dono, valida se a ótica selecionada pertence à rede do Dono
+            if (EhDono() && !EhSistema())
+            {
+                var oticaUsuarioId = ObterOticaUsuarioLogado(_context);
+                var matrizId = ObterMatrizIdEfetivo(oticaUsuarioId, _context);
+                bool pertenceARede = otica.Id == matrizId || otica.MatrizId == matrizId;
+                if (!pertenceARede)
+                {
+                    Inertia.Share("erro", "Você não tem permissão para acessar esta ótica.");
+                    return RedirecionarRetorno();
+                }
             }
 
             HttpContext.Session.SetString("OticaAtivaId", otica.Id.ToString());

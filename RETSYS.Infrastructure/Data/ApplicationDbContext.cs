@@ -37,6 +37,12 @@ namespace RETSYS.Infrastructure.Data
                 b.ToTable("oticas");
                 b.HasKey(o => o.Id);
                 b.Property(o => o.Nome).IsRequired().HasMaxLength(150);
+
+                b.HasOne(o => o.Matriz)
+                 .WithMany(m => m.Filiais)
+                 .HasForeignKey(o => o.MatrizId)
+                 .IsRequired(false)
+                 .OnDelete(DeleteBehavior.Restrict);
             });
 
             // USUARIOS

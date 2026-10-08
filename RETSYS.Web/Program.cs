@@ -123,36 +123,100 @@ app.Use(async (context, next) =>
     var usuario = context.User;
     bool estaAutenticado = usuario?.Identity?.IsAuthenticated == true;
     var perfilClaim = estaAutenticado ? (usuario?.FindFirst(ClaimTypes.Role)?.Value ?? "Vendedor") : "Vendedor";
-    bool ehSistema = string.Equals(perfilClaim, "Sistema", StringComparison.OrdinalIgnoreCase) || (usuario?.IsInRole("Sistema") == true);
-    bool ehAdminOuGerente = ehSistema || 
-                           string.Equals(perfilClaim, "Admin", StringComparison.OrdinalIgnoreCase) || 
-                           string.Equals(perfilClaim, "Gerente", StringComparison.OrdinalIgnoreCase) ||
-                           (usuario?.IsInRole("Admin") == true) || 
-                           (usuario?.IsInRole("Gerente") == true);
+    
+    bool ehSistema = string.Equals(perfilClaim, nameof(RETSYS.Domain.Enums.PerfilUsuario.Sistema), StringComparison.OrdinalIgnoreCase) || (usuario?.IsInRole("Sistema") == true);
+    bool ehDono = string.Equals(perfilClaim, nameof(RETSYS.Domain.Enums.PerfilUsuario.Dono), StringComparison.OrdinalIgnoreCase) || (usuario?.IsInRole("Dono") == true);
+    bool ehAdmin = string.Equals(perfilClaim, nameof(RETSYS.Domain.Enums.PerfilUsuario.Admin), StringComparison.OrdinalIgnoreCase) || (usuario?.IsInRole("Admin") == true);
+    bool ehAdminOuGerente = ehSistema || ehDono || ehAdmin || string.Equals(perfilClaim, "Gerente", StringComparison.OrdinalIgnoreCase) || (usuario?.IsInRole("Gerente") == true);
 
     Guid oticaAtivaId = Guid.Empty;
     string nomeOtica = "Ótica Matriz";
+    object? oticasDisponiveis = null;
 
     if (estaAutenticado)
     {
         var db = context.RequestServices.GetService<ApplicationDbContext>();
 
-        if (ehSistema)
+        // 1. Obtém o OticaId cadastrado no usuário (loja base)
+        Guid oticaUsuarioId = Guid.Empty;
+        var claimOtica = usuario?.FindFirst("OticaId")?.Value;
+        if (Guid.TryParse(claimOtica, out var claimGuid))
         {
-            var sessaoOticaId = context.Session.GetString("OticaAtivaId");
-            if (!string.IsNullOrEmpty(sessaoOticaId) && Guid.TryParse(sessaoOticaId, out var oticaSessaoGuid) && oticaSessaoGuid != Guid.Empty)
+            oticaUsuarioId = claimGuid;
+        }
+        else if (db != null)
+        {
+            var userIdStr = usuario?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            if (Guid.TryParse(userIdStr, out var uid))
             {
-                oticaAtivaId = oticaSessaoGuid;
+                var userDb = db.Usuarios.AsNoTracking().FirstOrDefault(u => u.Id == uid);
+                if (userDb != null) oticaUsuarioId = userDb.OticaId;
             }
         }
 
-        if (oticaAtivaId == Guid.Empty)
+        if (ehSistema && db != null)
         {
-            var claimOtica = usuario?.FindFirst("OticaId")?.Value;
-            if (Guid.TryParse(claimOtica, out var claimGuid))
+            // Sistema pode selecionar qualquer ótica via Sessão
+            var sessaoOticaId = context.Session.GetString("OticaAtivaId");
+            if (!string.IsNullOrEmpty(sessaoOticaId) && Guid.TryParse(sessaoOticaId, out var oticaSessaoGuid) && oticaSessaoGuid != Guid.Empty)
             {
-                oticaAtivaId = claimGuid;
+                if (db.Oticas.Any(o => o.Id == oticaSessaoGuid))
+                {
+                    oticaAtivaId = oticaSessaoGuid;
+                }
             }
+
+            if (oticaAtivaId == Guid.Empty)
+            {
+                oticaAtivaId = oticaUsuarioId != Guid.Empty ? oticaUsuarioId : (db.Oticas.Select(o => o.Id).FirstOrDefault());
+            }
+
+            oticasDisponiveis = db.Oticas
+                .AsNoTracking()
+                .OrderBy(o => o.Nome)
+                .Select(o => new { id = o.Id.ToString(), nome = o.Nome })
+                .ToList();
+        }
+        else if (ehDono && db != null)
+        {
+            // Dono tem acesso à Matriz e todas as Filiais da sua rede
+            var matrizId = oticaUsuarioId;
+            var oticaUser = db.Oticas.AsNoTracking().FirstOrDefault(o => o.Id == oticaUsuarioId);
+            if (oticaUser?.MatrizId != null && oticaUser.MatrizId.Value != Guid.Empty)
+            {
+                matrizId = oticaUser.MatrizId.Value;
+            }
+
+            var lojasRede = db.Oticas
+                .AsNoTracking()
+                .Where(o => o.Id == matrizId || o.MatrizId == matrizId)
+                .OrderBy(o => o.Nome)
+                .Select(o => new { id = o.Id.ToString(), nome = o.Nome })
+                .ToList();
+
+            var sessaoOticaId = context.Session.GetString("OticaAtivaId");
+            if (!string.IsNullOrEmpty(sessaoOticaId) && Guid.TryParse(sessaoOticaId, out var oticaSessaoGuid) && oticaSessaoGuid != Guid.Empty)
+            {
+                if (lojasRede.Any(l => l.id == oticaSessaoGuid.ToString()))
+                {
+                    oticaAtivaId = oticaSessaoGuid;
+                }
+            }
+
+            if (oticaAtivaId == Guid.Empty)
+            {
+                oticaAtivaId = oticaUsuarioId != Guid.Empty ? oticaUsuarioId : (lojasRede.Select(l => Guid.Parse(l.id)).FirstOrDefault());
+            }
+
+            if (lojasRede.Count > 1)
+            {
+                oticasDisponiveis = lojasRede;
+            }
+        }
+        else
+        {
+            // Admin e Vendedor: estritamente vinculados à sua loja
+            oticaAtivaId = oticaUsuarioId;
         }
 
         if (oticaAtivaId != Guid.Empty && db != null)
@@ -165,30 +229,13 @@ app.Use(async (context, next) =>
         }
     }
 
-    object? oticasDisponiveis = null;
-    if (estaAutenticado && ehSistema)
-    {
-        var db = context.RequestServices.GetService<ApplicationDbContext>();
-        if (db != null)
-        {
-            var todas = db.Oticas
-                .AsNoTracking()
-                .OrderBy(o => o.Nome)
-                .Select(o => new { id = o.Id.ToString(), nome = o.Nome })
-                .ToList();
-
-            oticasDisponiveis = todas
-                .Where(o => !string.Equals(o.nome.Trim(), "Matriz", StringComparison.OrdinalIgnoreCase))
-                .GroupBy(o => o.nome.Trim().ToLower())
-                .Select(g => g.First())
-                .ToList();
-        }
-    }
-
     Inertia.Share("auth", new {
         usuarioNome = estaAutenticado ? (usuario?.Identity?.Name ?? "Colaborador") : "Colaborador",
         usuarioPerfil = perfilClaim,
         ehSistema = ehSistema,
+        ehDono = ehDono,
+        ehAdmin = ehAdmin,
+        ehAdminOuGerente = ehAdminOuGerente,
         usuarioFoto = estaAutenticado ? (usuario?.FindFirst("FotoUrl")?.Value ?? usuario?.FindFirst(ClaimTypes.UserData)?.Value) : null,
         oticaId = oticaAtivaId != Guid.Empty ? oticaAtivaId.ToString() : null,
         oticaNome = nomeOtica,

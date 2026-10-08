@@ -4,7 +4,7 @@
       
       <div>
         <h1 class="text-2xl font-black text-slate-950">Controle de Equipe</h1>
-        <p class="text-sm text-slate-500">Gerencie os acessos, filiais e taxas individuais de comissão de vendedoras e administradores.</p>
+        <p class="text-sm text-slate-500">Gerencie os acessos, transferência entre lojas da rede e taxas individuais de comissão de vendedoras, administradores e donos.</p>
       </div>
 
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
@@ -35,7 +35,8 @@
                 <select v-model="form.Perfil" class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500">
                   <option :value="2">Vendedor</option>
                   <option :value="1">Administrador</option>
-                  <option v-if="ehSistema" :value="3">⚡ Sistema (Acesso Global)</option>
+                  <option v-if="ehDono || ehSistema" :value="4">🏢 Dono (Rede)</option>
+                  <option v-if="ehSistema" :value="3">⚡ Sistema (Deus)</option>
                 </select>
               </div>
 
@@ -47,8 +48,18 @@
             </div>
 
             <div>
-              <label class="block text-[11px] font-bold uppercase text-slate-400 tracking-wider mb-1.5">Unidade / Filial Loja *</label>
-              <input v-model="form.FilialLoja" type="text" placeholder="Ex: Matriz" class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500" required />
+              <label class="block text-[11px] font-bold uppercase text-slate-400 tracking-wider mb-1.5">Loja / Unidade *</label>
+              <select 
+                v-if="listaLojas.length > 0" 
+                v-model="form.OticaId" 
+                @change="atualizarNomeLojaForm"
+                class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500"
+              >
+                <option v-for="loja in listaLojas" :key="loja.id || loja.Id" :value="loja.id || loja.Id">
+                  {{ loja.nome || loja.Nome }}
+                </option>
+              </select>
+              <input v-else v-model="form.FilialLoja" type="text" placeholder="Ex: Ótica Matriz" class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500" required />
             </div>
 
             <button 
@@ -66,7 +77,7 @@
         <div class="lg:col-span-2 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
           <h3 class="text-base font-bold text-slate-950 mb-4">Funcionários Cadastrados</h3>
 
-          <div v-if="!(Equipe ?? equipe) || (Equipe ?? equipe).length === 0" class="text-center py-12 border-2 border-dashed border-slate-100 rounded-xl text-slate-400 text-sm">
+          <div v-if="!listaEquipe || listaEquipe.length === 0" class="text-center py-12 border-2 border-dashed border-slate-100 rounded-xl text-slate-400 text-sm">
             Nenhum colaborador registrado no sistema.
           </div>
 
@@ -75,31 +86,37 @@
               <thead>
                 <tr class="border-b border-slate-100 text-slate-400 text-xs font-bold uppercase tracking-wider">
                   <th class="pb-3">Colaborador</th>
+                  <th class="pb-3">Loja</th>
                   <th class="pb-3 text-center">Perfil</th>
-                  <th class="pb-3 text-center">% Comissão</th>
+                  <th class="pb-3 text-center">% Comis.</th>
                   <th class="pb-3 text-center">Último Acesso</th>
                   <th class="pb-3 text-center">Status</th>
                   <th class="pb-3 text-center">Ações</th>
                 </tr>
               </thead>
               <tbody>
-                <tr v-for="user in (Equipe ?? equipe)" :key="user.id || user.Id" class="border-b border-slate-50 hover:bg-slate-50/50 transition">
+                <tr v-for="user in listaEquipe" :key="user.id || user.Id" class="border-b border-slate-50 hover:bg-slate-50/50 transition">
                   <td class="py-4">
                     <p class="font-bold text-slate-800">{{ user.nome || user.Nome }}</p>
                     <p class="text-xs text-slate-400 font-mono">{{ user.email || user.Email }}</p>
+                  </td>
+                  <td class="py-4 text-xs font-semibold text-slate-600">
+                    {{ user.oticaNome || user.OticaNome || user.filialLoja || user.FilialLoja || 'Matriz' }}
                   </td>
                   <td class="py-4 text-center">
                     <span 
                       :class="[
                         (user.perfil === 3 || user.perfilNome === 'Sistema')
                           ? 'bg-purple-100 text-purple-800 border-purple-300 font-black'
-                          : (user.perfil === 1 || user.perfilNome === 'Administrador' || user.perfilNome === 'Admin')
-                            ? 'bg-indigo-50 text-indigo-700 border-indigo-200 font-bold'
-                            : 'bg-slate-100 text-slate-700 border-slate-200 font-medium'
+                          : (user.perfil === 4 || user.perfilNome === 'Dono')
+                            ? 'bg-amber-100 text-amber-900 border-amber-300 font-black'
+                            : (user.perfil === 1 || user.perfilNome === 'Administrador' || user.perfilNome === 'Admin')
+                              ? 'bg-indigo-50 text-indigo-700 border-indigo-200 font-bold'
+                              : 'bg-slate-100 text-slate-700 border-slate-200 font-medium'
                       ]"
                       class="px-2.5 py-0.5 rounded-full text-xs border"
                     >
-                      {{ user.perfilNome || user.PerfilNome || (user.perfil === 3 ? 'Sistema' : (user.perfil === 1 ? 'Admin' : 'Vendedor')) }}
+                      {{ user.perfilNome || user.PerfilNome || (user.perfil === 3 ? 'Sistema' : (user.perfil === 4 ? 'Dono' : (user.perfil === 1 ? 'Admin' : 'Vendedor'))) }}
                     </span>
                   </td>
                   <!-- Coluna do % Individual de Comissão -->
@@ -118,7 +135,7 @@
                     <button 
                       @click="abrirModalEdicao(user)"
                       class="bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs font-bold px-2.5 py-1.5 rounded-lg transition shadow-sm"
-                      title="Editar Vendedora / Comissão"
+                      title="Editar Colaborador / Transferir Loja"
                     >
                       ✏️ Editar
                     </button>
@@ -138,7 +155,7 @@
 
       </div>
 
-      <!-- MODAL DE EDIÇÃO DE COLABORADOR E TAXA DE COMISSÃO -->
+      <!-- MODAL DE EDIÇÃO DE COLABORADOR E TRANSFERÊNCIA DE LOJA -->
       <div v-if="modalEdicaoAberta" class="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
         <div class="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-md w-full p-6 space-y-5">
           <div class="flex items-center justify-between border-b border-slate-100 pb-3">
@@ -163,7 +180,8 @@
                 <select v-model="formEdicao.Perfil" class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500">
                   <option :value="2">Vendedor</option>
                   <option :value="1">Administrador</option>
-                  <option v-if="ehSistema" :value="3">⚡ Sistema (Acesso Global)</option>
+                  <option v-if="ehDono || ehSistema" :value="4">🏢 Dono (Rede)</option>
+                  <option v-if="ehSistema" :value="3">⚡ Sistema (Deus)</option>
                 </select>
               </div>
 
@@ -175,12 +193,22 @@
             </div>
 
             <div>
-              <label class="block font-bold uppercase text-slate-400 tracking-wider mb-1">Filial / Loja *</label>
-              <input v-model="formEdicao.FilialLoja" type="text" class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500" required />
+              <label class="block font-bold uppercase text-slate-400 tracking-wider mb-1">Loja / Transferir de Unidade *</label>
+              <select 
+                v-if="listaLojas.length > 0" 
+                v-model="formEdicao.OticaId" 
+                @change="atualizarNomeLojaEdicao"
+                class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500"
+              >
+                <option v-for="loja in listaLojas" :key="loja.id || loja.Id" :value="loja.id || loja.Id">
+                  {{ loja.nome || loja.Nome }}
+                </option>
+              </select>
+              <input v-else v-model="formEdicao.FilialLoja" type="text" class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500" required />
             </div>
 
             <div>
-              <label class="block font-bold uppercase text-slate-400 tracking-wider mb-1">Nova Senha (deixe em branco para não alterar)</label>
+              <label class="block font-bold uppercase text-slate-400 tracking-wider mb-1">Nova Senha (deixe em branco para manter a atual)</label>
               <input v-model="formEdicao.NovaSenha" type="password" placeholder="••••••••" class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500" />
             </div>
 
@@ -202,19 +230,26 @@
 </template>
 
 <script setup>
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
 import { useForm, router, usePage } from '@inertiajs/vue3'
 import AuthenticatedLayout from '../../Shared/AuthenticatedLayout.vue'
 
 const props = defineProps({
   Equipe: Array,
   equipe: Array,
+  Lojas: Array,
+  lojas: Array,
   EhSistema: Boolean,
-  ehSistema: Boolean
+  ehSistema: Boolean,
+  EhDono: Boolean,
+  ehDono: Boolean
 })
 
 const page = usePage()
 const ehSistema = computed(() => props.EhSistema ?? props.ehSistema ?? !!page.props.auth?.ehSistema ?? page.props.auth?.usuarioPerfil === 'Sistema')
+const ehDono = computed(() => props.EhDono ?? props.ehDono ?? !!page.props.auth?.ehDono ?? page.props.auth?.usuarioPerfil === 'Dono')
+const listaEquipe = computed(() => props.Equipe ?? props.equipe ?? [])
+const listaLojas = computed(() => props.Lojas ?? props.lojas ?? [])
 
 const modalEdicaoAberta = ref(false)
 
@@ -223,7 +258,8 @@ const form = useForm({
   Email: '',
   Senha: '',
   Perfil: 2, // Padrão: Vendedor (2)
-  FilialLoja: 'Matriz',
+  OticaId: null,
+  FilialLoja: 'Ótica Matriz',
   PercentualComissao: 3.00
 })
 
@@ -231,12 +267,35 @@ const formEdicao = useForm({
   id: null,
   Nome: '',
   Email: '',
+  OticaId: null,
   FilialLoja: '',
   Perfil: 2,
   Ativo: true,
   PercentualComissao: 3.00,
   NovaSenha: ''
 })
+
+// Inicializa loja padrão no formulário de cadastro
+watch(listaLojas, (lojas) => {
+  if (lojas && lojas.length > 0 && !form.OticaId) {
+    form.OticaId = lojas[0].id || lojas[0].Id
+    form.FilialLoja = lojas[0].nome || lojas[0].Nome
+  }
+}, { immediate: true })
+
+const atualizarNomeLojaForm = () => {
+  const loja = listaLojas.value.find(l => (l.id || l.Id) === form.OticaId)
+  if (loja) {
+    form.FilialLoja = loja.nome || loja.Nome
+  }
+}
+
+const atualizarNomeLojaEdicao = () => {
+  const loja = listaLojas.value.find(l => (l.id || l.Id) === formEdicao.OticaId)
+  if (loja) {
+    formEdicao.FilialLoja = loja.nome || loja.Nome
+  }
+}
 
 const cadastrarColaborador = () => {
   form.post('/equipe', {
@@ -254,7 +313,8 @@ const abrirModalEdicao = (user) => {
   formEdicao.id = user.id || user.Id
   formEdicao.Nome = user.nome || user.Nome || ''
   formEdicao.Email = user.email || user.Email || ''
-  formEdicao.FilialLoja = user.filialLoja || user.FilialLoja || 'Matriz'
+  formEdicao.OticaId = user.oticaId || user.OticaId || null
+  formEdicao.FilialLoja = user.oticaNome || user.OticaNome || user.filialLoja || user.FilialLoja || 'Ótica Matriz'
   formEdicao.Perfil = user.perfil ?? user.Perfil ?? 2
   formEdicao.Ativo = user.ativo ?? user.Ativo ?? true
   formEdicao.PercentualComissao = user.percentualComissao ?? user.PercentualComissao ?? 3.00

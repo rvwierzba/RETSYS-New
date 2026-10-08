@@ -62,7 +62,7 @@ RETSYS-New/
 │   │   └── Usuario.cs                # Colaboradores, perfis e credenciais criptografadas
 │   ├── Enums/
 │   │   ├── MetodoPagamento.cs
-│   │   └── PerfilUsuario.cs          # Roles: Admin, Gerente, Vendedor, Técnico de Laboratório
+│   │   └── PerfilUsuario.cs          # Roles: Admin, Vendedor, Sistema ("Deus"/teste), Dono (Rede Multi-loja)
 │   └── Dto/
 │       └── DtoOcrReceita.cs          # Schema estrito de resposta para o modelo de IA
 │

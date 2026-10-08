@@ -33,10 +33,27 @@ public class UsuariosController : TenantController
         }
 
         var oticaId = ObterOticaId();
+        var idsRede = ObterIdsOticasDaRede(oticaId, _context);
 
-        var equipe = await _context.Usuarios
-            .AsNoTracking()
-            .Where(u => u.OticaId == oticaId)
+        IQueryable<Usuario> queryUsuarios = _context.Usuarios.AsNoTracking();
+
+        if (EhSistema())
+        {
+            // Sistema pode ver usuários da ótica ativa ou de todas as lojas
+            queryUsuarios = queryUsuarios.Where(u => u.OticaId == oticaId);
+        }
+        else if (EhDono())
+        {
+            // Dono vê usuários da sua rede inteira
+            queryUsuarios = queryUsuarios.Where(u => idsRede.Contains(u.OticaId));
+        }
+        else
+        {
+            // Admin vê usuários da sua própria loja
+            queryUsuarios = queryUsuarios.Where(u => u.OticaId == oticaId);
+        }
+
+        var equipe = await queryUsuarios
             .OrderByDescending(u => u.CriadoEm)
             .Select(u => new
             {
@@ -44,8 +61,12 @@ public class UsuariosController : TenantController
                 u.Nome,
                 u.Email,
                 u.FilialLoja,
+                u.OticaId,
+                OticaNome = u.Otica != null ? u.Otica.Nome : u.FilialLoja,
                 Perfil = (int)u.Perfil,
-                PerfilNome = u.Perfil == PerfilUsuario.Sistema ? "Sistema" : (u.Perfil == PerfilUsuario.Admin ? "Administrador" : "Vendedor"),
+                PerfilNome = u.Perfil == PerfilUsuario.Sistema ? "Sistema" :
+                             u.Perfil == PerfilUsuario.Dono ? "Dono" :
+                             u.Perfil == PerfilUsuario.Admin ? "Administrador" : "Vendedor",
                 u.Ativo,
                 u.PercentualComissao,
                 u.FotoUrl,
@@ -54,13 +75,25 @@ public class UsuariosController : TenantController
             })
             .ToListAsync();
 
-        var lojas = await _context.ConfiguracoesLoja
-            .AsNoTracking()
-            .Where(l => l.OticaId == oticaId)
-            .Select(l => new { l.Id, Nome = l.NomeLoja })
+        // Lojas disponíveis para transferência / alocação de funcionários
+        IQueryable<Otica> queryLojas = _context.Oticas.AsNoTracking();
+        if (!EhSistema())
+        {
+            queryLojas = queryLojas.Where(o => idsRede.Contains(o.Id));
+        }
+
+        var lojas = await queryLojas
+            .OrderBy(l => l.Nome)
+            .Select(l => new { Id = l.Id, Nome = l.Nome })
             .ToListAsync();
 
-        return Inertia.Render("Users/Index", new { Equipe = equipe, Lojas = lojas, EhSistema = EhSistema() });
+        return Inertia.Render("Users/Index", new 
+        { 
+            Equipe = equipe, 
+            Lojas = lojas, 
+            EhSistema = EhSistema(),
+            EhDono = EhDono()
+        });
     }
 
     // POST: /equipe
@@ -75,6 +108,12 @@ public class UsuariosController : TenantController
         if (model.Perfil == PerfilUsuario.Sistema && !EhSistema())
         {
             Inertia.Share("erro", "Apenas usuários com perfil Sistema podem criar outros usuários de Sistema.");
+            return RedirectToAction(nameof(Index));
+        }
+
+        if (model.Perfil == PerfilUsuario.Dono && !EhSistema() && !EhDono())
+        {
+            Inertia.Share("erro", "Apenas Donos ou administradores de Sistema podem criar outros usuários com perfil Dono.");
             return RedirectToAction(nameof(Index));
         }
 
@@ -93,16 +132,41 @@ public class UsuariosController : TenantController
             return RedirectToAction(nameof(Index));
         }
 
-        var hashSenha = _criptografia.CriptografarSenha(model.Senha);
+        var oticaIdAtiva = ObterOticaId();
+        var idsRede = ObterIdsOticasDaRede(oticaIdAtiva, _context);
 
-        var filialNome = string.IsNullOrWhiteSpace(model.FilialLoja) ? "Matriz" : model.FilialLoja.Trim();
-        var oticaAlvo = await _context.Oticas.FirstOrDefaultAsync(o => o.Nome.ToLower() == filialNome.ToLower());
+        Otica? oticaAlvo = null;
+
+        if (model.OticaId.HasValue && model.OticaId.Value != Guid.Empty)
+        {
+            oticaAlvo = await _context.Oticas.FirstOrDefaultAsync(o => o.Id == model.OticaId.Value);
+        }
+
+        if (oticaAlvo == null && !string.IsNullOrWhiteSpace(model.FilialLoja))
+        {
+            oticaAlvo = await _context.Oticas.FirstOrDefaultAsync(o => o.Nome.ToLower() == model.FilialLoja.Trim().ToLower());
+        }
+
         if (oticaAlvo == null)
         {
-            oticaAlvo = new Otica { Id = Guid.NewGuid(), Nome = filialNome, CriadoEm = DateTime.UtcNow };
+            oticaAlvo = await _context.Oticas.FirstOrDefaultAsync(o => o.Id == oticaIdAtiva);
+        }
+
+        if (oticaAlvo == null)
+        {
+            oticaAlvo = new Otica { Id = Guid.NewGuid(), Nome = !string.IsNullOrWhiteSpace(model.FilialLoja) ? model.FilialLoja.Trim() : "Ótica Matriz", CriadoEm = DateTime.UtcNow };
             _context.Oticas.Add(oticaAlvo);
             await _context.SaveChangesAsync();
         }
+
+        // Validação de segurança: Dono e Admin só podem alocar em lojas da sua própria rede
+        if (!EhSistema() && !idsRede.Contains(oticaAlvo.Id))
+        {
+            Inertia.Share("erro", "Você só pode alocar colaboradores em lojas pertencentes à sua rede.");
+            return RedirectToAction(nameof(Index));
+        }
+
+        var hashSenha = _criptografia.CriptografarSenha(model.Senha);
 
         var novoUsuario = new Usuario
         {
@@ -111,7 +175,7 @@ public class UsuariosController : TenantController
             Nome = model.Nome.Trim(),
             Email = model.Email.Trim().ToLower(),
             SenhaHash = hashSenha,
-            FilialLoja = filialNome,
+            FilialLoja = oticaAlvo.Nome,
             Perfil = model.Perfil,
             PercentualComissao = model.PercentualComissao > 0 ? model.PercentualComissao : 3.00m,
             Ativo = true,
@@ -121,6 +185,7 @@ public class UsuariosController : TenantController
         _context.Usuarios.Add(novoUsuario);
         await _context.SaveChangesAsync();
 
+        Inertia.Share("sucesso", $"Colaborador(a) {novoUsuario.Nome} cadastrado(a) com sucesso!");
         return RedirectToAction(nameof(Index));
     }
 
@@ -139,12 +204,25 @@ public class UsuariosController : TenantController
             return RedirectToAction(nameof(Index));
         }
 
-        var oticaId = ObterOticaId();
+        if (model.Perfil == PerfilUsuario.Dono && !EhSistema() && !EhDono())
+        {
+            Inertia.Share("erro", "Apenas Donos ou administradores de Sistema podem promover contas para o perfil Dono.");
+            return RedirectToAction(nameof(Index));
+        }
 
-        var usuario = await _context.Usuarios.FirstOrDefaultAsync(u => u.Id == id && (u.OticaId == oticaId || EhSistema()));
+        var oticaIdAtiva = ObterOticaId();
+        var idsRede = ObterIdsOticasDaRede(oticaIdAtiva, _context);
+
+        var usuario = await _context.Usuarios.FirstOrDefaultAsync(u => u.Id == id);
         if (usuario == null)
         {
             return NotFound(new { message = "Usuário não encontrado." });
+        }
+
+        // Validação de acesso ao usuário
+        if (!EhSistema() && !idsRede.Contains(usuario.OticaId))
+        {
+            return Forbid();
         }
 
         var emailExiste = await _context.Usuarios
@@ -156,19 +234,31 @@ public class UsuariosController : TenantController
             return RedirectToAction(nameof(Index));
         }
 
-        var filialEditada = string.IsNullOrWhiteSpace(model.FilialLoja) ? usuario.FilialLoja : model.FilialLoja.Trim();
-        var oticaFilial = await _context.Oticas.FirstOrDefaultAsync(o => o.Nome.ToLower() == filialEditada.ToLower());
-        if (oticaFilial == null)
+        Otica? oticaAlvo = null;
+        if (model.OticaId.HasValue && model.OticaId.Value != Guid.Empty)
         {
-            oticaFilial = new Otica { Id = Guid.NewGuid(), Nome = filialEditada, CriadoEm = DateTime.UtcNow };
-            _context.Oticas.Add(oticaFilial);
-            await _context.SaveChangesAsync();
+            oticaAlvo = await _context.Oticas.FirstOrDefaultAsync(o => o.Id == model.OticaId.Value);
+        }
+
+        if (oticaAlvo == null && !string.IsNullOrWhiteSpace(model.FilialLoja))
+        {
+            oticaAlvo = await _context.Oticas.FirstOrDefaultAsync(o => o.Nome.ToLower() == model.FilialLoja.Trim().ToLower());
+        }
+
+        if (oticaAlvo != null)
+        {
+            if (!EhSistema() && !idsRede.Contains(oticaAlvo.Id))
+            {
+                Inertia.Share("erro", "Você só pode transferir colaboradores para lojas da sua rede.");
+                return RedirectToAction(nameof(Index));
+            }
+
+            usuario.OticaId = oticaAlvo.Id;
+            usuario.FilialLoja = oticaAlvo.Nome;
         }
 
         usuario.Nome = model.Nome.Trim();
         usuario.Email = model.Email.Trim().ToLower();
-        usuario.FilialLoja = filialEditada;
-        usuario.OticaId = oticaFilial.Id;
         usuario.Perfil = model.Perfil;
         usuario.Ativo = model.Ativo;
         usuario.PercentualComissao = model.PercentualComissao;
@@ -181,6 +271,7 @@ public class UsuariosController : TenantController
         _context.Usuarios.Update(usuario);
         await _context.SaveChangesAsync();
 
+        Inertia.Share("sucesso", $"Dados do colaborador {usuario.Nome} atualizados com sucesso!");
         return RedirectToAction(nameof(Index));
     }
 
@@ -194,8 +285,9 @@ public class UsuariosController : TenantController
         }
 
         var oticaId = ObterOticaId();
+        var idsRede = ObterIdsOticasDaRede(oticaId, _context);
 
-        var usuario = await _context.Usuarios.FirstOrDefaultAsync(u => u.Id == id && (u.OticaId == oticaId || EhSistema()));
+        var usuario = await _context.Usuarios.FirstOrDefaultAsync(u => u.Id == id && (idsRede.Contains(u.OticaId) || EhSistema()));
         if (usuario != null)
         {
             usuario.Ativo = !usuario.Ativo;
@@ -215,8 +307,9 @@ public class UsuariosController : TenantController
         }
 
         var oticaId = ObterOticaId();
+        var idsRede = ObterIdsOticasDaRede(oticaId, _context);
 
-        var usuario = await _context.Usuarios.FirstOrDefaultAsync(u => u.Id == id && (u.OticaId == oticaId || EhSistema()));
+        var usuario = await _context.Usuarios.FirstOrDefaultAsync(u => u.Id == id && (idsRede.Contains(u.OticaId) || EhSistema()));
         if (usuario != null)
         {
             _context.Usuarios.Remove(usuario);
@@ -230,18 +323,21 @@ public class UsuariosController : TenantController
 public record DtoNovoColaborador(
     string Nome,
     string Email,
-    string FilialLoja,
+    string? FilialLoja,
     string Senha,
     PerfilUsuario Perfil = PerfilUsuario.Vendedor,
-    decimal PercentualComissao = 3.00m
+    decimal PercentualComissao = 3.00m,
+    Guid? OticaId = null
 );
 
 public record DtoEditarColaborador(
     string Nome,
     string Email,
-    string FilialLoja,
+    string? FilialLoja,
     PerfilUsuario Perfil,
     bool Ativo,
     decimal PercentualComissao = 3.00m,
-    string? NovaSenha = null
+    string? NovaSenha = null,
+    Guid? OticaId = null
 );
+

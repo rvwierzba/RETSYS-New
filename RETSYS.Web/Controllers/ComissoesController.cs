@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using InertiaCore;
@@ -10,6 +11,7 @@ using System.Threading.Tasks;
 
 namespace RETSYS.Web.Controllers
 {
+    [Authorize]
     public class ComissoesController : TenantController
     {
         private readonly ApplicationDbContext _context;
@@ -134,6 +136,11 @@ namespace RETSYS.Web.Controllers
         [HttpGet("/admin/comissoes")]
         public async Task<IActionResult> Index()
         {
+            if (!EhAdministrador())
+            {
+                return Forbid();
+            }
+
             var oticaId = ObterOticaId();
 
             var fechamentos = await _context.FechamentosComissao

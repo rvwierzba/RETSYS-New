@@ -20,8 +20,12 @@
 ### 2.1 `Otica` (Tabela: `oticas`)
 - `Id`: `Guid` (PK)
 - `Nome`: `string` (max 150, Obrigatório)
+- `MatrizId`: `Guid?` (FK `oticas`, Restrict, Auto-relacionamento: aponta para a ótica Matriz se for filial)
 - `CriadoEm`: `DateTime` (Default `UtcNow`)
-- **Navegação**: `Usuarios` (1:N `Usuario`)
+- **Navegação**: 
+  - `Matriz`: Referência para a `Otica` Matriz (se filial).
+  - `Filiais`: Coleção `ICollection<Otica>` das filiais subordinadas.
+  - `Usuarios`: Coleção de usuários vinculados à ótica.
 
 ### 2.2 `Usuario` (Tabela: `usuarios`)
 - `Id`: `Guid` (PK)
@@ -31,7 +35,7 @@
 - `SenhaHash`: `string` (Obrigatório, BCrypt Enhanced)
 - `FilialLoja`: `string` (max 100)
 - `FotoUrl`: `string?` (Caminho da foto de perfil)
-- `Perfil`: Enum `PerfilUsuario` (Mapeado como `int`: `1 = Admin`, `2 = Vendedor`)
+- `Perfil`: Enum `PerfilUsuario` (Mapeado como `int`: `1 = Admin`, `2 = Vendedor`, `3 = Sistema`, `4 = Dono`)
 - `LimiteDesconto`: `decimal(5,2)` (Default `5.00`)
 - `Ativo`: `bool` (Default `true`)
 - `MetaMensal`: `decimal(18,2)`

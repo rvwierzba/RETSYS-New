@@ -328,20 +328,20 @@
         <!-- LADO DIREITO: Seletor de Óticas (Sistema), Uptime, e Perfil -->
         <div class="relative flex items-center gap-3">
           
-          <!-- SELETOR DE ÓTICA EXCLUSIVO PARA PERFIL SISTEMA -->
-          <div v-if="ehSistema" class="relative">
+          <!-- SELETOR DE ÓTICA PARA PERFIL SISTEMA OU DONO (MULTI-LOJA) -->
+          <div v-if="podeAlternarOtica" class="relative">
             <button 
               @click="menuOticasAberto = !menuOticasAberto" 
               class="flex items-center gap-2 bg-gradient-to-r from-purple-950/90 to-indigo-950/90 hover:from-purple-900 hover:to-indigo-900 border border-purple-500/50 px-3 py-1.5 rounded-xl text-left transition shadow-lg shadow-purple-950/30 group"
-              title="Alternar Ótica Ativa (Perfil Sistema)"
+              :title="ehSistema ? 'Alternar Ótica Ativa (Perfil Sistema)' : 'Alternar Entre Minhas Lojas (Rede)'"
             >
               <span class="flex items-center justify-center w-5 h-5 rounded-md bg-purple-500/20 text-purple-300 text-xs font-black">
-                ⚡
+                {{ ehSistema ? '⚡' : '🏢' }}
               </span>
               <div class="hidden sm:block">
                 <div class="flex items-center gap-1.5">
                   <span class="text-[9px] uppercase font-black tracking-widest text-purple-300 bg-purple-900/60 px-1.5 py-0.2 rounded border border-purple-700/60">
-                    SISTEMA
+                    {{ ehSistema ? 'SISTEMA' : 'REDE' }}
                   </span>
                   <span class="text-xs font-bold text-white max-w-[130px] truncate block">{{ nomeOtica }}</span>
                 </div>
@@ -356,10 +356,13 @@
             >
               <div class="px-2.5 py-1.5 border-b border-slate-800 mb-2 flex items-center justify-between">
                 <div>
-                  <p class="text-[10px] font-black uppercase tracking-wider text-purple-400">Alternar Ambiente</p>
-                  <p class="text-[11px] text-slate-400">Selecione a ótica para gerenciar:</p>
+                  <p class="text-[10px] font-black uppercase tracking-wider text-purple-400">
+                    {{ ehSistema ? 'Alternar Ambiente' : 'Minhas Lojas' }}
+                  </p>
+                  <p class="text-[11px] text-slate-400">Selecione a ótica:</p>
                 </div>
                 <button 
+                  v-if="ehSistema"
                   @click="abrirModalNovaOtica"
                   class="text-[10px] bg-purple-600 hover:bg-purple-500 text-white px-2 py-1 rounded-lg font-bold transition flex items-center gap-1"
                   title="Cadastrar Nova Ótica"
@@ -508,24 +511,23 @@ const criandoOtica = ref(false)
 const formNovaOtica = ref({ nome: '' })
 const tempoConectado = ref('00:00:00')
 let cronometro = null
-
 const authData = computed(() => page.props.auth || {})
 const perfil = computed(() => authData.value.usuarioPerfil || 'Vendedor')
 const ehSistema = computed(() => !!authData.value.ehSistema || perfil.value === 'Sistema')
-const temPermissaoAdmin = computed(() => ehSistema.value || perfil.value === 'Admin' || perfil.value === 'Gerente')
+const ehDono = computed(() => !!authData.value.ehDono || perfil.value === 'Dono')
+const temPermissaoAdmin = computed(() => ehSistema.value || ehDono.value || perfil.value === 'Admin' || perfil.value === 'Gerente')
 const nomeUsuario = computed(() => authData.value.usuarioNome || 'Colaborador')
 const fotoPerfil = computed(() => authData.value.usuarioFoto || null)
 const nomeOtica = computed(() => authData.value.oticaNome || 'Ótica RETSYS')
 const oticaIdAtual = computed(() => authData.value.oticaId || null)
 const oticasDisponiveis = computed(() => {
   const lista = authData.value.oticasDisponiveis || []
-  return lista
-    .filter(o => o && o.nome && o.nome.trim().toLowerCase() !== 'matriz')
-    .map(o => ({
-      ...o,
-      nome: o.nome.trim()
-    }))
+  return lista.map(o => ({
+    ...o,
+    nome: o.nome ? o.nome.trim() : ''
+  }))
 })
+const podeAlternarOtica = computed(() => ehSistema.value || (ehDono.value && oticasDisponiveis.value.length > 1))
 
 const itemClasses = (href, exact = false, excludes = []) => {
   const currentUrl = page.url || ''

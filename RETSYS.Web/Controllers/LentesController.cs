@@ -27,32 +27,33 @@ namespace RETSYS.Web.Controllers
         public async Task<IActionResult> Index()
         {
             var oticaId = ObterOticaId();
+            var matrizId = ObterMatrizIdEfetivo(oticaId, _context);
 
             if (oticaId != Guid.Empty)
             {
-                await GarantirLentesIniciais(oticaId);
+                await GarantirLentesIniciais(matrizId != Guid.Empty ? matrizId : oticaId);
             }
 
             var lentes = await _context.Lentes
-                .Where(l => l.OticaId == oticaId)
+                .Where(l => l.OticaId == oticaId || l.OticaId == matrizId)
                 .OrderBy(l => l.Laboratorio)
                 .ThenBy(l => l.Tipo)
                 .ToListAsync();
 
             var precos = await _context.LentesTabelaPrecos
                 .Include(p => p.Lente)
-                .Where(p => p.Ativo && p.Lente != null && p.Lente.OticaId == oticaId)
+                .Where(p => p.Ativo && p.Lente != null && (p.Lente.OticaId == oticaId || p.Lente.OticaId == matrizId))
                 .OrderBy(p => p.Lente!.Laboratorio)
                 .ToListAsync();
 
             var tratamentosSugeridos = await _context.LentesTabelaPrecos
-                .Where(lp => lp.Ativo && !string.IsNullOrEmpty(lp.Tratamento) && lp.Lente != null && lp.Lente.OticaId == oticaId)
+                .Where(lp => lp.Ativo && !string.IsNullOrEmpty(lp.Tratamento) && lp.Lente != null && (lp.Lente.OticaId == oticaId || lp.Lente.OticaId == matrizId))
                 .Select(lp => lp.Tratamento)
                 .Distinct()
                 .OrderBy(t => t)
                 .ToListAsync();
 
-            bool isAdmin = true; // Sempre permitir gestão completa da tabela da própria ótica
+            bool isAdmin = EhAdministrador();
 
             return Inertia.Render("Lentes/Index", new
             {
@@ -75,7 +76,7 @@ namespace RETSYS.Web.Controllers
                     p.Tipo,
                     p.IndiceRefracao,
                     p.Tratamento,
-                    p.PrecoCusto,
+                    PrecoCusto = isAdmin ? p.PrecoCusto : 0m,
                     p.PrecoVenda
                 }),
                 TratamentosSugeridos = tratamentosSugeridos,
@@ -97,9 +98,10 @@ namespace RETSYS.Web.Controllers
             try
             {
                 var oticaId = ObterOticaId();
+                var matrizId = ObterMatrizIdEfetivo(oticaId, _context);
 
                 var lente = await _context.Lentes
-                    .FirstOrDefaultAsync(l => l.Id == lenteId && l.OticaId == oticaId);
+                    .FirstOrDefaultAsync(l => l.Id == lenteId && (l.OticaId == oticaId || l.OticaId == matrizId));
 
                 if (lente == null)
                 {
@@ -149,9 +151,10 @@ namespace RETSYS.Web.Controllers
         public async Task<IActionResult> ListarTratamentos()
         {
             var oticaId = ObterOticaId();
+            var matrizId = ObterMatrizIdEfetivo(oticaId, _context);
 
             var tratamentos = await _context.LentesTabelaPrecos
-                .Where(lp => lp.Ativo && !string.IsNullOrEmpty(lp.Tratamento) && lp.Lente != null && lp.Lente.OticaId == oticaId)
+                .Where(lp => lp.Ativo && !string.IsNullOrEmpty(lp.Tratamento) && lp.Lente != null && (lp.Lente.OticaId == oticaId || lp.Lente.OticaId == matrizId))
                 .Select(lp => lp.Tratamento)
                 .Distinct()
                 .OrderBy(t => t)
@@ -164,9 +167,10 @@ namespace RETSYS.Web.Controllers
         public async Task<IActionResult> ObterOpcoesMatriz(Guid lenteId)
         {
             var oticaId = ObterOticaId();
+            var matrizId = ObterMatrizIdEfetivo(oticaId, _context);
 
             var opcoes = await _context.LentesTabelaPrecos
-                .Where(lp => lp.LenteId == lenteId && lp.Ativo && lp.Lente != null && lp.Lente.OticaId == oticaId)
+                .Where(lp => lp.LenteId == lenteId && lp.Ativo && lp.Lente != null && (lp.Lente.OticaId == oticaId || lp.Lente.OticaId == matrizId))
                 .Select(lp => new { lp.Tipo, lp.IndiceRefracao, lp.Tratamento })
                 .Distinct()
                 .ToListAsync();

@@ -3,6 +3,7 @@ using Microsoft.EntityFrameworkCore;
 using InertiaCore;
 using RETSYS.Infrastructure.Data;
 using RETSYS.Domain.Entities;
+using RETSYS.Domain.Enums;
 using System;
 using System.IO;
 using System.Net.Http;
@@ -38,6 +39,8 @@ namespace RETSYS.Web.Controllers
             var oticaId = ObterOticaId();
             var usuarioIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             var perfilClaim = User.FindFirst(ClaimTypes.Role)?.Value ?? "VENDEDOR";
+            bool ehVendedor = string.Equals(perfilClaim, nameof(PerfilUsuario.Vendedor), StringComparison.OrdinalIgnoreCase) || (!EhAdministrador() && !EhDono() && !EhSistema());
+            Guid.TryParse(usuarioIdClaim, out Guid vendedorLogadoId);
 
             IQueryable<OrdemServico> query = _context.OrdensServico
                 .Include(os => os.Otica)
@@ -49,12 +52,7 @@ namespace RETSYS.Web.Controllers
                 .Include(os => os.PedidoLentePor)
                 .Where(os => os.Ativo && os.OticaId == oticaId);
 
-            if (string.Equals(perfilClaim, "VENDEDOR", StringComparison.OrdinalIgnoreCase) &&
-                Guid.TryParse(usuarioIdClaim, out Guid vendedorLogadoId))
-            {
-                query = query.Where(os => os.VendedorId == vendedorLogadoId);
-            }
-            else if (vendedorId.HasValue && vendedorId.Value != Guid.Empty)
+            if (vendedorId.HasValue && vendedorId.Value != Guid.Empty && !ehVendedor)
             {
                 query = query.Where(os => os.VendedorId == vendedorId.Value);
             }
@@ -160,11 +158,13 @@ namespace RETSYS.Web.Controllers
                         ? (os.Financeiro.Armacao.ModeloReferencia + (!string.IsNullOrEmpty(os.Financeiro.Armacao.CodigoSku) ? " (" + os.Financeiro.Armacao.CodigoSku + ")" : ""))
                         : (!string.IsNullOrEmpty(os.ArmacaoModeloManual) ? os.ArmacaoModeloManual : ""),
 
-                    VendedorNome = os.Vendedor != null
-                        ? os.Vendedor.Nome
-                        : "Não informado",
+                    VendedorNome = (!ehVendedor || (os.VendedorId.HasValue && os.VendedorId.Value == vendedorLogadoId))
+                        ? (os.Vendedor != null ? os.Vendedor.Nome : "Não informado")
+                        : "Outro Vendedor",
 
-                    os.VendedorId,
+                    VendedorId = (!ehVendedor || (os.VendedorId.HasValue && os.VendedorId.Value == vendedorLogadoId))
+                        ? os.VendedorId
+                        : null,
 
                     Cliente = os.Cliente != null
                         ? new
@@ -291,34 +291,18 @@ namespace RETSYS.Web.Controllers
         // 1.1 Painel Kanban de Acompanhamento de Produção e Status de OSs
         [HttpGet("/ordens/kanban")]
         public async Task<IActionResult> Kanban(
-            [FromQuery] Guid? oticaId,
             [FromQuery] Guid? vendedorId, 
             [FromQuery] string? busca)
         {
             var perfilClaim = User.FindFirst(ClaimTypes.Role)?.Value ?? "VENDEDOR";
-            bool ehAdminOuSistema = EhSistema() || EhAdministrador();
+            bool ehVendedor = string.Equals(perfilClaim, nameof(PerfilUsuario.Vendedor), StringComparison.OrdinalIgnoreCase) || (!EhAdministrador() && !EhDono() && !EhSistema());
+            bool ehAdminOuSistema = EhSistema() || EhAdministrador() || EhDono();
 
             var oticaIdEfetivo = ObterOticaId();
-            if (oticaId.HasValue && oticaId.Value != Guid.Empty && ehAdminOuSistema)
-            {
-                var oticaEncontrada = await _context.Oticas.FirstOrDefaultAsync(o => o.Id == oticaId.Value);
-                if (oticaEncontrada != null)
-                {
-                    oticaIdEfetivo = oticaEncontrada.Id;
-                    if (EhSistema())
-                    {
-                        HttpContext.Session.SetString("OticaAtivaId", oticaIdEfetivo.ToString());
-                    }
-                }
-            }
-
             var oticaAtual = await _context.Oticas.FirstOrDefaultAsync(o => o.Id == oticaIdEfetivo);
-            var oticasDisponiveis = await _context.Oticas
-                .OrderBy(o => o.Nome)
-                .Select(o => new { o.Id, o.Nome })
-                .ToListAsync();
 
             var usuarioIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            Guid.TryParse(usuarioIdClaim, out Guid vendedorLogadoId);
 
             IQueryable<OrdemServico> query = _context.OrdensServico
                 .Include(os => os.Otica)
@@ -333,12 +317,7 @@ namespace RETSYS.Web.Controllers
                 .Include(os => os.PedidoLentePor)
                 .Where(os => os.Ativo && os.OticaId == oticaIdEfetivo);
 
-            if (string.Equals(perfilClaim, "VENDEDOR", StringComparison.OrdinalIgnoreCase) &&
-                Guid.TryParse(usuarioIdClaim, out Guid vendedorLogadoId))
-            {
-                query = query.Where(os => os.VendedorId == vendedorLogadoId);
-            }
-            else if (vendedorId.HasValue && vendedorId.Value != Guid.Empty)
+            if (vendedorId.HasValue && vendedorId.Value != Guid.Empty && !ehVendedor)
             {
                 query = query.Where(os => os.VendedorId == vendedorId.Value);
             }
@@ -382,8 +361,13 @@ namespace RETSYS.Web.Controllers
                         ? (os.Financeiro.Armacao.ModeloReferencia + (!string.IsNullOrEmpty(os.Financeiro.Armacao.CodigoSku) ? " (" + os.Financeiro.Armacao.CodigoSku + ")" : ""))
                         : (!string.IsNullOrEmpty(os.ArmacaoModeloManual) ? os.ArmacaoModeloManual : ""),
 
-                    VendedorNome = os.Vendedor != null ? os.Vendedor.Nome : "Não informado",
-                    os.VendedorId,
+                    VendedorNome = (!ehVendedor || (os.VendedorId.HasValue && os.VendedorId.Value == vendedorLogadoId))
+                        ? (os.Vendedor != null ? os.Vendedor.Nome : "Não informado")
+                        : "Outro Vendedor",
+
+                    VendedorId = (!ehVendedor || (os.VendedorId.HasValue && os.VendedorId.Value == vendedorLogadoId))
+                        ? os.VendedorId
+                        : null,
 
                     ClienteId = os.Cliente != null ? (Guid?)os.Cliente.Id : null,
                     ClienteNome = os.Cliente != null ? os.Cliente.Nome : "Cliente não identificado",
@@ -434,7 +418,7 @@ namespace RETSYS.Web.Controllers
 
             var entregues = todasOrdens
                 .Where(os => os.Status == "ENTREGUE")
-                .Take(25) // Limitar entregues recentes
+                .Take(25)
                 .ToList();
 
             // Métricas e Alertas
@@ -482,7 +466,6 @@ namespace RETSYS.Web.Controllers
                 VendedorFiltro = vendedorId,
                 BuscaFiltro = busca ?? "",
                 LojaWhatsapp = config?.WhatsappNumero ?? "",
-                OticasDisponiveis = oticasDisponiveis,
                 OticaIdAtual = oticaIdEfetivo,
                 NomeOticaAtual = oticaAtual?.Nome ?? "Ótica RETSYS",
                 EhAdminOuSistema = ehAdminOuSistema
@@ -494,21 +477,17 @@ namespace RETSYS.Web.Controllers
         public async Task<IActionResult> Criar()
         {
             var oticaId = ObterOticaId();
+            var matrizId = ObterMatrizIdEfetivo(oticaId, _context);
             var usuarioIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            var perfilClaim = User.FindFirst(ClaimTypes.Role)?.Value ?? "VENDEDOR";
+            bool ehVendedor = string.Equals(perfilClaim, nameof(PerfilUsuario.Vendedor), StringComparison.OrdinalIgnoreCase) || (!EhAdministrador() && !EhDono() && !EhSistema());
 
             IQueryable<Usuario> queryVendedores = _context.Usuarios
                 .Where(u => u.Ativo && u.OticaId == oticaId);
 
-            if (Guid.TryParse(usuarioIdClaim, out Guid usuarioLogadoId))
+            if (ehVendedor && Guid.TryParse(usuarioIdClaim, out Guid usuarioLogadoId))
             {
-                var usuarioLogado = await _context.Usuarios.FindAsync(usuarioLogadoId);
-
-                if (usuarioLogado != null &&
-                    !string.IsNullOrWhiteSpace(usuarioLogado.FilialLoja))
-                {
-                    queryVendedores = queryVendedores
-                        .Where(u => u.FilialLoja == usuarioLogado.FilialLoja);
-                }
+                queryVendedores = queryVendedores.Where(u => u.Id == usuarioLogadoId);
             }
 
             var vendedores = await queryVendedores
@@ -539,7 +518,7 @@ namespace RETSYS.Web.Controllers
 
             var lentes = await _context.LentesTabelaPrecos
                 .Include(lp => lp.Lente)
-                .Where(lp => lp.Ativo && lp.Lente != null && lp.Lente.Ativo && lp.Lente.OticaId == oticaId)
+                .Where(lp => lp.Ativo && lp.Lente != null && lp.Lente.Ativo && (lp.Lente.OticaId == oticaId || lp.Lente.OticaId == matrizId))
                 .Select(lp => new
                 {
                     lp.Id,
@@ -1580,6 +1559,11 @@ namespace RETSYS.Web.Controllers
         [HttpPost("/ordens/excluir/{id:guid}")]
         public async Task<IActionResult> Cancelar(Guid id)
         {
+            if (!EhAdministrador())
+            {
+                return Forbid();
+            }
+
             var oticaId = ObterOticaId();
 
             var ordem = await _context.OrdensServico

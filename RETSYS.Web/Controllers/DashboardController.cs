@@ -35,7 +35,7 @@ namespace RETSYS.Web.Controllers
                 return Redirect("/login");
             }
 
-            bool isAdmin = EhAdministrador() || usuarioLogado.Perfil == PerfilUsuario.Admin || usuarioLogado.Perfil == PerfilUsuario.Sistema || usuarioLogado.Perfil.ToString() == "Gerente";
+            bool isAdmin = EhAdministrador() || usuarioLogado.Perfil == PerfilUsuario.Admin || usuarioLogado.Perfil == PerfilUsuario.Dono || usuarioLogado.Perfil == PerfilUsuario.Sistema;
             Guid? vendedorIdFiltro = isAdmin ? null : usuarioLogado.Id;
 
             int mesFiltro = mes ?? DateTime.UtcNow.Month;
