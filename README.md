@@ -186,12 +186,12 @@ docker exec -it retsys_postgres_container psql -U retsys_dev -d retsys_db_prod
 ```sql
 -- 2. Consultar todas as vendedoras e as lojas onde estão vinculadas
 SELECT u."Id", u."Nome", l."Nome" AS loja_atual, u."OticaId"
-FROM "Usuarios" u
-JOIN "Oticas" l ON u."OticaId" = l."Id"
+FROM usuarios u
+JOIN oticas l ON u."OticaId" = l."Id"
 ORDER BY l."Nome", u."Nome";
 
 -- 3. Caso encontre alguma vendedora com loja_id incorreto, execute a correção:
-UPDATE "Usuarios"
+UPDATE usuarios
 SET "OticaId" = 'ID_DA_LOJA_CORRETA', "FilialLoja" = 'NOME_DA_LOJA'
 WHERE "Id" = 'ID_DA_VENDEDORA';
 
