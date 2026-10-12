@@ -152,5 +152,61 @@ Responsabilidade do Operador: O vendedor, gerente ou técnico responsável pela 
 
 Bloqueio Reativo: O botão de execução da leitura digital em Orders/Create.vue permanece bloqueado por padrão, exigindo que o funcionário marque explicitamente o checkbox de aceite do termo de responsabilidade técnica a cada novo atendimento.
 
-## 📝 6. Licença e Direitos Autorais
+## 🚀 7. Guia Operacional: Atualização na VPS e Manutenção do Banco (Docker & PostgreSQL)
+
+### 7.1 Como Atualizar a Aplicação na VPS
+Como o ecossistema roda encapsulado em containers Docker na VPS, a aplicação web (`retsys_app`) deve ser reconstruída sem cache para incorporar as novidades do frontend Vite e do backend .NET:
+
+```bash
+# 1. Acesse o diretório do projeto na VPS
+cd /caminho/do/RETSYS-New
+
+# 2. Puxe as atualizações mais recentes
+git pull origin main
+
+# 3. Reconstrua a imagem sem cache (garante compilação limpa do Vite e do .NET)
+docker compose build --no-cache retsys_app
+
+# 4. Reinicie o container da aplicação
+docker compose up -d retsys_app
+```
+
+> **Nota:** As migrações do banco (como a inclusão da coluna de log de auditoria `UltimaEdicaoLog`) são aplicadas de forma 100% automática pelo `Program.cs` na inicialização do container.
+
+### 7.2 Correção de Vínculo de Loja Incorreto (Seção 2 do Documento)
+Algumas vendedoras podem ter sido associadas à filial errada no cadastro original (ex.: vendedora que atua na loja "Parque", mas seu cadastro indica "Matriz").
+
+Para auditar e corrigir os dados no banco de produção via terminal da VPS:
+
+```bash
+# 1. Acesse a sessão interativa do PostgreSQL no container
+docker exec -it retsys_postgres_container psql -U retsys_dev -d retsys_db_prod
+```
+
+```sql
+-- 2. Consultar todas as vendedoras e as lojas onde estão vinculadas
+SELECT u."Id", u."Nome", l."Nome" AS loja_atual, u."OticaId"
+FROM "Usuarios" u
+JOIN "Oticas" l ON u."OticaId" = l."Id"
+ORDER BY l."Nome", u."Nome";
+
+-- 3. Caso encontre alguma vendedora com loja_id incorreto, execute a correção:
+UPDATE "Usuarios"
+SET "OticaId" = 'ID_DA_LOJA_CORRETA', "FilialLoja" = 'NOME_DA_LOJA'
+WHERE "Id" = 'ID_DA_VENDEDORA';
+
+-- 4. Para sair do psql:
+\q
+```
+
+### 7.3 Correção de OSs Legadas com Vínculo Errado
+Para OSs que já haviam sido emitidas com a vendedora ou loja errada antes do ajuste cadastral:
+- Basta acessar a tela de Ordens de Serviço (`/ordens`) com login de Administrador.
+- Clicar no botão `✏️` (Edição Administrativa) da OS desejada.
+- Na aba **Dados Gerais & Status**, alterar a **Loja da Venda** e/ou a **Vendedora Responsável**.
+- O sistema recalculará a comissão automaticamente e registrará o log na trilha de auditoria.
+
+---
+
+## 📝 8. Licença e Direitos Autorais
 Propriedade intelectual e código-fonte registrados sob as especificações de MVP confidencial do ecossistema RETSYS. Todos os direitos reservados. É proibida a redistribuição comercial ou cópia não autorizada da arquitetura em camadas aqui implementada. Developed with 🖤 using .NET 10 & Vue 3.

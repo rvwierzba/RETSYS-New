@@ -159,7 +159,28 @@ Este documento atua como o registro de **Memória Incremental** do projeto RETSY
 - Integridade: Migração gerada sem quebras estruturais ou perdas de dados.
 
 ### 4. Riscos / Notas para Próximas Sessões
-- Aplicar a migration `20261012120727_AddUltimaEdicaoLogNaOS` no PostgreSQL de homologação/produção antes ou durante o deploy.
+- Aplicar a migration `20261012120727_AddUltimaEdicaoLogNaOS` no PostgreSQL de homologação/produção antes ou durante o deploy (executada automaticamente pelo `Program.cs` no start do container).
+
+---
+
+## Sessão: 2026-10-12 (Tarde) - Validação dos 5 Requisitos do Documento & Runbook da VPS
+
+### 1. Status de Cobertura do Documento
+1. **Edição Completa de OS (Admin)**: 100% implementada com auditoria visual (`OsAuditoriaLog`), badge discreto (`UltimaEdicaoLog`), recálculo integral da cadeia financeira e de comissões, e trava contábil para períodos com status `FECHADO` ou `PAGO`.
+2. **Correção de Vínculo de Loja em OS**: Documentada a query e procedimento via `docker exec` no PostgreSQL e na tela de `/equipe` para alinhar vendedoras alocadas incorretamente à Matriz. Edição de OS permite reatribuir loja e vendedora retroativamente com recálculo de comissão.
+3. **Busca Rápida de OS**: Campo único com auto-detecção numérica (`NumeroOS`) ou alfanumérica (`Cliente.Nome`), debounce de 300ms e combinação com filtros de loja, status e vendedora.
+4. **Correção do Módulo de Fechamento**: Suporte multi-formato de datas (`yyyy-MM-dd`, `dd/MM/yyyy`, UTC), soma com `COALESCE`/null-coalescing (`0m`), filtro por loja e renderização segura de períodos zerados.
+5. **Emissão de Nova OS**: Sequência clínica reorganizada (1º Longe ➔ 2º Perto ➔ 3º Adição ➔ 4º Medidas Técnicas), cálculo reativo de Adição no blur com badge de edição manual e atendente bloqueado para edição (somente leitura com usuário logado).
+
+### 2. Validação de Build
+- `dotnet build`: Sucesso (0 erros).
+- `npm run build`: Sucesso (0 erros no Vite).
+
+### 3. Procedimento Operacional para a VPS
+- `git pull origin main`
+- `docker compose build --no-cache retsys_app`
+- `docker compose up -d retsys_app`
+- Comandos psql documentados para conferência de `OticaId` das vendedoras.
 
 
 
