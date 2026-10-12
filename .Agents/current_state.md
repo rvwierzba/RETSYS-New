@@ -12,11 +12,26 @@
   - Flags de controle `Ativo` e `ComissaoAtiva`.
 
 ### 1.2 Ordens de Serviço (OS) & Prescrições Ópticas
-- **Gerenciamento Completo de OS**:
+- **Gerenciamento Completo & Emissão de OS**:
   - Cadastro de novas OS com vínculo obrigatório com Cliente, Vendedor e Ótica.
+  - Vendedor amarrado automaticamente ao usuário autenticado na sessão (`VendedorId`), exibido como badge somente leitura no balcão de emissão.
+  - Sequência clínica padronizada: **1º Longe ➔ 2º Perto ➔ 3º Adição ➔ 4º Medidas Técnicas**.
+  - Automação inteligente de refração: cálculo automático de Adição ($Adicao = Perto - Longe$) no blur de longe e perto com fallback manual e badge `"ajustado manualmente"`.
   - Suporte a OS Retroativas/Históricas (`IsRetroativa = true`), permitindo cadastrar compras antigas com armação e lente descritas manualmente (`ArmacaoModeloManual`, `LenteDescricaoManual`) sem impactar o estoque atual ou caixa do dia.
   - Relacionamentos 1:1 obrigatórios com `OsReceita` e `OsFinanceiro`, e 1:N com `ParcelaPagamento`.
   - Fluxo de Status: `EM_ABERTO` ➔ `EM_LABORATORIO` ➔ `PRONTO` ➔ `ENTREGUE` (ou `CANCELADO`).
+- **Busca Rápida Unificada na Listagem (`/ordens`)**:
+  - Input único com debounce de 300ms e auto-detecção:
+    - Dígitos puros: busca exata por `NumeroOS`.
+    - Texto (≥ 3 caracteres): busca textual por `Cliente.Nome`.
+  - Seletor de filtro por unidade física (`LojaVenda`).
+- **Edição Administrativa Completa Pós-Emissão (`/ordens/editar-admin/{id}`)**:
+  - Acesso exclusivo para perfis `Admin`, `Gerente` e `Sistema`.
+  - Modal com abas: Dados Gerais (Loja, Vendedor, Datas, Status, Médico), Prescrição Clínica (Longe, Perto, Adição), Medidas Técnicas (DNP, Altura, Aro, DM, Vert, Ponte, CO) e Produtos/Valores (Armação, Lente, Desconto, Entrada, Forma de Pagamento, Parcelas).
+  - Recálculo em tempo real da cadeia financeira: $Bruto = Armacao + Lente$, $Liquido = Bruto - Desconto$, $Restante = Liquido - Entrada$.
+  - Recálculo atômico das comissões do vendedor associado com base no novo valor líquido.
+  - **Trava de Segurança Contábil**: Rejeita alterações financeiras e de data se o período de comissão correspondente estiver `FECHADO` ou `PAGO`.
+  - **Trilha de Auditoria Granular**: Grava registros imutáveis em `OsAuditoriaLog` para cada campo divergente e carimba `UltimaEdicaoLog` na OS (`"editada em dd/MM/yyyy HH:mm por [usuário]"`). Histórico de auditoria visível em tabela dedicada dentro do modal da prancheta.
 - **Controle de Pedido de Lentes**:
   - Rastreamento de lentes encomendadas ao laboratório fornecedor (`LentePedida`, `DataPedidoLente`, `PedidoLentePorId`).
   - Alerta visual no Dashboard para OS com lentes não pedidas (com destaque crítico para pendências > 24 horas).
@@ -33,6 +48,7 @@
 ### 1.4 Caixa & Fluxo de Recebimentos
 - **Terminal de Recebimentos (`/caixa`)**:
   - Listagem de parcelas a receber e recebidas (`ParcelaPagamento`).
+  - Fechamento de Caixa resiliente: parsing de datas em múltiplos formatos (`yyyy-MM-dd`, `dd/MM/yyyy`, ISO), proteção contra nulos e filtro por loja em `CaixaController` e `Admin/Fechamento/Index.vue`.
   - Baixa manual de parcelas com registro imediato da data de pagamento.
   - Integração com **OpenPix**: Geração de cobrança imediata PIX via API, retornando QR Code em imagem e string Copia-e-Cola (`PixResponseDto`).
   - Conferência de pagamentos pelo Gerente (`PagamentoConferido`, `ConferidoPorId`, `DataConferencia`).

@@ -117,5 +117,49 @@ Este documento atua como o registro de **Memória Incremental** do projeto RETSY
 ### 4. Riscos / Notas para Próximas Sessões
 - Executar a migration no PostgreSQL via Docker na VPS e rodar o script de associação cirúrgica de dados para amarrar a Matriz às filiais (Travessa Itália e Parque).
 
+---
+
+## [LOG-004] - 2026-10-12: Implementação Completa dos Ajustes Operacionais e de Auditoria da OS (Demanda PDF de 5 Páginas)
+- **Autor/Agente**: Arquiteto de Software & Assistente de IA Avançado (Antigravity)
+- **Módulos Afetados**: `RETSYS.Domain` (`OrdemServico`), `RETSYS.Infrastructure` (Migration `AddUltimaEdicaoLogNaOS`), `RETSYS.Web` (`CaixaController`, `OrdensServicoController`, `Admin/Fechamento/Index.vue`, `OrdensServico/Create.vue`, `OrdensServico/Index.vue`)
+- **Contexto & Solicitante**: Atendimento integral ao documento de 5 páginas de requisitos operacionais do cliente:
+  1. Fechamento de Caixa com tratamento de datas e valores nulos;
+  2. Edição de OS Completa pelo Admin pós-emissão com recálculo e auditoria;
+  3. Auditoria visual discreta com badge e histórico detalhado no modal da prancheta;
+  4. Ordem dos campos de receita (Longe -> Perto -> Adição -> Medidas) com cálculo automático de Adição;
+  5. Vendedora amarrada ao usuário logado na emissão e busca unificada de OS por auto-detecção.
+
+### 1. Resumo das Alterações
+- **Fechamento de Caixa (`CaixaController.cs` e `Admin/Fechamento/Index.vue`)**:
+  - Implementado parse tolerante de datas suportando múltiplos formatos (`yyyy-MM-dd`, `dd/MM/yyyy`, ISO com hora), coalescência defensiva de valores nulos e filtro por loja com fallback gracioso.
+- **Edição Completa de OS por Administrador (`OrdensServicoController.cs` - `EditarAdmin`)**:
+  - Endpoint seguro com autorização restrita para perfis `Admin`, `Gerente` e `Sistema`.
+  - Edição granular de dados gerais (`LojaVenda`, `VendedorId`, `DataEntrada`, `DataPrevistaEntrega`, `Status`, dados do médico), receita óptica (`OsReceita`), medidas técnicas e financeiro (`OsFinanceiro`).
+  - Recálculo dinâmico da cadeia financeira no backend: $Bruto = Armacao + Lente$, $Liquido = Bruto - Desconto$, $Restante = Liquido - Entrada$.
+  - Recálculo atômico e sincronização de comissões vinculadas à OS ($ValorBase = Liquido$).
+  - **Trava de Segurança Contábil**: Validação que bloqueia alterações de data ou financeiro caso o período de comissão do vendedor esteja com status `FECHADO` ou `PAGO`.
+  - **Trilha de Auditoria Granular**: Gravação em `OsAuditoriaLog` para cada campo modificado e carimbo `UltimaEdicaoLog` na OS (`"editada em dd/MM/yyyy HH:mm por [usuário]"`).
+- **Interface de Edição e Auditoria Visual (`OrdensServico/Index.vue`)**:
+  - Modal administrativo estruturado em 4 abas (Geral, Prescrição Clínica, Medidas Técnicas, Produtos & Valores) com recálculo reativo em tempo real de totais e parcelas.
+  - Badge discreto e elegante na listagem de OS indicando a última edição.
+  - Tabela completa de histórico de auditoria (`OsAuditoriaLog`) exibida na modal da prancheta com data/hora formatada, campo alterado, valor anterior, novo valor e operador.
+  - Busca rápida unificada com auto-detecção via regex: se apenas dígitos busca por `NumeroOS`; se texto (≥ 3 caracteres) busca por `Cliente.Nome`, com debounce de 300ms e filtro por filial.
+- **Prescrição Clínica & Emissão de OS (`OrdensServico/Create.vue`)**:
+  - Reorganização dos blocos de refração conforme ordem oftalmológica: **1º Longe ➔ 2º Perto ➔ 3º Adição ➔ 4º Medidas Técnicas**.
+  - Automação inteligente da Adição: ao preencher Longe e Perto, calcula automaticamente a Adição ($Adicao = Perto - Longe$) no evento `@blur`, permitindo edição manual assistida com badge de advertência `"ajustado manualmente"`.
+  - Atendente fixo: campo de vendedora amarrado obrigatoriamente ao usuário logado na sessão (`auth.user.id`), com badge de exibição somente leitura.
+
+### 2. Impacto no Banco de Dados / Entidades
+- `OrdemServico`: Adicionada coluna `UltimaEdicaoLog` (`varchar(255)` nullable).
+- Migration EF Core gerada: `20261012120727_AddUltimaEdicaoLogNaOS`.
+
+### 3. Validação e Verificação
+- Frontend: `npm run build` executado com sucesso (0 erros de compilação Vite).
+- Backend: `dotnet build` executado com sucesso (0 erros de compilação .NET 10).
+- Integridade: Migração gerada sem quebras estruturais ou perdas de dados.
+
+### 4. Riscos / Notas para Próximas Sessões
+- Aplicar a migration `20261012120727_AddUltimaEdicaoLogNaOS` no PostgreSQL de homologação/produção antes ou durante o deploy.
+
 
 

@@ -141,11 +141,21 @@
   - `LentePedida`: `bool` (Default `false`)
   - `DataPedidoLente`: `DateTime?`
   - `PedidoLentePorId`: `Guid?` (FK `usuarios`, Restrict)
+  - `DataPrevisaoLente`: `DateTime?`
+  - `LenteChegou`: `bool` (Default `false`)
+  - `DataChegadaLente`: `DateTime?`
 - **Campos para Suporte Retroativo/Histórico**:
   - `IsRetroativa`: `bool` (Default `false`)
   - `ArmacaoModeloManual`: `string?` (max 150)
   - `LenteDescricaoManual`: `string?` (max 200)
   - `Ativo`: `bool` (Default `true`)
+- **Multi-Loja & Auditoria de Edição**:
+  - `LojaVenda`: `string` (max 100, Default `Matriz`)
+  - `DataAjustadaLog`: `string?` (max 255)
+  - `DataEntradaOriginal`: `DateTime?`
+  - `UltimaEdicaoLog`: `string?` (max 255, Carimbo auditável: `"editada em dd/MM/yyyy HH:mm por [usuário]"`)
+  - `WhatsAppNotificadoCriacao`: `bool` (Default `false`)
+  - `WhatsAppNotificadoPronto`: `bool` (Default `false`)
 
 ### 2.9 `OsReceita` (Tabela: `os_receita`)
 - `OsId`: `Guid` (PK e FK `ordens_servico`, Delete Cascade - **Garante Relacionamento 1:1**)
@@ -239,6 +249,17 @@
 - `DataPagamento`: `DateTime?`
 - `FechadoPorId`: `Guid?` (FK `usuarios`, Restrict)
 
+### 2.16 `OsAuditoriaLog` (Tabela: `os_auditoria_logs`)
+- `Id`: `Guid` (PK)
+- `OticaId`: `Guid` (FK `oticas`, Restrict)
+- `OrdemServicoId`: `Guid` (FK `ordens_servico`, Delete Cascade)
+- `UsuarioId`: `Guid` (FK `usuarios`, Restrict)
+- `DataAlteracao`: `DateTime` (Default `UtcNow`)
+- `CampoAlterado`: `string` (max 100, Obrigatório - Ex: `DataEntrada`, `ValorTotalLiquido`, `DescontoReais`, `OdEsferico`, `ArmacaoId`, etc.)
+- `ValorAntigo`: `string?` (max 500)
+- `ValorNovo`: `string?` (max 500)
+- `Descricao`: `string` (max 500, Justificativa ou detalhe do campo alterado)
+
 ---
 
 ## 3. Mapeamento Detalhado dos Enums
@@ -246,8 +267,10 @@
 ### 3.1 `PerfilUsuario` (`RETSYS.Domain.Enums.PerfilUsuario`)
 - **Tipo de Armazenamento**: Inteiro (`int`).
 - **Valores**:
-  - `1`: `Admin` (Acesso irrestrito a configurações, comissões globais, relatórios e cancelamentos).
-  - `2`: `Vendedor` (Acesso restrito a vendas próprias, balcão e consulta de extrato individual).
+  - `1`: `Admin` (Acesso irrestrito a configurações, comissões globais, edição de OS, relatórios e cancelamentos).
+  - `2`: `Vendedor` (Acesso a vendas próprias, balcão e consulta de extrato individual).
+  - `3`: `Sistema` ("Deus"/homologação: acesso irrestrito e chaveamento dinâmico entre quaisquer óticas).
+  - `4`: `Dono` (Gestão multi-loja de toda a rede: visualização consolidada e alternância entre Matriz e Filiais).
 
 ### 3.2 `MetodoPagamento` (`RETSYS.Domain.Enums.MetodoPagamento`)
 - **Tipo de Armazenamento**: String (`string`).

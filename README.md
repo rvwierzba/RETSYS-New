@@ -8,23 +8,37 @@ Bem-vindo ao repositório oficial do **RETSYS Web v2**, um ecossistema de softwa
 
 Ao contrário de sistemas tradicionais de mercado que operam de forma isolada e reativa, o RETSYS Web v2 atua como o centro de inteligência do estabelecimento através de quatro pilares de inovação computacional:
 
-### A. Automação de Cálculo de Refração
-O sistema elimina o risco de erro humano na interpretação de receitas. O backend em C# possui um motor de regras óticas que calcula de forma totalmente autônoma o grau esférico de perto do paciente. O cálculo utiliza a fórmula técnica padrão cruzando as dioptrias de longe com o fator de Adição para presbiopia:
+### A. Automação de Cálculo de Refração & Sequência Clínica
+O sistema elimina o risco de erro humano na interpretação de receitas. O formulário de atendimento segue a ordem oftalmológica clínica padronizada: **1º Longe ➔ 2º Perto ➔ 3º Adição ➔ 4º Medidas Técnicas**.
+Ao preencher os graus de longe e perto, o sistema calcula a Adição automaticamente ($Adicao = Perto - Longe$) via evento `@blur`, permitindo edição manual assistida com feedback visual imediato. No backend, a relação entre dioptrias e adição é preservada com consistência matemática estrita:
 - $EsfericoPerto = EsfericoLonge + Adicao$
 
-### B. Assistente OCR por Inteligência Artificial Local (Ollama + Moondream)
+### B. Edição Administrativa Completa com Auditoria & Blindagem Contábil
+Ordens de Serviço emitidas podem ser integralmente ajustadas por usuários com perfil `Admin`, `Gerente` ou `Sistema`:
+- **Recálculo em Tempo Real:** Alterações em armações, lentes ou descontos recalculam automaticamente $Bruto = Armacao + Lente$, $Liquido = Bruto - Desconto$ e $Restante = Liquido - Entrada$.
+- **Sincronização de Comissões:** As comissões da vendedora vinculada são recalculadas atomicamente com base no novo valor líquido faturado.
+- **Trava de Segurança Contábil:** O sistema impede edições de data ou valores caso o período de comissão do vendedor já esteja com status `FECHADO` ou `PAGO`.
+- **Trilha de Auditoria Granular:** Cada campo modificado gera um registro imutável em `OsAuditoriaLog` (campo, valor anterior, novo valor, operador, data/hora e justificativa), além de carimbar a OS com o badge informativo `UltimaEdicaoLog`.
+
+### C. Busca Rápida Unificada com Auto-Detecção
+A listagem de OS conta com mecanismo de busca inteligente com debounce de 300ms:
+- **Dígitos Numéricos:** Localiza instantaneamente a OS exata pelo seu número (`NumeroOS`).
+- **Texto Alfanumérico (≥ 3 caracteres):** Realiza busca textual em tempo real no nome do cliente.
+- **Filtro Multi-Loja:** Filtragem rápida por filial física para redes óticas integradas.
+
+### D. Assistente OCR por Inteligência Artificial Local (Ollama + Moondream)
 Um dos maiores diferenciais competitivos do MVP é o scanner inteligente de receitas. Utilizando o **Ollama** com o modelo de visão multimodal **Moondream (1.4B parâmetros)** encapsulado localmente, o operador faz o upload da foto da receita (computadorizada ou manuscrita) e o sistema extrai automaticamente os eixos, cilíndricos e esféricos diretamente para os campos do formulário Vue 3. Isso garante:
 - **Custo zero de infraestrutura:** Sem taxas abusivas por requisição em APIs como OpenAI ou Google Vision.
 - **Soberania e Privacidade:** Os dados de refração dos clientes nunca deixam o servidor local da empresa.
 
-### C. Terminal de Checkout Duplo Interativo (OpenPix & Contingência)
+### E. Terminal de Checkout Duplo Interativo (OpenPix & Contingência)
 O caixa possui uma interface de checkout integrada ao ecossistema **OpenPix**. Quando ativado por chave de API, o sistema gera instantaneamente um QR Code dinâmico com o código EMV "Copia e Cola" associado ao valor exato da parcela do crediário. 
 O frontend em Vue 3 inicia um monitoramento duplo em tempo real:
 - Escuta ativa via **Webhooks** no backend.
 - Mecanismo de **Polling reativo** (consultas automatizadas a cada 3 segundos) como fallback de segurança.
 - **Modo Contingência:** Se a filial operar sem internet ou sem token de API, o terminal chaveia automaticamente para o formato de baixa manual tradicional (Dinheiro/Cartão físico).
 
-### D. Prontuário Ótico Temporal (Linha do Tempo)
+### F. Prontuário Ótico Temporal (Linha do Tempo)
 Cada cliente possui uma ficha histórica exclusiva. Quando um paciente retorna à ótica, o vendedor consegue examinar graficamente a evolução das dioptrias (graus) ao longo dos anos, permitindo uma venda técnica e consultiva baseada no histórico de receitas do cliente.
 
 ---
@@ -92,7 +106,7 @@ RETSYS-New/
             ├── Auth/Login.vue        # Login imersivo com controle de loading e shake-animation
             ├── Dashboard/Index.vue   # KPI Cards, desempenho de vendedores e faturamento de filiais
             ├── Clientes/             # Index.vue (Busca por debounce) e Historico.vue (Timeline de receitas)
-            ├── OrensServico/               # Index.vue (Prancheta de OS) e Create.vue (Abertura + Motor IA)
+            ├── OrdensServico/            # Index.vue (Prancheta de OS, Edição Admin e Auditoria) e Create.vue (Abertura + Sequência Clínica + Motor IA)
             ├── Laboratory/Index.vue  # Interface do laboratório ótico (Cards de oficina)
             ├── Caixa/Index.vue       # Painel financeiro, monitoramento PIX e checkout de balcão
             └── Configuracoes/Index.vue # Ajustes cadastrais e colagem de tokens da OpenPix
