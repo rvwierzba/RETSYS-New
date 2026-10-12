@@ -218,6 +218,8 @@ namespace RETSYS.Infrastructure.Data
                  .IsRequired(false)
                  .OnDelete(DeleteBehavior.Restrict);
 
+                b.Property(os => os.UltimaEdicaoLog).HasMaxLength(250);
+
                 // NumeroOS único POR ÓTICA (trava de duplicidade no balcão)
                 b.HasIndex(os => new { os.OticaId, os.NumeroOS }).IsUnique();
             });

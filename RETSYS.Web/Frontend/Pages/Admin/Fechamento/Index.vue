@@ -12,6 +12,20 @@
         </div>
 
         <div class="flex flex-wrap items-center gap-2">
+          <!-- Filtro por Loja (quando houver mais de uma) -->
+          <div v-if="listaLojas.length > 1" class="flex items-center">
+            <select 
+              v-model="filtros.lojaId" 
+              @change="filtrarLoja"
+              class="rounded-xl border-slate-200 text-xs font-mono font-bold bg-slate-50 py-2 px-3 focus:ring-0 text-slate-800"
+            >
+              <option value="">🏢 Todas as Lojas</option>
+              <option v-for="l in listaLojas" :key="l.id || l.Id" :value="l.id || l.Id">
+                {{ l.nome || l.Nome }}
+              </option>
+            </select>
+          </div>
+
           <!-- Botões Rápidos de Período -->
           <button 
             @click="filtrarAtalho('hoje')" 
@@ -295,7 +309,7 @@
 </template>
 
 <script setup>
-import { reactive, computed } from 'vue'
+import { reactive, computed, watch } from 'vue'
 import { router } from '@inertiajs/vue3'
 import AuthenticatedLayout from '../../../Shared/AuthenticatedLayout.vue'
 
@@ -303,6 +317,8 @@ const props = defineProps({
   DataInicio: String, dataInicio: String,
   DataFim: String, dataFim: String,
   TipoPeriodo: String, tipoPeriodo: String,
+  LojaIdSelecionada: [String, Object], lojaIdSelecionada: [String, Object],
+  Lojas: Array, lojas: Array,
   Totais: Object, totais: Object,
   ResumoFormasPagamento: Array, resumoFormasPagamento: Array,
   ResumoTiposVenda: Array, resumoTiposVenda: Array,
@@ -314,10 +330,33 @@ const props = defineProps({
 const filtros = reactive({
   dataInicio: props.DataInicio ?? props.dataInicio ?? new Date().toISOString().split('T')[0],
   dataFim: props.DataFim ?? props.dataFim ?? new Date().toISOString().split('T')[0],
-  tipoPeriodo: props.TipoPeriodo ?? props.tipoPeriodo ?? 'hoje'
+  tipoPeriodo: props.TipoPeriodo ?? props.tipoPeriodo ?? 'hoje',
+  lojaId: props.LojaIdSelecionada ?? props.lojaIdSelecionada ?? ''
 })
 
-const totais = computed(() => props.Totais ?? props.totais ?? {})
+const listaLojas = computed(() => props.Lojas ?? props.lojas ?? [])
+
+watch(() => [props.DataInicio, props.dataInicio, props.DataFim, props.dataFim, props.TipoPeriodo, props.tipoPeriodo, props.LojaIdSelecionada, props.lojaIdSelecionada], () => {
+  filtros.dataInicio = props.DataInicio ?? props.dataInicio ?? filtros.dataInicio
+  filtros.dataFim = props.DataFim ?? props.dataFim ?? filtros.dataFim
+  filtros.tipoPeriodo = props.TipoPeriodo ?? props.tipoPeriodo ?? filtros.tipoPeriodo
+  filtros.lojaId = props.LojaIdSelecionada ?? props.lojaIdSelecionada ?? filtros.lojaId
+})
+
+const totais = computed(() => ({
+  totalVendidoLiquido: 0,
+  totalRecebidoCaixa: 0,
+  totalEntradasRecebidas: 0,
+  totalRetiradasRecebidas: 0,
+  totalAReceberRestante: 0,
+  totalDescontosReais: 0,
+  qtdOS: 0,
+  ticketMedio: 0,
+  totalConferido: 0,
+  totalPendenteConferencia: 0,
+  ...(props.Totais ?? props.totais ?? {})
+}))
+
 const resumoFormas = computed(() => props.ResumoFormasPagamento ?? props.resumoFormasPagamento ?? [])
 const resumoTipos = computed(() => props.ResumoTiposVenda ?? props.resumoTiposVenda ?? [])
 const resumoVendedoresList = computed(() => props.ResumoVendedores ?? props.resumoVendedores ?? [])
@@ -326,12 +365,26 @@ const canceladasList = computed(() => props.OrdensCanceladas ?? props.ordensCanc
 
 const filtrarAtalho = (tipo) => {
   filtros.tipoPeriodo = tipo
-  router.get('/caixa/fechamento', { tipoPeriodo: tipo }, { preserveState: true })
+  const params = { tipoPeriodo: tipo }
+  if (filtros.lojaId) params.lojaId = filtros.lojaId
+  router.get('/caixa/fechamento', params, { preserveState: true })
 }
 
 const filtrarCustomizado = () => {
   filtros.tipoPeriodo = 'custom'
-  router.get('/caixa/fechamento', { dataInicio: filtros.dataInicio, dataFim: filtros.dataFim }, { preserveState: true })
+  const params = { dataInicio: filtros.dataInicio, dataFim: filtros.dataFim }
+  if (filtros.lojaId) params.lojaId = filtros.lojaId
+  router.get('/caixa/fechamento', params, { preserveState: true })
+}
+
+const filtrarLoja = () => {
+  const params = { 
+    tipoPeriodo: filtros.tipoPeriodo,
+    dataInicio: filtros.dataInicio,
+    dataFim: filtros.dataFim
+  }
+  if (filtros.lojaId) params.lojaId = filtros.lojaId
+  router.get('/caixa/fechamento', params, { preserveState: true })
 }
 
 const alternarConferencia = (osId) => {

@@ -632,6 +632,10 @@ namespace RETSYS.Infrastructure.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)");
 
+                    b.Property<string>("UltimaEdicaoLog")
+                        .HasMaxLength(250)
+                        .HasColumnType("character varying(250)");
+
                     b.Property<Guid?>("VendedorId")
                         .HasColumnType("uuid");
 

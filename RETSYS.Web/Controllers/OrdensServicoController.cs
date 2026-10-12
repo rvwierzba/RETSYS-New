@@ -34,13 +34,20 @@ namespace RETSYS.Web.Controllers
             [FromQuery] string? filtroLentePedida,
             [FromQuery] string? filtroAtraso,
             [FromQuery] string? filtroStatus,
-            [FromQuery] Guid? vendedorId)
+            [FromQuery] Guid? vendedorId,
+            [FromQuery] string? busca,
+            [FromQuery] Guid? lojaId)
         {
             var oticaId = ObterOticaId();
+            var idsRede = ObterIdsOticasDaRede(oticaId, _context);
             var usuarioIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             var perfilClaim = User.FindFirst(ClaimTypes.Role)?.Value ?? "VENDEDOR";
             bool ehVendedor = string.Equals(perfilClaim, nameof(PerfilUsuario.Vendedor), StringComparison.OrdinalIgnoreCase) || (!EhAdministrador() && !EhDono() && !EhSistema());
             Guid.TryParse(usuarioIdClaim, out Guid vendedorLogadoId);
+
+            Guid? lojaAlvoId = (lojaId.HasValue && lojaId.Value != Guid.Empty) 
+                ? lojaId.Value 
+                : (oticaId != Guid.Empty && !EhSistema() && !EhDono() ? oticaId : null);
 
             IQueryable<OrdemServico> query = _context.OrdensServico
                 .Include(os => os.Otica)
@@ -50,7 +57,39 @@ namespace RETSYS.Web.Controllers
                 .Include(os => os.Financeiro)
                 .Include(os => os.Parcelas)
                 .Include(os => os.PedidoLentePor)
-                .Where(os => os.Ativo && os.OticaId == oticaId);
+                .Where(os => os.Ativo);
+
+            if (lojaAlvoId.HasValue)
+            {
+                query = query.Where(os => os.OticaId == lojaAlvoId.Value);
+            }
+            else if (!EhSistema() && idsRede.Any())
+            {
+                query = query.Where(os => idsRede.Contains(os.OticaId));
+            }
+            else if (oticaId != Guid.Empty)
+            {
+                query = query.Where(os => os.OticaId == oticaId);
+            }
+
+            if (!string.IsNullOrWhiteSpace(busca))
+            {
+                var termo = busca.Trim();
+                bool apenasDigitos = termo.All(char.IsDigit);
+
+                if (apenasDigitos)
+                {
+                    query = query.Where(os => 
+                        os.NumeroOS == termo || 
+                        os.NumeroOS.EndsWith(termo) || 
+                        os.NumeroOS.Contains(termo));
+                }
+                else
+                {
+                    var termoLower = termo.ToLower();
+                    query = query.Where(os => os.Cliente != null && os.Cliente.Nome.ToLower().Contains(termoLower));
+                }
+            }
 
             if (vendedorId.HasValue && vendedorId.Value != Guid.Empty && !ehVendedor)
             {
@@ -136,6 +175,7 @@ namespace RETSYS.Web.Controllers
                     os.DataEntregaReal,
                     os.Status,
                     os.LojaVenda,
+                    os.UltimaEdicaoLog,
                     Medico = os.MedicoNome,
                     os.MedicoCrm,
                     os.MedicoTipo,
@@ -267,8 +307,15 @@ namespace RETSYS.Web.Controllers
                 })
                 .ToListAsync();
 
+            IQueryable<Otica> queryLojas = _context.Oticas.AsNoTracking();
+            if (!EhSistema() && idsRede.Any())
+            {
+                queryLojas = queryLojas.Where(o => idsRede.Contains(o.Id));
+            }
+            var lojas = await queryLojas.OrderBy(l => l.Nome).Select(l => new { l.Id, l.Nome }).ToListAsync();
+
             var vendedores = await _context.Usuarios
-                .Where(u => u.Ativo && u.OticaId == oticaId)
+                .Where(u => u.Ativo && (idsRede.Contains(u.OticaId) || u.OticaId == oticaId))
                 .OrderBy(u => u.Nome)
                 .Select(u => new
                 {
@@ -281,10 +328,13 @@ namespace RETSYS.Web.Controllers
             {
                 Ordens = ordens,
                 Vendedores = vendedores,
+                Lojas = lojas,
                 FiltroAtivo = filtroComposicao ?? "total",
                 FiltroLentePedida = filtroLentePedida ?? "",
                 VendedorFiltro = vendedorId,
-                TotalFiltroAtivo = totalFiltroAtivo
+                TotalFiltroAtivo = totalFiltroAtivo,
+                Busca = busca ?? "",
+                LojaId = lojaAlvoId
             });
         }
 
@@ -531,13 +581,19 @@ namespace RETSYS.Web.Controllers
                 .ToListAsync();
 
             string proximoNumeroOS = await GerarProximoNumeroOsAsync(oticaId);
+            var usuarioNomeClaim = User.FindFirst(ClaimTypes.Name)?.Value ?? "Colaborador(a)";
+            Guid.TryParse(usuarioIdClaim, out Guid idLogado);
+            var usuarioLogado = await _context.Usuarios.FirstOrDefaultAsync(u => u.Id == idLogado);
+            string nomeVendedoraExibicao = usuarioLogado?.Nome ?? usuarioNomeClaim;
 
             return Inertia.Render("OrdensServico/Create", new
             {
                 ProximoNumeroOS = proximoNumeroOS,
                 Vendedores = vendedores,
                 Armacoes = armacoes,
-                Lentes = lentes
+                Lentes = lentes,
+                UsuarioLogadoId = idLogado != Guid.Empty ? idLogado.ToString() : null,
+                UsuarioLogadoNome = nomeVendedoraExibicao
             });
         }
 
@@ -595,10 +651,32 @@ namespace RETSYS.Web.Controllers
             try
             {
                 var oticaId = ObterOticaId();
+                var idsRede = ObterIdsOticasDaRede(oticaId, _context);
                 var perfilClaim = User.FindFirst(ClaimTypes.Role)?.Value ?? "VENDEDOR";
                 var usuarioIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                Guid.TryParse(usuarioIdClaim, out Guid usuarioLogadoId);
 
-                if (!Guid.TryParse(formCollection["vendedorId"].ToString(), out Guid vendedorId))
+                bool ehAdminOuGerente =
+                    string.Equals(perfilClaim, "ADMIN", StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(perfilClaim, "GERENTE", StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(perfilClaim, "SISTEMA", StringComparison.OrdinalIgnoreCase);
+
+                Guid vendedorId = Guid.Empty;
+                if (!ehAdminOuGerente)
+                {
+                    // Vendedora padrão SEMPRE emite com seu próprio usuário (Seção 5.3)
+                    vendedorId = usuarioLogadoId;
+                }
+                else if (Guid.TryParse(formCollection["vendedorId"].ToString(), out Guid vIdParsed) && vIdParsed != Guid.Empty)
+                {
+                    vendedorId = vIdParsed;
+                }
+                else
+                {
+                    vendedorId = usuarioLogadoId;
+                }
+
+                if (vendedorId == Guid.Empty)
                 {
                     return BadRequest(new
                     {
@@ -607,28 +685,13 @@ namespace RETSYS.Web.Controllers
                 }
 
                 var vendedor = await _context.Usuarios
-                    .FirstOrDefaultAsync(u => u.Id == vendedorId && u.OticaId == oticaId);
+                    .FirstOrDefaultAsync(u => u.Id == vendedorId && (u.OticaId == oticaId || idsRede.Contains(u.OticaId)));
 
                 if (vendedor == null || !vendedor.Ativo)
                 {
                     return BadRequest(new
                     {
                         mensagem = "Vendedora não localizada ou inativa."
-                    });
-                }
-
-                bool ehAdminOuGerente =
-                    string.Equals(perfilClaim, "ADMIN", StringComparison.OrdinalIgnoreCase) ||
-                    string.Equals(perfilClaim, "GERENTE", StringComparison.OrdinalIgnoreCase) ||
-                    string.Equals(perfilClaim, "SISTEMA", StringComparison.OrdinalIgnoreCase);
-
-                if (!ehAdminOuGerente &&
-                    (!Guid.TryParse(usuarioIdClaim, out Guid usuarioLogadoId) ||
-                     usuarioLogadoId != vendedorId))
-                {
-                    return StatusCode(StatusCodes.Status403Forbidden, new
-                    {
-                        mensagem = "Você só pode emitir Ordens de Serviço vinculadas ao seu próprio usuário."
                     });
                 }
 
@@ -1831,102 +1894,351 @@ namespace RETSYS.Web.Controllers
             return Ok(resultado);
         }
 
-        // 9. Edição Administrativa Exclusiva da OS pós-emissão (Admin / Gerente)
+        // 9. Edição Administrativa Completa da OS pós-emissão (Exclusivo Admin / Gerente - Seção 1 do PDF)
         [HttpPost("/ordens/editar-admin/{id:guid}")]
         public async Task<IActionResult> EditarAdmin(
             Guid id,
             [FromBody] EditarAdminRequest? jsonModel)
         {
             var oticaId = ObterOticaId();
-            var perfilClaim = User.FindFirst(ClaimTypes.Role)?.Value ?? "VENDEDOR";
-            bool ehAdminOuGerente = string.Equals(perfilClaim, "ADMIN", StringComparison.OrdinalIgnoreCase) ||
-                                    string.Equals(perfilClaim, "GERENTE", StringComparison.OrdinalIgnoreCase) ||
-                                    string.Equals(perfilClaim, "SISTEMA", StringComparison.OrdinalIgnoreCase);
+            var idsRede = ObterIdsOticasDaRede(oticaId, _context);
 
-            if (!ehAdminOuGerente)
+            if (!EhAdministrador())
             {
-                Inertia.Share("erro", "Apenas Administradores ou Gerentes podem editar dados de lançamento de OS.");
+                Inertia.Share("erro", "Apenas Administradores ou Gerentes podem editar dados de OS já emitidas.");
                 return RedirectToAction(nameof(Index));
             }
 
-            DateTime? dataAlvo = jsonModel?.NovaDataEntrada;
-            string? motivoAlvo = jsonModel?.Motivo;
-
-            if (!dataAlvo.HasValue && Request.HasFormContentType)
-            {
-                if (DateTime.TryParse(Request.Form["novaDataEntrada"].ToString(), out var dtForm))
-                {
-                    dataAlvo = dtForm;
-                }
-                if (string.IsNullOrWhiteSpace(motivoAlvo))
-                {
-                    motivoAlvo = Request.Form["motivo"].ToString();
-                }
-            }
-
             var os = await _context.OrdensServico
+                .Include(o => o.Cliente)
                 .Include(o => o.Vendedor)
                 .Include(o => o.Financeiro)
-                .FirstOrDefaultAsync(o => o.Id == id && o.OticaId == oticaId && o.Ativo);
+                .Include(o => o.Receita)
+                .Include(o => o.Parcelas)
+                .FirstOrDefaultAsync(o => o.Id == id && o.Ativo);
 
             if (os == null)
             {
                 return NotFound();
             }
 
-            if (dataAlvo.HasValue && dataAlvo.Value.Date != os.DataEntrada.Date)
+            if (!EhSistema() && os.OticaId != oticaId && !idsRede.Contains(os.OticaId))
             {
-                string periodoAntigo = os.DataEntrada.ToString("yyyy-MM");
-                string periodoNovo = dataAlvo.Value.ToString("yyyy-MM");
+                return Forbid();
+            }
 
-                bool periodoBloqueado = await _context.FechamentosComissao
-                    .Include(f => f.Vendedor)
-                    .AnyAsync(f => f.Vendedor.OticaId == oticaId 
-                                && (f.PeriodoReferencia == periodoAntigo || f.PeriodoReferencia == periodoNovo) 
-                                && (f.Status == "FECHADO" || f.Status == "PAGO"));
+            var model = jsonModel ?? new EditarAdminRequest();
 
-                if (periodoBloqueado)
+            var usuarioIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            var usuarioNomeClaim = User.FindFirst(ClaimTypes.Name)?.Value ?? "Admin";
+            Guid.TryParse(usuarioIdClaim, out Guid usuarioLogadoId);
+            string motivoLog = !string.IsNullOrWhiteSpace(model.Motivo) ? model.Motivo.Trim() : "Edição Administrativa pós-emissão";
+
+            // 1. TRAVA DE PERÍODO FECHADO (Regra 5 do PDF)
+            string periodoAntigo = os.DataEntrada.ToString("yyyy-MM");
+            string? periodoNovo = model.NovaDataEntrada.HasValue ? model.NovaDataEntrada.Value.ToString("yyyy-MM") : null;
+
+            bool periodoBloqueado = await _context.FechamentosComissao
+                .Include(f => f.Vendedor)
+                .AnyAsync(f => (f.Vendedor.OticaId == os.OticaId || (os.VendedorId.HasValue && f.VendedorId == os.VendedorId.Value))
+                            && (f.PeriodoReferencia == periodoAntigo || (periodoNovo != null && f.PeriodoReferencia == periodoNovo))
+                            && (f.Status == "FECHADO" || f.Status == "PAGO"));
+
+            bool alterouData = model.NovaDataEntrada.HasValue && model.NovaDataEntrada.Value.Date != os.DataEntrada.Date;
+            bool alterouValor = model.ValorTotalLiquido.HasValue && os.Financeiro != null && Math.Abs(model.ValorTotalLiquido.Value - os.Financeiro.ValorTotalLiquido) > 0.01m;
+
+            if (periodoBloqueado && (alterouData || alterouValor))
+            {
+                Inertia.Share("erro", "Alteração bloqueada: Esta Ordem de Serviço pertence a um período de comissões já FECHADO ou PAGO! Alterações de data e valor são proibidas.");
+                return RedirectToAction(nameof(Index));
+            }
+
+            int logsCriados = 0;
+            void RegistrarLog(string campo, string? antigo, string? novo)
+            {
+                string strAntigo = antigo?.Trim() ?? "";
+                string strNovo = novo?.Trim() ?? "";
+                if (!string.Equals(strAntigo, strNovo, StringComparison.OrdinalIgnoreCase))
                 {
-                    Inertia.Share("erro", "Alteração bloqueada: o período de comissão deste mês já se encontra FECHADO ou PAGO!");
-                    return RedirectToAction(nameof(Index));
+                    _context.OsAuditoriaLogs.Add(new OsAuditoriaLog
+                    {
+                        Id = Guid.NewGuid(),
+                        OticaId = os.OticaId,
+                        OrdemServicoId = os.Id,
+                        UsuarioId = usuarioLogadoId != Guid.Empty ? usuarioLogadoId : (os.VendedorId ?? Guid.Empty),
+                        DataAlteracao = DateTime.UtcNow,
+                        CampoAlterado = campo,
+                        ValorAntigo = string.IsNullOrEmpty(strAntigo) ? "(vazio)" : strAntigo,
+                        ValorNovo = string.IsNullOrEmpty(strNovo) ? "(vazio)" : strNovo,
+                        Descricao = $"{campo} alterado de '{strAntigo}' para '{strNovo}' por {usuarioNomeClaim}. Motivo: {motivoLog}"
+                    });
+                    logsCriados++;
                 }
+            }
 
-                var usuarioIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-                var usuarioNomeClaim = User.FindFirst(ClaimTypes.Name)?.Value ?? "Admin";
-                Guid.TryParse(usuarioIdClaim, out Guid usuarioLogadoId);
-
-                var log = new OsAuditoriaLog
+            // DADOS GERAIS
+            if (!string.IsNullOrWhiteSpace(model.NumeroOS) && model.NumeroOS.Trim() != os.NumeroOS)
+            {
+                string novoNumero = model.NumeroOS.Trim();
+                bool existe = await _context.OrdensServico.AnyAsync(o => o.Id != os.Id && o.NumeroOS == novoNumero && o.OticaId == os.OticaId && o.Ativo);
+                if (!existe)
                 {
-                    OticaId = oticaId,
-                    OrdemServicoId = os.Id,
-                    UsuarioId = usuarioLogadoId != Guid.Empty ? usuarioLogadoId : (os.VendedorId ?? Guid.Empty),
-                    CampoAlterado = "DataEntrada",
-                    ValorAntigo = os.DataEntrada.ToString("yyyy-MM-dd"),
-                    ValorNovo = dataAlvo.Value.ToString("yyyy-MM-dd"),
-                    Descricao = $"Data de entrada alterada por {usuarioNomeClaim}. Motivo: {motivoAlvo ?? "Ajuste administrativo"}"
-                };
-                _context.OsAuditoriaLogs.Add(log);
+                    RegistrarLog("Número da OS", os.NumeroOS, novoNumero);
+                    os.NumeroOS = novoNumero;
+                }
+            }
 
+            if (model.NovaDataEntrada.HasValue && model.NovaDataEntrada.Value.Date != os.DataEntrada.Date)
+            {
+                RegistrarLog("Data de Lançamento", os.DataEntrada.ToString("dd/MM/yyyy"), model.NovaDataEntrada.Value.ToString("dd/MM/yyyy"));
                 if (!os.DataEntradaOriginal.HasValue)
                 {
                     os.DataEntradaOriginal = os.DataEntrada;
                 }
-
                 var horaOriginal = os.DataEntrada.TimeOfDay;
-                os.DataEntrada = DateTime.SpecifyKind(dataAlvo.Value.Date.Add(horaOriginal), DateTimeKind.Utc);
-                os.DataAjustadaLog = $"data ajustada em {DateTime.UtcNow:dd/MM} por {usuarioNomeClaim}";
-
-                var comissoes = await _context.Comissoes.Where(c => c.OrdemServicoId == os.Id).ToListAsync();
-                foreach (var c in comissoes)
-                {
-                    c.PeriodoReferencia = periodoNovo;
-                    c.DataGeracao = os.DataEntrada;
-                }
-
-                await _context.SaveChangesAsync();
+                os.DataEntrada = DateTime.SpecifyKind(model.NovaDataEntrada.Value.Date.Add(horaOriginal), DateTimeKind.Utc);
+                os.DataAjustadaLog = $"data ajustada em {DateTime.UtcNow.AddHours(-3):dd/MM} por {usuarioNomeClaim}";
             }
 
+            if (model.DataPrevistaEntrega.HasValue && model.DataPrevistaEntrega.Value.Date != os.DataPrevistaEntrega.Date)
+            {
+                RegistrarLog("Data Prevista de Entrega", os.DataPrevistaEntrega.ToString("dd/MM/yyyy"), model.DataPrevistaEntrega.Value.ToString("dd/MM/yyyy"));
+                os.DataPrevistaEntrega = DateTime.SpecifyKind(model.DataPrevistaEntrega.Value.Date, DateTimeKind.Utc);
+            }
+
+            if (model.DataEntregaReal.HasValue && (!os.DataEntregaReal.HasValue || model.DataEntregaReal.Value.Date != os.DataEntregaReal.Value.Date))
+            {
+                RegistrarLog("Data de Entrega Real", os.DataEntregaReal?.ToString("dd/MM/yyyy"), model.DataEntregaReal.Value.ToString("dd/MM/yyyy"));
+                os.DataEntregaReal = DateTime.SpecifyKind(model.DataEntregaReal.Value.Date, DateTimeKind.Utc);
+            }
+
+            if (!string.IsNullOrWhiteSpace(model.LojaVenda) && model.LojaVenda.Trim() != os.LojaVenda)
+            {
+                RegistrarLog("Loja da Venda", os.LojaVenda, model.LojaVenda.Trim());
+                os.LojaVenda = model.LojaVenda.Trim();
+            }
+
+            if (model.OticaId.HasValue && model.OticaId.Value != Guid.Empty && model.OticaId.Value != os.OticaId)
+            {
+                var novaOtica = await _context.Oticas.FirstOrDefaultAsync(o => o.Id == model.OticaId.Value);
+                if (novaOtica != null)
+                {
+                    RegistrarLog("Unidade/Loja Vínculo", os.Otica?.Nome ?? os.LojaVenda, novaOtica.Nome);
+                    os.OticaId = novaOtica.Id;
+                    os.LojaVenda = novaOtica.Nome;
+                }
+            }
+
+            Usuario? novoVendedor = null;
+            if (model.VendedorId.HasValue && model.VendedorId.Value != Guid.Empty && model.VendedorId.Value != os.VendedorId)
+            {
+                novoVendedor = await _context.Usuarios.FirstOrDefaultAsync(u => u.Id == model.VendedorId.Value);
+                if (novoVendedor != null)
+                {
+                    RegistrarLog("Vendedora Responsável", os.Vendedor?.Nome, novoVendedor.Nome);
+                    os.VendedorId = novoVendedor.Id;
+                }
+            }
+
+            if (model.MedicoNome != null)
+            {
+                RegistrarLog("Médico", os.MedicoNome, model.MedicoNome);
+                os.MedicoNome = model.MedicoNome;
+            }
+
+            if (model.MedicoCrm != null)
+            {
+                RegistrarLog("CRM", os.MedicoCrm, model.MedicoCrm);
+                os.MedicoCrm = model.MedicoCrm;
+            }
+
+            if (model.MedicoTipo != null)
+            {
+                RegistrarLog("Tipo de Profissional", os.MedicoTipo, model.MedicoTipo);
+                os.MedicoTipo = model.MedicoTipo;
+            }
+
+            if (model.Observacoes != null)
+            {
+                RegistrarLog("Observações", os.Observacoes, model.Observacoes);
+                os.Observacoes = model.Observacoes;
+            }
+
+            // STATUS
+            if (!string.IsNullOrWhiteSpace(model.Status) && !string.Equals(model.Status, os.Status, StringComparison.OrdinalIgnoreCase))
+            {
+                RegistrarLog("Status", os.Status, model.Status.ToUpper().Trim());
+                os.Status = model.Status.ToUpper().Trim();
+                if ((os.Status == "ENTREGUE") && !os.DataEntregaReal.HasValue)
+                {
+                    os.DataEntregaReal = DateTime.UtcNow;
+                }
+            }
+
+            // DADOS DO CLIENTE
+            if (os.Cliente != null)
+            {
+                if (model.ClienteNome != null) { RegistrarLog("Cliente: Nome", os.Cliente.Nome, model.ClienteNome); os.Cliente.Nome = model.ClienteNome; }
+                if (model.ClienteCpf != null) { RegistrarLog("Cliente: CPF", os.Cliente.CPF, model.ClienteCpf); os.Cliente.CPF = model.ClienteCpf; }
+                if (model.ClienteTelefone != null) { RegistrarLog("Cliente: Telefone", os.Cliente.Telefone, model.ClienteTelefone); os.Cliente.Telefone = model.ClienteTelefone; }
+                if (model.ClienteEmail != null) { RegistrarLog("Cliente: Email", os.Cliente.Email, model.ClienteEmail); os.Cliente.Email = model.ClienteEmail; }
+                if (model.ClienteConvenio != null) { RegistrarLog("Cliente: Convênio", os.Cliente.Convenio, model.ClienteConvenio); os.Cliente.Convenio = model.ClienteConvenio; }
+                if (model.ClienteLogradouro != null) { RegistrarLog("Cliente: Logradouro", os.Cliente.Logradouro, model.ClienteLogradouro); os.Cliente.Logradouro = model.ClienteLogradouro; }
+                if (model.ClienteNumero != null) { RegistrarLog("Cliente: Número", os.Cliente.Numero, model.ClienteNumero); os.Cliente.Numero = model.ClienteNumero; }
+                if (model.ClienteBairro != null) { RegistrarLog("Cliente: Bairro", os.Cliente.Bairro, model.ClienteBairro); os.Cliente.Bairro = model.ClienteBairro; }
+                if (model.ClienteCidade != null) { RegistrarLog("Cliente: Cidade", os.Cliente.Cidade, model.ClienteCidade); os.Cliente.Cidade = model.ClienteCidade; }
+                if (model.ClienteEstado != null) { RegistrarLog("Cliente: Estado", os.Cliente.Estado, model.ClienteEstado); os.Cliente.Estado = model.ClienteEstado; }
+                if (model.ClienteCep != null) { RegistrarLog("Cliente: CEP", os.Cliente.Cep, model.ClienteCep); os.Cliente.Cep = model.ClienteCep; }
+                if (model.ClienteDataNascimento.HasValue && os.Cliente.DataNascimento?.Date != model.ClienteDataNascimento.Value.Date)
+                {
+                    RegistrarLog("Cliente: Data Nascimento", os.Cliente.DataNascimento?.ToString("dd/MM/yyyy"), model.ClienteDataNascimento.Value.ToString("dd/MM/yyyy"));
+                    os.Cliente.DataNascimento = DateTime.SpecifyKind(model.ClienteDataNascimento.Value.Date, DateTimeKind.Utc);
+                }
+            }
+
+            // RECEITA
+            if (os.Receita != null)
+            {
+                if (model.OdEsferico.HasValue) { RegistrarLog("Receita: OD Esférico", os.Receita.OdEsferico.ToString("F2"), model.OdEsferico.Value.ToString("F2")); os.Receita.OdEsferico = model.OdEsferico.Value; }
+                if (model.OdCilindrico.HasValue) { RegistrarLog("Receita: OD Cilíndrico", os.Receita.OdCilindrico.ToString("F2"), model.OdCilindrico.Value.ToString("F2")); os.Receita.OdCilindrico = model.OdCilindrico.Value; }
+                if (model.OdEixo.HasValue) { RegistrarLog("Receita: OD Eixo", os.Receita.OdEixo.ToString(), model.OdEixo.Value.ToString()); os.Receita.OdEixo = model.OdEixo.Value; }
+                if (model.OeEsferico.HasValue) { RegistrarLog("Receita: OE Esférico", os.Receita.OeEsferico.ToString("F2"), model.OeEsferico.Value.ToString("F2")); os.Receita.OeEsferico = model.OeEsferico.Value; }
+                if (model.OeCilindrico.HasValue) { RegistrarLog("Receita: OE Cilíndrico", os.Receita.OeCilindrico.ToString("F2"), model.OeCilindrico.Value.ToString("F2")); os.Receita.OeCilindrico = model.OeCilindrico.Value; }
+                if (model.OeEixo.HasValue) { RegistrarLog("Receita: OE Eixo", os.Receita.OeEixo.ToString(), model.OeEixo.Value.ToString()); os.Receita.OeEixo = model.OeEixo.Value; }
+                if (model.Adicao.HasValue) { RegistrarLog("Receita: Adição", os.Receita.Adicao?.ToString("F2"), model.Adicao.Value.ToString("F2")); os.Receita.Adicao = model.Adicao.Value; }
+                if (model.DnpOd.HasValue) { RegistrarLog("Receita: DNP OD", os.Receita.DnpOd.ToString("F1"), model.DnpOd.Value.ToString("F1")); os.Receita.DnpOd = model.DnpOd.Value; }
+                if (model.DnpOe.HasValue) { RegistrarLog("Receita: DNP OE", os.Receita.DnpOe.ToString("F1"), model.DnpOe.Value.ToString("F1")); os.Receita.DnpOe = model.DnpOe.Value; }
+                if (model.AlturaMontagemOd.HasValue) { RegistrarLog("Receita: Altura OD", os.Receita.AlturaMontagemOd?.ToString("F1"), model.AlturaMontagemOd.Value.ToString("F1")); os.Receita.AlturaMontagemOd = model.AlturaMontagemOd.Value; }
+                if (model.AlturaMontagemOe.HasValue) { RegistrarLog("Receita: Altura OE", os.Receita.AlturaMontagemOe?.ToString("F1"), model.AlturaMontagemOe.Value.ToString("F1")); os.Receita.AlturaMontagemOe = model.AlturaMontagemOe.Value; }
+                if (model.Aro.HasValue) { RegistrarLog("Receita: ARO", os.Receita.Aro?.ToString("F1"), model.Aro.Value.ToString("F1")); os.Receita.Aro = model.Aro.Value; }
+                if (model.Dm.HasValue) { RegistrarLog("Receita: DM", os.Receita.Dm?.ToString("F1"), model.Dm.Value.ToString("F1")); os.Receita.Dm = model.Dm.Value; }
+                if (model.Vert.HasValue) { RegistrarLog("Receita: VERT", os.Receita.Vert?.ToString("F1"), model.Vert.Value.ToString("F1")); os.Receita.Vert = model.Vert.Value; }
+                if (model.Po.HasValue) { RegistrarLog("Receita: PO", os.Receita.Po?.ToString("F1"), model.Po.Value.ToString("F1")); os.Receita.Po = model.Po.Value; }
+                if (model.CoOd.HasValue) { RegistrarLog("Receita: CO OD", os.Receita.CoOd?.ToString("F1"), model.CoOd.Value.ToString("F1")); os.Receita.CoOd = model.CoOd.Value; }
+                if (model.CoOe.HasValue) { RegistrarLog("Receita: CO OE", os.Receita.CoOe?.ToString("F1"), model.CoOe.Value.ToString("F1")); os.Receita.CoOe = model.CoOe.Value; }
+                if (model.ObsReceita != null) { RegistrarLog("Receita: Observações", os.Receita.ObsReceita, model.ObsReceita); os.Receita.ObsReceita = model.ObsReceita; }
+            }
+
+            // PRODUTOS
+            if (model.ArmacaoDescricaoManual != null)
+            {
+                RegistrarLog("Armação", os.ArmacaoModeloManual, model.ArmacaoDescricaoManual);
+                os.ArmacaoModeloManual = model.ArmacaoDescricaoManual;
+            }
+            if (model.LenteDescricaoManual != null)
+            {
+                RegistrarLog("Lente", os.LenteDescricaoManual, model.LenteDescricaoManual);
+                os.LenteDescricaoManual = model.LenteDescricaoManual;
+            }
+
+            // FINANCEIRO E RECÁLCULO AUTOMÁTICO (Regra 3 do PDF)
+            decimal valLiquidoFinal = os.Financeiro?.ValorTotalLiquido ?? 0m;
+            if (os.Financeiro != null)
+            {
+                decimal armacaoVal = model.ValorArmacao ?? os.Financeiro.ValorArmacao;
+                decimal lenteVal = model.ValorLente ?? os.Financeiro.ValorLente;
+                decimal brutoVal = armacaoVal + lenteVal;
+
+                decimal descontoVal = model.DescontoReais ?? os.Financeiro.DescontoReais;
+                if (descontoVal > brutoVal) descontoVal = brutoVal;
+
+                valLiquidoFinal = Math.Max(0m, brutoVal - descontoVal);
+
+                decimal entradaVal = model.ValorEntrada ?? os.Financeiro.ValorEntrada ?? 0m;
+                if (entradaVal > valLiquidoFinal) entradaVal = valLiquidoFinal;
+
+                decimal restanteVal = Math.Max(0m, valLiquidoFinal - entradaVal);
+                decimal descontoPerc = brutoVal > 0 ? Math.Round((descontoVal / brutoVal) * 100m, 2) : 0m;
+
+                RegistrarLog("Valor Armação", os.Financeiro.ValorArmacao.ToString("C2"), armacaoVal.ToString("C2"));
+                RegistrarLog("Valor Lente", os.Financeiro.ValorLente.ToString("C2"), lenteVal.ToString("C2"));
+                RegistrarLog("Valor Bruto", os.Financeiro.ValorTotalBruto.ToString("C2"), brutoVal.ToString("C2"));
+                RegistrarLog("Desconto (R$)", os.Financeiro.DescontoReais.ToString("C2"), descontoVal.ToString("C2"));
+                RegistrarLog("Valor Líquido", os.Financeiro.ValorTotalLiquido.ToString("C2"), valLiquidoFinal.ToString("C2"));
+                RegistrarLog("Valor Entrada", (os.Financeiro.ValorEntrada ?? 0m).ToString("C2"), entradaVal.ToString("C2"));
+                RegistrarLog("Valor Restante", os.Financeiro.ValorRestante.ToString("C2"), restanteVal.ToString("C2"));
+
+                if (!string.IsNullOrWhiteSpace(model.FormaPagamento) && model.FormaPagamento != os.Financeiro.FormaPagamento)
+                {
+                    RegistrarLog("Forma de Pagamento", os.Financeiro.FormaPagamento, model.FormaPagamento);
+                    os.Financeiro.FormaPagamento = model.FormaPagamento;
+                }
+
+                if (model.Parcelas.HasValue && model.Parcelas.Value != os.Financeiro.Parcelas)
+                {
+                    RegistrarLog("Parcelas", os.Financeiro.Parcelas.ToString(), model.Parcelas.Value.ToString());
+                    os.Financeiro.Parcelas = model.Parcelas.Value;
+                }
+
+                os.Financeiro.ValorArmacao = armacaoVal;
+                os.Financeiro.ValorLente = lenteVal;
+                os.Financeiro.ValorTotalBruto = brutoVal;
+                os.Financeiro.DescontoReais = descontoVal;
+                os.Financeiro.DescontoPercentual = descontoPerc;
+                os.Financeiro.ValorTotalLiquido = valLiquidoFinal;
+                os.Financeiro.ValorEntrada = entradaVal;
+                os.Financeiro.ValorRestante = restanteVal;
+            }
+
+            // RECÁLCULO DE COMISSÃO (Regra 4 do PDF)
+            var comissoes = await _context.Comissoes.Where(c => c.OrdemServicoId == os.Id).ToListAsync();
+            foreach (var c in comissoes)
+            {
+                if (novoVendedor != null && novoVendedor.Id != c.VendedorId)
+                {
+                    c.VendedorId = novoVendedor.Id;
+                    if (novoVendedor.PercentualComissao > 0)
+                    {
+                        c.PercentualAplicado = novoVendedor.PercentualComissao;
+                    }
+                }
+
+                c.ValorBase = valLiquidoFinal;
+                c.ValorComissao = Math.Round(valLiquidoFinal * c.PercentualAplicado / 100m, 2, MidpointRounding.AwayFromZero);
+                c.PeriodoReferencia = os.DataEntrada.ToString("yyyy-MM");
+
+                if (os.Status == "CANCELADO" || os.Status == "CANCELADA")
+                {
+                    c.Status = "CANCELADO";
+                }
+                else if (c.Status == "CANCELADO")
+                {
+                    c.Status = "PENDENTE";
+                }
+            }
+
+            // MARCAÇÃO NA OS (Regra 2 do PDF)
+            string dataHoraFormatada = DateTime.UtcNow.AddHours(-3).ToString("dd/MM/yyyy HH:mm");
+            os.UltimaEdicaoLog = $"editada em {dataHoraFormatada} por {usuarioNomeClaim}";
+
+            await _context.SaveChangesAsync();
+
+            Inertia.Share("sucesso", $"OS {os.NumeroOS} atualizada com sucesso pelo administrador ({logsCriados} alteração(ões) auditada(s)).");
             return RedirectToAction(nameof(Index));
+        }
+
+        // Endpoint para carregar logs de auditoria da OS para exibição na prancheta
+        [HttpGet("/api/ordens/{id:guid}/auditoria")]
+        public async Task<IActionResult> ObterAuditoriaLogs(Guid id)
+        {
+            var logs = await _context.OsAuditoriaLogs
+                .Include(l => l.Usuario)
+                .Where(l => l.OrdemServicoId == id)
+                .OrderByDescending(l => l.DataAlteracao)
+                .Select(l => new
+                {
+                    l.Id,
+                    l.DataAlteracao,
+                    DataFormatada = l.DataAlteracao.AddHours(-3).ToString("dd/MM/yyyy HH:mm"),
+                    UsuarioNome = l.Usuario != null ? l.Usuario.Nome : "Sistema",
+                    l.CampoAlterado,
+                    l.ValorAntigo,
+                    l.ValorNovo,
+                    l.Descricao
+                })
+                .ToListAsync();
+
+            return Ok(logs);
         }
     }
 
@@ -1939,8 +2251,62 @@ namespace RETSYS.Web.Controllers
 
     public class EditarAdminRequest
     {
+        public string? NumeroOS { get; set; }
         public DateTime? NovaDataEntrada { get; set; }
+        public DateTime? DataPrevistaEntrega { get; set; }
+        public DateTime? DataEntregaReal { get; set; }
+        public string? LojaVenda { get; set; }
+        public Guid? OticaId { get; set; }
+        public Guid? VendedorId { get; set; }
+        public string? MedicoNome { get; set; }
+        public string? MedicoCrm { get; set; }
+        public string? MedicoTipo { get; set; }
+        public string? Observacoes { get; set; }
         public string? Motivo { get; set; }
+        public string? Status { get; set; }
+
+        public string? ClienteNome { get; set; }
+        public string? ClienteCpf { get; set; }
+        public string? ClienteTelefone { get; set; }
+        public DateTime? ClienteDataNascimento { get; set; }
+        public string? ClienteEmail { get; set; }
+        public string? ClienteConvenio { get; set; }
+        public string? ClienteLogradouro { get; set; }
+        public string? ClienteNumero { get; set; }
+        public string? ClienteBairro { get; set; }
+        public string? ClienteCidade { get; set; }
+        public string? ClienteEstado { get; set; }
+        public string? ClienteCep { get; set; }
+
+        public decimal? OdEsferico { get; set; }
+        public decimal? OdCilindrico { get; set; }
+        public int? OdEixo { get; set; }
+        public decimal? OeEsferico { get; set; }
+        public decimal? OeCilindrico { get; set; }
+        public int? OeEixo { get; set; }
+        public decimal? Adicao { get; set; }
+        public decimal? DnpOd { get; set; }
+        public decimal? DnpOe { get; set; }
+        public decimal? AlturaMontagemOd { get; set; }
+        public decimal? AlturaMontagemOe { get; set; }
+        public decimal? Aro { get; set; }
+        public decimal? Dm { get; set; }
+        public decimal? Vert { get; set; }
+        public decimal? Po { get; set; }
+        public decimal? CoOd { get; set; }
+        public decimal? CoOe { get; set; }
+        public string? ObsReceita { get; set; }
+
+        public string? ArmacaoDescricaoManual { get; set; }
+        public string? LenteDescricaoManual { get; set; }
+
+        public decimal? ValorArmacao { get; set; }
+        public decimal? ValorLente { get; set; }
+        public decimal? DescontoReais { get; set; }
+        public decimal? ValorTotalLiquido { get; set; }
+        public decimal? ValorEntrada { get; set; }
+        public string? FormaPagamento { get; set; }
+        public int? Parcelas { get; set; }
     }
 
     public class AlterarStatusRequest

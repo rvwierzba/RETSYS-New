@@ -69,6 +69,9 @@ namespace RETSYS.Domain.Entities
         public string? DataAjustadaLog { get; set; }
         public DateTime? DataEntradaOriginal { get; set; }
 
+        // Indicação discreta da última edição administrativa (Ex: "editada em 12/10/2026 14:30 por Admin")
+        public string? UltimaEdicaoLog { get; set; }
+
         // =========================================================================
         // NOVO FLUXO DE ACOMPANHAMENTO DE OS E INTEGRAÇÃO WHATSAPP
         // =========================================================================

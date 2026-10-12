@@ -267,9 +267,10 @@ namespace RETSYS.Web.Controllers
         // =========================================================================
         [HttpGet("/caixa/fechamento")]
         public async Task<IActionResult> Fechamento(
-            [FromQuery] DateTime? dataInicio,
-            [FromQuery] DateTime? dataFim,
-            [FromQuery] string? tipoPeriodo)
+            [FromQuery] string? dataInicio,
+            [FromQuery] string? dataFim,
+            [FromQuery] string? tipoPeriodo,
+            [FromQuery] Guid? lojaId)
         {
             var oticaId = ObterOticaId();
 
@@ -280,12 +281,8 @@ namespace RETSYS.Web.Controllers
             }
 
             DateTime hoje = DateTime.UtcNow.Date;
-            DateTime inicio = dataInicio.HasValue 
-                ? DateTime.SpecifyKind(dataInicio.Value.Date, DateTimeKind.Utc) 
-                : DateTime.SpecifyKind(hoje, DateTimeKind.Utc);
-            DateTime fim = dataFim.HasValue 
-                ? DateTime.SpecifyKind(dataFim.Value.Date.AddDays(1), DateTimeKind.Utc) 
-                : DateTime.SpecifyKind(hoje.AddDays(1), DateTimeKind.Utc);
+            DateTime inicio = DateTime.SpecifyKind(hoje, DateTimeKind.Utc);
+            DateTime fimData = hoje;
 
             if (!string.IsNullOrEmpty(tipoPeriodo))
             {
@@ -294,28 +291,80 @@ namespace RETSYS.Web.Controllers
                     case "hoje":
                     case "dia":
                         inicio = DateTime.SpecifyKind(hoje, DateTimeKind.Utc);
-                        fim = DateTime.SpecifyKind(hoje.AddDays(1), DateTimeKind.Utc);
+                        fimData = hoje;
                         break;
                     case "semana":
                         DateTime inicioSemana = hoje.AddDays(-(int)hoje.DayOfWeek);
                         inicio = DateTime.SpecifyKind(inicioSemana, DateTimeKind.Utc);
-                        fim = DateTime.SpecifyKind(inicioSemana.AddDays(7), DateTimeKind.Utc);
+                        fimData = inicioSemana.AddDays(6);
                         break;
                     case "mes":
                         inicio = new DateTime(hoje.Year, hoje.Month, 1, 0, 0, 0, DateTimeKind.Utc);
-                        fim = inicio.AddMonths(1);
+                        fimData = inicio.AddMonths(1).AddDays(-1);
                         break;
                 }
             }
+            else
+            {
+                if (!string.IsNullOrWhiteSpace(dataInicio))
+                {
+                    if (DateTime.TryParseExact(dataInicio.Trim(), new[] { "yyyy-MM-dd", "dd/MM/yyyy", "yyyy/MM/dd", "d/M/yyyy" }, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out var dtIni))
+                        inicio = DateTime.SpecifyKind(dtIni.Date, DateTimeKind.Utc);
+                    else if (DateTime.TryParse(dataInicio, out var dtIniGen))
+                        inicio = DateTime.SpecifyKind(dtIniGen.Date, DateTimeKind.Utc);
+                }
 
-            var ordensPeriodo = await _context.OrdensServico
+                if (!string.IsNullOrWhiteSpace(dataFim))
+                {
+                    if (DateTime.TryParseExact(dataFim.Trim(), new[] { "yyyy-MM-dd", "dd/MM/yyyy", "yyyy/MM/dd", "d/M/yyyy" }, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.None, out var dtFim))
+                        fimData = dtFim.Date;
+                    else if (DateTime.TryParse(dataFim, out var dtFimGen))
+                        fimData = dtFimGen.Date;
+                }
+                else if (!string.IsNullOrWhiteSpace(dataInicio))
+                {
+                    fimData = inicio.Date;
+                }
+            }
+
+            DateTime fim = DateTime.SpecifyKind(fimData.AddDays(1), DateTimeKind.Utc);
+
+            var idsRede = ObterIdsOticasDaRede(oticaId, _context);
+            IQueryable<Otica> queryLojas = _context.Oticas.AsNoTracking();
+            if (!EhSistema() && idsRede.Any())
+            {
+                queryLojas = queryLojas.Where(o => idsRede.Contains(o.Id));
+            }
+            var listaLojas = await queryLojas.OrderBy(l => l.Nome).Select(l => new { l.Id, l.Nome }).ToListAsync();
+
+            Guid? lojaAlvoId = null;
+            if (lojaId.HasValue && lojaId.Value != Guid.Empty)
+            {
+                lojaAlvoId = lojaId.Value;
+            }
+            else if (oticaId != Guid.Empty && !EhSistema() && !EhDono())
+            {
+                lojaAlvoId = oticaId;
+            }
+
+            IQueryable<OrdemServico> queryOrdens = _context.OrdensServico
                 .Include(os => os.Cliente)
                 .Include(os => os.Vendedor)
                 .Include(os => os.Financeiro)
                     .ThenInclude(f => f!.ConferidoPor)
                 .Include(os => os.Receita)
-                .Where(os => os.Ativo && os.OticaId == oticaId && os.DataEntrada >= inicio && os.DataEntrada < fim)
-                .ToListAsync();
+                .Where(os => os.Ativo && os.DataEntrada >= inicio && os.DataEntrada < fim);
+
+            if (lojaAlvoId.HasValue && lojaAlvoId.Value != Guid.Empty)
+            {
+                queryOrdens = queryOrdens.Where(os => os.OticaId == lojaAlvoId.Value);
+            }
+            else if (!EhSistema() && idsRede.Any())
+            {
+                queryOrdens = queryOrdens.Where(os => idsRede.Contains(os.OticaId));
+            }
+
+            var ordensPeriodo = await queryOrdens.ToListAsync();
 
             var ordensValidas = ordensPeriodo
                 .Where(os => os.Status != "CANCELADO" && os.Status != "CANCELADA")
@@ -330,7 +379,7 @@ namespace RETSYS.Web.Controllers
                     os.DataEntrada,
                     ClienteNome = os.Cliente != null ? os.Cliente.Nome : "Não informado",
                     VendedorNome = os.Vendedor != null ? os.Vendedor.Nome : "Não informado",
-                    ValorTotalLiquido = os.Financeiro != null ? os.Financeiro.ValorTotalLiquido : 0m
+                    ValorTotalLiquido = os.Financeiro != null ? (os.Financeiro.ValorTotalLiquido) : 0m
                 })
                 .ToList();
 
@@ -367,9 +416,9 @@ namespace RETSYS.Web.Controllers
                 };
             }).ToList();
 
-            var oculosCompleto = ordensValidas.Where(os => (os.Financeiro?.ValorArmacao > 0) && (os.Financeiro?.ValorLente > 0)).ToList();
-            var somenteArmacao = ordensValidas.Where(os => (os.Financeiro?.ValorArmacao > 0) && (os.Financeiro?.ValorLente == 0)).ToList();
-            var somenteLente = ordensValidas.Where(os => (os.Financeiro?.ValorArmacao == 0) && (os.Financeiro?.ValorLente > 0)).ToList();
+            var oculosCompleto = ordensValidas.Where(os => ((os.Financeiro?.ValorArmacao ?? 0m) > 0) && ((os.Financeiro?.ValorLente ?? 0m) > 0)).ToList();
+            var somenteArmacao = ordensValidas.Where(os => ((os.Financeiro?.ValorArmacao ?? 0m) > 0) && ((os.Financeiro?.ValorLente ?? 0m) == 0)).ToList();
+            var somenteLente = ordensValidas.Where(os => ((os.Financeiro?.ValorArmacao ?? 0m) == 0) && ((os.Financeiro?.ValorLente ?? 0m) > 0)).ToList();
 
             var resumoTiposVenda = new[]
             {
@@ -378,10 +427,20 @@ namespace RETSYS.Web.Controllers
                 new { Tipo = "Somente Lente", Qtd = somenteLente.Count, Total = somenteLente.Sum(os => os.Financeiro?.ValorTotalLiquido ?? 0m) }
             };
 
-            var comissoesPeriodo = await _context.Comissoes
+            var queryComissoes = _context.Comissoes
                 .Include(c => c.OrdemServico)
-                .Where(c => c.OrdemServico.OticaId == oticaId && c.DataGeracao >= inicio && c.DataGeracao <= fim && c.Status != "CANCELADO")
-                .ToListAsync();
+                .Where(c => c.DataGeracao >= inicio && c.DataGeracao < fim && c.Status != "CANCELADO" && c.Status != "CANCELADA");
+
+            if (lojaAlvoId.HasValue && lojaAlvoId.Value != Guid.Empty)
+            {
+                queryComissoes = queryComissoes.Where(c => c.OrdemServico != null && c.OrdemServico.OticaId == lojaAlvoId.Value);
+            }
+            else if (!EhSistema() && idsRede.Any())
+            {
+                queryComissoes = queryComissoes.Where(c => c.OrdemServico != null && idsRede.Contains(c.OrdemServico.OticaId));
+            }
+
+            var comissoesPeriodo = await queryComissoes.ToListAsync();
 
             var resumoVendedores = ordensValidas
                 .GroupBy(os => os.Vendedor != null ? os.Vendedor.Nome : "Não informado")
@@ -433,8 +492,10 @@ namespace RETSYS.Web.Controllers
             return Inertia.Render("Admin/Fechamento/Index", new
             {
                 DataInicio = inicio.ToString("yyyy-MM-dd"),
-                DataFim = fim.ToString("yyyy-MM-dd"),
+                DataFim = fimData.ToString("yyyy-MM-dd"),
                 TipoPeriodo = tipoPeriodo ?? "hoje",
+                LojaIdSelecionada = lojaAlvoId,
+                Lojas = listaLojas,
 
                 Totais = new
                 {

@@ -55,6 +55,18 @@
               </div>
               <input type="hidden" v-model="form.lojaVenda" />
 
+              <!-- SEÇÃO 5.3: NOME DA VENDEDORA FIXO (ATENDENTE / RESPONSÁVEL) -->
+              <div>
+                <label class="block text-[11px] font-bold uppercase text-slate-500 tracking-wider mb-1.5 flex items-center justify-between">
+                  <span>Atendente / Responsável</span>
+                  <span class="text-[10px] text-slate-400 font-mono">🔒 Fixo</span>
+                </label>
+                <div class="w-full h-[42px] px-3 py-2 rounded-xl border border-slate-200 bg-slate-100 text-slate-800 text-sm font-semibold flex items-center gap-2 select-none shadow-inner">
+                  <span class="w-2 h-2 rounded-full bg-emerald-500 shrink-0"></span>
+                  <span class="truncate">{{ nomeVendedoraLogada }}</span>
+                </div>
+              </div>
+
               <div class="md:col-span-2">
                 <label class="block text-[11px] font-bold uppercase text-slate-400 tracking-wider mb-1.5">CPF do Cliente (Opcional)</label>
                 <div class="flex gap-2">
@@ -354,11 +366,11 @@
               </div>
             </div>
 
-            <!-- GRAU DE LONGE (Exibido para Multifocal, Meia Distância e Só Longe) -->
+            <!-- 1º BLOCO: GRAU DE LONGE (Exibido para Multifocal, Meia Distância e Só Longe) -->
             <div v-if="form.tipoLente !== 'SO_PERTO'" class="bg-slate-50/70 p-4 rounded-xl border border-slate-200 space-y-3 mt-4">
               <div class="flex items-center justify-between border-b pb-2">
                 <span class="text-xs font-black text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
-                  👓 Grau de Longe (Visão de Longe)
+                  👓 1º Grau de Longe (Visão de Longe)
                 </span>
                 <span class="text-[10px] text-slate-400 font-medium">Refração clínica de longe</span>
               </div>
@@ -373,7 +385,7 @@
               <div class="grid grid-cols-4 gap-4 items-center">
                 <div class="text-sm font-black text-slate-700 text-center">OD</div>
 
-                <input v-model.number="form.odEsferico" type="number" step="0.25" placeholder="0,00" @keydown.enter.prevent class="rounded-xl border-slate-200 text-sm text-center font-mono focus:border-teal-500 bg-white" />
+                <input v-model.number="form.odEsferico" type="number" step="0.25" placeholder="0,00" @blur="dispararCalculoAdicaoAoSair" @keydown.enter.prevent class="rounded-xl border-slate-200 text-sm text-center font-mono focus:border-teal-500 bg-white" />
 
                 <input v-model.number="form.odCilindrico" type="number" step="0.25" max="0" placeholder="-0,00" @input="validarCilindrico('odCilindrico')" @keydown.enter.prevent class="rounded-xl border-slate-200 text-sm text-center font-mono text-amber-700 font-bold focus:border-teal-500 bg-white" />
 
@@ -383,7 +395,7 @@
               <div class="grid grid-cols-4 gap-4 items-center">
                 <div class="text-sm font-black text-slate-700 text-center">OE</div>
 
-                <input v-model.number="form.oeEsferico" type="number" step="0.25" placeholder="0,00" @keydown.enter.prevent class="rounded-xl border-slate-200 text-sm text-center font-mono focus:border-teal-500 bg-white" />
+                <input v-model.number="form.oeEsferico" type="number" step="0.25" placeholder="0,00" @blur="dispararCalculoAdicaoAoSair" @keydown.enter.prevent class="rounded-xl border-slate-200 text-sm text-center font-mono focus:border-teal-500 bg-white" />
 
                 <input v-model.number="form.oeCilindrico" type="number" step="0.25" max="0" placeholder="-0,00" @input="validarCilindrico('oeCilindrico')" @keydown.enter.prevent class="rounded-xl border-slate-200 text-sm text-center font-mono text-amber-700 font-bold focus:border-teal-500 bg-white" />
 
@@ -391,42 +403,17 @@
               </div>
             </div>
 
-            <!-- ADIÇÃO E RESPONSÁVEL (Adição exibida para Multifocal e Meia Distância) -->
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 items-center pt-2">
-              <div v-if="form.tipoLente === 'MULTIFOCAL' || form.tipoLente === 'MEIA_DISTANCIA'" class="flex flex-col bg-teal-50/60 p-4 rounded-xl border border-teal-100">
-                <label class="block text-xs font-bold uppercase text-teal-800 tracking-wider mb-1.5">
-                  Adição (AD) <span class="text-[10px] text-teal-600">(Máx +3.50)</span>
-                </label>
-
-                <input v-model.number="form.adicao" type="number" step="0.25" min="0" max="3.5" placeholder="0.00" @input="validarAdicao" @keydown.enter.prevent class="w-full rounded-xl border-teal-200 text-sm focus:border-teal-500 focus:ring-teal-500 bg-white font-mono text-teal-900 font-bold" />
-                <span class="text-[10px] text-teal-700 mt-1">
-                  {{ form.tipoLente === 'MEIA_DISTANCIA' ? 'Calculada automaticamente ao digitar Longe e Perto' : 'Calcula Perto (Longe + AD) ou preencher Perto gera a Adição' }}
-                </span>
-              </div>
-
-              <div :class="{'md:col-span-2': form.tipoLente === 'SO_LONGE' || form.tipoLente === 'SO_PERTO'}">
-                <label class="block text-[11px] font-bold uppercase text-slate-400 tracking-wider mb-1.5">Atendente / Responsável *</label>
-
-                <select v-model="form.vendedorId" @keydown.enter.prevent class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500" required>
-                  <option value="">Selecione o Vendedor</option>
-                  <option v-for="v in (Vendedores ?? vendedores)" :key="v.id || v.Id" :value="v.id || v.Id">
-                    {{ v.nome || v.Nome }}
-                  </option>
-                </select>
-              </div>
-            </div>
-
-            <!-- GRAU DE PERTO (Exibido para Multifocal, Meia Distância e Só Perto) -->
+            <!-- 2º BLOCO: GRAU DE PERTO (Exibido para Multifocal, Meia Distância e Só Perto) -->
             <div v-if="form.tipoLente !== 'SO_LONGE'" class="bg-teal-50/40 p-4 rounded-xl border border-teal-200/80 space-y-3 mt-4">
               <div class="flex items-center justify-between border-b border-teal-100 pb-2">
                 <span class="text-xs font-black text-teal-900 uppercase tracking-wider flex items-center gap-1.5">
-                  🔍 Grau de Perto (Visão de Perto)
+                  🔍 2º Grau de Perto (Visão de Perto)
                 </span>
                 <span v-if="form.tipoLente === 'SO_PERTO'" class="px-2 py-0.5 bg-teal-100 text-teal-800 rounded-md text-[10px] font-bold uppercase tracking-wider">
                   👓 Visão Simples de Perto
                 </span>
                 <span v-else class="px-2 py-0.5 bg-teal-100 text-teal-800 rounded-md text-[10px] font-bold uppercase tracking-wider">
-                  ⚡ Preencher Esférico Perto gera a Adição automaticamente
+                  ⚡ Preencher Longe e Perto calcula a Adição automaticamente
                 </span>
               </div>
 
@@ -441,7 +428,7 @@
                 <div class="text-sm font-black text-teal-900 text-center">OD</div>
 
                 <input v-if="form.tipoLente === 'SO_PERTO'" v-model.number="form.odEsferico" type="number" step="0.25" placeholder="0,00" @keydown.enter.prevent class="rounded-xl border-teal-300 text-sm text-center font-mono text-teal-950 font-bold focus:border-teal-500 bg-white" />
-                <input v-else v-model.number="form.odEsfericoPerto" @input="calcularAdicaoOuPerto('pertoOd')" type="number" step="0.25" placeholder="0,00" @keydown.enter.prevent class="rounded-xl border-teal-300 text-sm text-center font-mono text-teal-950 font-bold focus:border-teal-500 bg-white" />
+                <input v-else v-model.number="form.odEsfericoPerto" @blur="dispararCalculoAdicaoAoSair" type="number" step="0.25" placeholder="0,00" @keydown.enter.prevent class="rounded-xl border-teal-300 text-sm text-center font-mono text-teal-950 font-bold focus:border-teal-500 bg-white" />
 
                 <input v-if="form.tipoLente === 'SO_PERTO'" v-model.number="form.odCilindrico" type="number" step="0.25" max="0" placeholder="-0,00" @input="validarCilindrico('odCilindrico')" @keydown.enter.prevent class="rounded-xl border-slate-200 text-sm text-center font-mono text-amber-700 font-bold focus:border-teal-500 bg-white" />
                 <input v-else :value="form.odCilindrico" type="number" step="0.25" placeholder="-0,00" disabled class="rounded-xl border-slate-200 text-sm text-center font-mono text-amber-700 font-bold bg-slate-100 cursor-not-allowed" />
@@ -454,13 +441,49 @@
                 <div class="text-sm font-black text-slate-700 text-center">OE</div>
 
                 <input v-if="form.tipoLente === 'SO_PERTO'" v-model.number="form.oeEsferico" type="number" step="0.25" placeholder="0,00" @keydown.enter.prevent class="rounded-xl border-teal-300 text-sm text-center font-mono text-teal-950 font-bold focus:border-teal-500 bg-white" />
-                <input v-else v-model.number="form.oeEsfericoPerto" @input="calcularAdicaoOuPerto('pertoOe')" type="number" step="0.25" placeholder="0,00" @keydown.enter.prevent class="rounded-xl border-teal-300 text-sm text-center font-mono text-teal-950 font-bold focus:border-teal-500 bg-white" />
+                <input v-else v-model.number="form.oeEsfericoPerto" @blur="dispararCalculoAdicaoAoSair" type="number" step="0.25" placeholder="0,00" @keydown.enter.prevent class="rounded-xl border-teal-300 text-sm text-center font-mono text-teal-950 font-bold focus:border-teal-500 bg-white" />
 
                 <input v-if="form.tipoLente === 'SO_PERTO'" v-model.number="form.oeCilindrico" type="number" step="0.25" max="0" placeholder="-0,00" @input="validarCilindrico('oeCilindrico')" @keydown.enter.prevent class="rounded-xl border-slate-200 text-sm text-center font-mono text-amber-700 font-bold focus:border-teal-500 bg-white" />
                 <input v-else :value="form.oeCilindrico" type="number" step="0.25" placeholder="-0,00" disabled class="rounded-xl border-slate-200 text-sm text-center font-mono text-amber-700 font-bold bg-slate-100 cursor-not-allowed" />
 
                 <input v-if="form.tipoLente === 'SO_PERTO'" v-model.number="form.oeEixo" type="number" min="0" max="180" step="1" placeholder="0" @input="validarEixo('oeEixo')" @keydown.enter.prevent class="rounded-xl border-slate-200 text-sm text-center font-mono focus:border-teal-500 bg-white" />
                 <input v-else :value="form.oeEixo" type="number" placeholder="0" disabled class="rounded-xl border-slate-200 text-sm text-center font-mono text-slate-600 bg-slate-100 cursor-not-allowed" />
+              </div>
+            </div>
+
+            <!-- 3º BLOCO: ADIÇÃO (Exibida para Multifocal e Meia Distância) -->
+            <div v-if="form.tipoLente === 'MULTIFOCAL' || form.tipoLente === 'MEIA_DISTANCIA'" class="bg-teal-50/70 p-4 rounded-xl border border-teal-200 space-y-3 mt-4">
+              <div class="flex items-center justify-between">
+                <span class="text-xs font-black text-teal-900 uppercase tracking-wider flex items-center gap-1.5">
+                  ➕ 3º Adição (AD) <span class="text-[10px] text-teal-600 font-normal">(Máx +3.50)</span>
+                </span>
+                <div class="flex items-center gap-2">
+                  <span v-if="adicaoEditadaManualmente" class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300">
+                    ✏️ Ajustado manualmente
+                  </span>
+                  <span v-else-if="form.adicao" class="px-2 py-0.5 rounded text-[10px] font-bold bg-teal-100 text-teal-800 border border-teal-300">
+                    ⚡ Calculada automaticamente (Perto − Longe)
+                  </span>
+                </div>
+              </div>
+
+              <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
+                <div>
+                  <input
+                    v-model.number="form.adicao"
+                    type="number"
+                    step="0.25"
+                    min="0"
+                    max="3.5"
+                    placeholder="0.00"
+                    @input="aoEditarAdicaoManualmente"
+                    @keydown.enter.prevent
+                    class="w-full rounded-xl border-teal-300 text-sm focus:border-teal-500 focus:ring-teal-500 bg-white font-mono text-teal-950 font-bold"
+                  />
+                </div>
+                <div class="md:col-span-2 text-xs text-teal-800 leading-snug">
+                  Cálculo automático disparado ao sair de Longe ou Perto (<code class="font-bold">adição = esférico perto − esférico longe</code>). Caso a receita traga um valor de adição diferente ou explícito, você pode editá-la manualmente a qualquer momento.
+                </div>
               </div>
             </div>
           </div>
@@ -789,7 +812,9 @@ const props = defineProps({
   Armacoes: Array,
   armacoes: Array,
   Lentes: Array,
-  lentes: Array
+  lentes: Array,
+  UsuarioLogadoId: String,
+  UsuarioLogadoNome: String
 })
 
 const CHAVE_RASCUNHO = 'retsys_os_rascunho'
@@ -798,6 +823,10 @@ const page = usePage()
 const eAdmin = computed(() => {
   const perfil = (page.props.auth?.usuarioPerfil || '').toLowerCase()
   return ['admin', 'sistema', 'gerente'].includes(perfil)
+})
+
+const nomeVendedoraLogada = computed(() => {
+  return props.UsuarioLogadoNome || page.props.auth?.user?.name || page.props.auth?.usuarioNome || 'Colaboradora'
 })
 
 const dataEmissaoHoje = computed(() => new Date().toISOString().split('T')[0])
@@ -816,6 +845,48 @@ const carregandoIA = ref(false)
 const arquivoIaSelecionado = ref(null)
 const fotoAnexaArquivo = ref(null)
 const rascunhoRestaurado = ref(false)
+const adicaoEditadaManualmente = ref(false)
+
+const dispararCalculoAdicaoAoSair = () => {
+  if (form.tipoLente === 'SO_LONGE' || form.tipoLente === 'SO_PERTO') {
+    return
+  }
+
+  const temLongeOd = form.odEsferico !== null && form.odEsferico !== undefined && form.odEsferico !== ''
+  const temPertoOd = form.odEsfericoPerto !== null && form.odEsfericoPerto !== undefined && form.odEsfericoPerto !== ''
+
+  const temLongeOe = form.oeEsferico !== null && form.oeEsferico !== undefined && form.oeEsferico !== ''
+  const temPertoOe = form.oeEsfericoPerto !== null && form.oeEsfericoPerto !== undefined && form.oeEsfericoPerto !== ''
+
+  const temLonge = temLongeOd || temLongeOe
+  const temPerto = temPertoOd || temPertoOe
+
+  if (temLonge && temPerto) {
+    let adicaoCalc = null
+    if (temLongeOd && temPertoOd) {
+      adicaoCalc = Number(form.odEsfericoPerto) - Number(form.odEsferico)
+    } else if (temLongeOe && temPertoOe) {
+      adicaoCalc = Number(form.oeEsfericoPerto) - Number(form.oeEsferico)
+    }
+
+    if (adicaoCalc !== null) {
+      adicaoCalc = Math.round(adicaoCalc * 100) / 100
+      if (adicaoCalc >= 0 && adicaoCalc <= 3.5) {
+        form.adicao = adicaoCalc
+        adicaoEditadaManualmente.value = false
+      }
+    }
+  } else {
+    if (!adicaoEditadaManualmente.value) {
+      form.adicao = null
+    }
+  }
+}
+
+const aoEditarAdicaoManualmente = () => {
+  adicaoEditadaManualmente.value = true
+  validarAdicao()
+}
 
 const form = useForm({
   tipoLente: 'MULTIFOCAL',
@@ -1034,6 +1105,12 @@ const tratarInputValorEntrada = (event) => {
 }
 
 onMounted(() => {
+  if (props.UsuarioLogadoId) {
+    form.vendedorId = props.UsuarioLogadoId
+  } else if (page.props.auth?.user?.id) {
+    form.vendedorId = page.props.auth.user.id
+  }
+
   if (props.ProximoNumeroOS && !form.numeroOS) {
     form.numeroOS = props.ProximoNumeroOS
   }
@@ -1045,6 +1122,10 @@ onMounted(() => {
       const objetoConvertido = JSON.parse(dadosSalvos)
 
       Object.assign(form, objetoConvertido)
+
+      if (props.UsuarioLogadoId) {
+        form.vendedorId = props.UsuarioLogadoId
+      }
 
       rascunhoRestaurado.value = true
 

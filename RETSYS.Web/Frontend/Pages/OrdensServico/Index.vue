@@ -24,63 +24,109 @@
         </div>
       </div>
 
-      <!-- Barra de Filtros e Faturamento -->
-      <div class="grid grid-cols-1 lg:grid-cols-4 gap-4 bg-white p-4 rounded-2xl border border-slate-200 shadow-sm items-center">
-        
-        <div class="lg:col-span-3 flex flex-wrap items-center gap-3">
-          <!-- Filtro por Composição da Venda -->
-          <div class="flex flex-wrap gap-1.5">
-            <button 
-              @click="filtrarPorComposicao('total')"
-              :class="[filtroAtivoComp === 'total' ? 'bg-slate-950 text-white font-black' : 'bg-slate-50 text-slate-600 hover:bg-slate-100 font-semibold']"
-              class="px-3.5 py-2 rounded-xl text-xs uppercase tracking-wider transition border border-transparent"
-            >
-              📋 Total
-            </button>
-            <button 
-              @click="filtrarPorComposicao('armacao')"
-              :class="[filtroAtivoComp === 'armacao' ? 'bg-slate-950 text-white font-black' : 'bg-slate-50 text-slate-600 hover:bg-slate-100 font-semibold']"
-              class="px-3.5 py-2 rounded-xl text-xs uppercase tracking-wider transition border"
-            >
-              👓 Armações
-            </button>
-            <button 
-              @click="filtrarPorComposicao('lente')"
-              :class="[filtroAtivoComp === 'lente' ? 'bg-slate-950 text-white font-bold' : 'bg-slate-50 text-slate-600 font-medium']"
-              class="px-3.5 py-2 rounded-xl text-xs border border-transparent hover:bg-slate-100 transition"
-            >
-              🔬 Lentes
-            </button>
-            <button 
-              @click="filtrarPorComposicao('completo')"
-              :class="[filtroAtivoComp === 'completo' ? 'bg-slate-950 text-white font-black' : 'bg-slate-50 text-slate-600 hover:bg-slate-100 font-semibold']"
-              class="px-3.5 py-2 rounded-xl text-xs uppercase tracking-wider transition border"
-            >
-              💎 Completo
-            </button>
+      <!-- SEÇÃO 3 DO PDF: Campo de Busca Unificado com Auto-detecção e Filtro de Loja -->
+      <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm space-y-3">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3 items-center">
+          <!-- Campo Único de Busca (Detecta número ou texto, debounce 300ms) -->
+          <div class="md:col-span-2 relative">
+            <div class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">
+              <span class="text-sm">🔍</span>
+            </div>
+            <input
+              v-model="termoBusca"
+              @input="onInputBusca"
+              type="text"
+              placeholder="Buscar por Nº da OS (ex: 123) ou Nome do Cliente (mín. 3 caracteres)..."
+              class="w-full pl-10 pr-24 py-2.5 rounded-xl border border-slate-200 text-xs font-semibold text-slate-800 focus:border-teal-500 focus:ring-teal-500 bg-slate-50/50"
+            />
+            <div class="absolute inset-y-0 right-0 pr-2 flex items-center gap-1">
+              <span v-if="tipoBuscaDetectado" class="px-2 py-0.5 rounded text-[10px] font-mono font-bold" :class="tipoBuscaDetectado === 'NUMERO' ? 'bg-indigo-100 text-indigo-800' : 'bg-emerald-100 text-emerald-800'">
+                {{ tipoBuscaDetectado === 'NUMERO' ? 'Nº OS' : 'Cliente' }}
+              </span>
+              <button
+                v-if="termoBusca"
+                type="button"
+                @click="limparBusca"
+                class="text-slate-400 hover:text-slate-600 p-1 text-xs"
+                title="Limpar busca"
+              >
+                ✕
+              </button>
+            </div>
           </div>
 
-          <!-- Select de Filtro por Vendedora -->
-          <div class="w-full sm:w-auto min-w-[180px]">
-            <select 
-              v-model="vendedorSelecionado" 
-              @change="filtrarPorVendedor"
-              class="w-full rounded-xl border-slate-200 text-xs focus:border-teal-500 font-bold text-slate-700 bg-slate-50 py-2 px-3"
+          <!-- Select de Loja -->
+          <div>
+            <select
+              v-model="lojaSelecionada"
+              @change="aplicarFiltros()"
+              class="w-full rounded-xl border-slate-200 text-xs focus:border-teal-500 font-bold text-slate-700 bg-slate-50 py-2.5 px-3"
             >
-              <option value="">(Todas as Vendedoras)</option>
-              <option v-for="v in (Vendedores ?? vendedores)" :key="v.id || v.Id" :value="v.id || v.Id">
-                👩‍💼 {{ v.nome || v.Nome }}
+              <option value="">(Todas as Lojas / Filiais)</option>
+              <option v-for="l in (Lojas ?? lojas)" :key="l.id || l.Id" :value="l.id || l.Id">
+                🏬 {{ l.nome || l.Nome }}
               </option>
             </select>
           </div>
         </div>
 
-        <!-- Faturamento Calculado -->
-        <div class="bg-teal-50 border border-teal-200 rounded-xl p-3 text-center lg:text-right">
-          <span class="text-[10px] font-bold text-teal-800 uppercase tracking-wider block">Faturamento do Filtro</span>
-          <p class="text-lg font-black text-teal-700 font-mono mt-0.5">
-            {{ formatarMoeda(totalExibido) }}
-          </p>
+        <!-- Linha inferior: Composição, Vendedora e Faturamento -->
+        <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3 pt-2 border-t border-slate-100">
+          <div class="flex flex-wrap items-center gap-2">
+            <!-- Filtro por Composição da Venda -->
+            <div class="flex flex-wrap gap-1.5">
+              <button 
+                @click="filtrarPorComposicao('total')"
+                :class="[filtroAtivoComp === 'total' ? 'bg-slate-950 text-white font-black' : 'bg-slate-50 text-slate-600 hover:bg-slate-100 font-semibold']"
+                class="px-3 py-1.5 rounded-xl text-xs uppercase tracking-wider transition border border-transparent"
+              >
+                📋 Total
+              </button>
+              <button 
+                @click="filtrarPorComposicao('armacao')"
+                :class="[filtroAtivoComp === 'armacao' ? 'bg-slate-950 text-white font-black' : 'bg-slate-50 text-slate-600 hover:bg-slate-100 font-semibold']"
+                class="px-3 py-1.5 rounded-xl text-xs uppercase tracking-wider transition border"
+              >
+                👓 Armações
+              </button>
+              <button 
+                @click="filtrarPorComposicao('lente')"
+                :class="[filtroAtivoComp === 'lente' ? 'bg-slate-950 text-white font-bold' : 'bg-slate-50 text-slate-600 font-medium']"
+                class="px-3 py-1.5 rounded-xl text-xs border border-transparent hover:bg-slate-100 transition"
+              >
+                🔬 Lentes
+              </button>
+              <button 
+                @click="filtrarPorComposicao('completo')"
+                :class="[filtroAtivoComp === 'completo' ? 'bg-slate-950 text-white font-black' : 'bg-slate-50 text-slate-600 hover:bg-slate-100 font-semibold']"
+                class="px-3 py-1.5 rounded-xl text-xs uppercase tracking-wider transition border"
+              >
+                💎 Completo
+              </button>
+            </div>
+
+            <!-- Select de Filtro por Vendedora -->
+            <div class="w-full sm:w-auto min-w-[170px]">
+              <select 
+                v-model="vendedorSelecionado" 
+                @change="aplicarFiltros()"
+                class="w-full rounded-xl border-slate-200 text-xs focus:border-teal-500 font-bold text-slate-700 bg-slate-50 py-1.5 px-3"
+              >
+                <option value="">(Todas as Vendedoras)</option>
+                <option v-for="v in (Vendedores ?? vendedores)" :key="v.id || v.Id" :value="v.id || v.Id">
+                  👩‍💼 {{ v.nome || v.Nome }}
+                </option>
+              </select>
+            </div>
+          </div>
+
+          <!-- Faturamento Calculado -->
+          <div class="bg-teal-50 border border-teal-200 rounded-xl px-4 py-1.5 flex items-center justify-between lg:justify-end gap-3">
+            <span class="text-[10px] font-bold text-teal-800 uppercase tracking-wider">Faturamento:</span>
+            <span class="text-base font-black text-teal-700 font-mono">
+              {{ formatarMoeda(totalExibido) }}
+            </span>
+          </div>
         </div>
       </div>
 
@@ -114,10 +160,12 @@
                   <span v-if="os.dataAjustadaLog || os.DataAjustadaLog" class="text-[9px] text-amber-700 bg-amber-50 border border-amber-200 px-1.5 py-0.5 rounded font-mono font-bold block w-fit mt-1">
                     {{ os.dataAjustadaLog || os.DataAjustadaLog }}
                   </span>
+                  <span v-if="os.ultimaEdicaoLog || os.UltimaEdicaoLog" class="text-[9px] text-indigo-700 bg-indigo-50 border border-indigo-200 px-1.5 py-0.5 rounded font-mono font-bold block w-fit mt-1" title="Histórico de Edição Administrativa">
+                    ✏️ {{ os.ultimaEdicaoLog || os.UltimaEdicaoLog }}
+                  </span>
                 </td>
                 <td class="py-4">
                   <p class="font-semibold text-slate-800">{{ os.clienteNome || os.ClienteNome }}</p>
-                  <p class="text-[11px] text-slate-400">Atendente: {{ os.vendedorNome || os.VendedorNome || 'Não atribuído' }}</p>
                   <p class="text-[11px] text-slate-400">Atendente: {{ os.vendedorNome || os.VendedorNome || 'Não atribuído' }} • <b class="text-indigo-600">{{ os.lojaVenda || os.LojaVenda || 'Matriz' }}</b></p>
                 </td>
 
@@ -438,6 +486,47 @@
             </div>
           </div>
 
+          <!-- SEÇÃO 1 DO PDF: Log Obrigatório e Visível de Alterações da OS -->
+          <div class="bg-slate-50 p-4 rounded-2xl border border-slate-200 space-y-3 text-xs">
+            <div class="flex items-center justify-between">
+              <h4 class="text-xs font-black uppercase tracking-wider text-slate-900 font-mono flex items-center gap-2">
+                <span>📋 Histórico de Auditoria & Alterações</span>
+              </h4>
+              <span v-if="osSelecionada.ultimaEdicaoLog || osSelecionada.UltimaEdicaoLog" class="text-[10px] font-bold text-indigo-700 bg-indigo-50 border border-indigo-200 px-2 py-0.5 rounded-full font-mono">
+                ✏️ {{ osSelecionada.ultimaEdicaoLog || osSelecionada.UltimaEdicaoLog }}
+              </span>
+            </div>
+
+            <div v-if="carregandoAuditoria" class="py-4 text-center text-slate-400 font-mono">
+              Carregando histórico de auditoria...
+            </div>
+            <div v-else-if="logsAuditoria.length === 0" class="p-3 bg-white rounded-xl border border-slate-200 text-slate-400 text-center text-xs">
+              Nenhuma alteração registrada após a emissão desta Ordem de Serviço.
+            </div>
+            <div v-else class="overflow-x-auto bg-white rounded-xl border border-slate-200 max-h-48 overflow-y-auto">
+              <table class="w-full text-left text-xs font-mono">
+                <thead class="bg-slate-100 text-slate-600 text-[10px] uppercase font-bold border-b border-slate-200 sticky top-0">
+                  <tr>
+                    <th class="py-2 px-3">Data/Hora</th>
+                    <th class="py-2 px-3">Responsável</th>
+                    <th class="py-2 px-3">Campo Alterado</th>
+                    <th class="py-2 px-3">Valor Anterior</th>
+                    <th class="py-2 px-3">Valor Novo</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr v-for="log in logsAuditoria" :key="log.id" class="border-b border-slate-100 hover:bg-slate-50">
+                    <td class="py-2 px-3 text-slate-500 whitespace-nowrap">{{ log.dataFormatada || formatarData(log.dataAlteracao) }}</td>
+                    <td class="py-2 px-3 font-semibold text-slate-700">{{ log.usuarioNome }}</td>
+                    <td class="py-2 px-3 font-bold text-indigo-700">{{ log.campoAlterado }}</td>
+                    <td class="py-2 px-3 text-slate-500 truncate max-w-[120px]" :title="log.valorAntigo">{{ log.valorAntigo }}</td>
+                    <td class="py-2 px-3 font-bold text-emerald-700 truncate max-w-[120px]" :title="log.valorNovo">{{ log.valorNovo }}</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+
           <div class="flex justify-end gap-2 border-t border-slate-100 pt-4">
             <button 
               v-if="osSelecionada.status !== 'ENTREGUE' && osSelecionada.status !== 'CANCELADO' && osSelecionada.status !== 'CANCELADA'"
@@ -536,58 +625,405 @@
         </div>
       </div>
 
-      <!-- MODAL DE EDIÇÃO ADMIN DA DATA DE EMISSÃO -->
-      <div v-if="modalEditarAdminAberta && osParaEdicaoAdmin" class="fixed inset-0 bg-slate-950/60 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-        <div class="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-md w-full p-6 space-y-5">
-          <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+      <!-- SEÇÃO 1 DO PDF: MODAL DE EDIÇÃO COMPLETA DE OS (EXCLUSIVA DO ADMIN) -->
+      <div v-if="modalEditarAdminAberta && osParaEdicaoAdmin" class="fixed inset-0 bg-slate-950/70 backdrop-blur-sm z-50 flex items-center justify-center p-3 md:p-6 overflow-y-auto">
+        <div class="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-4xl w-full max-h-[92vh] overflow-y-auto flex flex-col">
+          <!-- Cabeçalho da Modal -->
+          <div class="p-6 bg-slate-950 text-white flex items-center justify-between rounded-t-3xl sticky top-0 z-10 shadow">
             <div>
-              <span class="text-[10px] font-mono font-bold bg-indigo-100 text-indigo-800 px-2 py-0.5 rounded-full uppercase">Alteração de Emissão (Admin)</span>
-              <h3 class="text-base font-black text-slate-950 font-mono mt-1">OS {{ osParaEdicaoAdmin.numeroOS || osParaEdicaoAdmin.NumeroOS }}</h3>
+              <div class="flex items-center gap-2">
+                <span class="text-[10px] font-mono font-bold bg-indigo-500/30 text-indigo-300 border border-indigo-400/30 px-2.5 py-0.5 rounded-full uppercase">
+                  🔒 Edição Administrativa Completa (Admin)
+                </span>
+                <span v-if="osParaEdicaoAdmin.ultimaEdicaoLog || osParaEdicaoAdmin.UltimaEdicaoLog" class="text-[10px] text-slate-400 font-mono">
+                  {{ osParaEdicaoAdmin.ultimaEdicaoLog || osParaEdicaoAdmin.UltimaEdicaoLog }}
+                </span>
+              </div>
+              <h3 class="text-xl font-black font-mono mt-1">
+                OS {{ osParaEdicaoAdmin.numeroOS || osParaEdicaoAdmin.NumeroOS }}
+              </h3>
             </div>
-            <button @click="modalEditarAdminAberta = false" class="text-slate-400 hover:text-slate-800 font-bold">✕</button>
+            <button @click="modalEditarAdminAberta = false" class="text-slate-400 hover:text-white font-bold text-lg p-2">✕</button>
           </div>
 
-          <form @submit.prevent="salvarEdicaoAdmin" class="space-y-4 text-xs">
-            <div>
-              <label class="block font-bold uppercase text-slate-500 tracking-wider mb-1">Nova Data de Emissão *</label>
-              <input 
-                v-model="formEdicaoAdmin.novaDataEntrada" 
-                type="date" 
-                required 
-                class="w-full rounded-xl border-slate-200 text-sm font-mono font-bold text-slate-900 bg-slate-50 focus:border-indigo-500 focus:ring-indigo-500"
-              />
+          <!-- Abas de Navegação -->
+          <div class="flex border-b border-slate-200 bg-slate-50 px-6 pt-3 gap-2 overflow-x-auto text-xs font-bold">
+            <button 
+              type="button" 
+              @click="abaEdicaoAdmin = 'geral'" 
+              :class="abaEdicaoAdmin === 'geral' ? 'border-b-2 border-indigo-600 text-indigo-700 bg-white' : 'text-slate-500 hover:text-slate-800'"
+              class="px-4 py-2.5 rounded-t-xl transition whitespace-nowrap"
+            >
+              📋 Dados Gerais & Status
+            </button>
+            <button 
+              type="button" 
+              @click="abaEdicaoAdmin = 'cliente'" 
+              :class="abaEdicaoAdmin === 'cliente' ? 'border-b-2 border-indigo-600 text-indigo-700 bg-white' : 'text-slate-500 hover:text-slate-800'"
+              class="px-4 py-2.5 rounded-t-xl transition whitespace-nowrap"
+            >
+              👤 Dados do Cliente
+            </button>
+            <button 
+              type="button" 
+              @click="abaEdicaoAdmin = 'receita'" 
+              :class="abaEdicaoAdmin === 'receita' ? 'border-b-2 border-indigo-600 text-indigo-700 bg-white' : 'text-slate-500 hover:text-slate-800'"
+              class="px-4 py-2.5 rounded-t-xl transition whitespace-nowrap"
+            >
+              🩺 Receita & Medidas
+            </button>
+            <button 
+              type="button" 
+              @click="abaEdicaoAdmin = 'financeiro'" 
+              :class="abaEdicaoAdmin === 'financeiro' ? 'border-b-2 border-indigo-600 text-indigo-700 bg-white' : 'text-slate-500 hover:text-slate-800'"
+              class="px-4 py-2.5 rounded-t-xl transition whitespace-nowrap"
+            >
+              💰 Produtos & Financeiro
+            </button>
+          </div>
+
+          <!-- Conteúdo do Formulário -->
+          <form @submit.prevent="salvarEdicaoAdmin" class="p-6 space-y-6 flex-1 overflow-y-auto">
+            <!-- ABA 1: DADOS GERAIS & STATUS -->
+            <div v-show="abaEdicaoAdmin === 'geral'" class="space-y-4 text-xs">
+              <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label class="block font-bold uppercase text-slate-500 mb-1">Número da OS *</label>
+                  <input v-model="formEdicaoAdmin.numeroOS" type="text" required class="w-full rounded-xl border-slate-200 text-sm font-mono font-bold bg-slate-50 focus:border-indigo-500" />
+                </div>
+                <div>
+                  <label class="block font-bold uppercase text-slate-500 mb-1">Data de Lançamento (Emissão) *</label>
+                  <input v-model="formEdicaoAdmin.novaDataEntrada" type="date" required class="w-full rounded-xl border-slate-200 text-sm font-mono font-bold bg-slate-50 focus:border-indigo-500" />
+                </div>
+                <div>
+                  <label class="block font-bold uppercase text-slate-500 mb-1">Status da OS *</label>
+                  <select v-model="formEdicaoAdmin.status" class="w-full rounded-xl border-slate-200 text-xs font-bold bg-slate-50 focus:border-indigo-500 uppercase">
+                    <option value="LANCADA">Lançada</option>
+                    <option value="CONFIRMADA">Confirmada</option>
+                    <option value="AGUARDANDO_LENTE">Aguardando Lente</option>
+                    <option value="EM_MONTAGEM">Em Montagem</option>
+                    <option value="PRONTA">Pronta</option>
+                    <option value="ENTREGUE">Entregue</option>
+                    <option value="CANCELADO">Cancelada</option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label class="block font-bold uppercase text-slate-500 mb-1">Data Prevista de Entrega</label>
+                  <input v-model="formEdicaoAdmin.dataPrevistaEntrega" type="date" class="w-full rounded-xl border-slate-200 text-xs font-mono bg-slate-50 focus:border-indigo-500" />
+                </div>
+                <div>
+                  <label class="block font-bold uppercase text-slate-500 mb-1">Data de Entrega Real</label>
+                  <input v-model="formEdicaoAdmin.dataEntregaReal" type="date" class="w-full rounded-xl border-slate-200 text-xs font-mono bg-slate-50 focus:border-indigo-500" />
+                </div>
+              </div>
+
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label class="block font-bold uppercase text-slate-500 mb-1">Loja da Venda *</label>
+                  <select v-model="formEdicaoAdmin.oticaId" class="w-full rounded-xl border-slate-200 text-xs font-bold bg-slate-50 focus:border-indigo-500">
+                    <option value="">Selecione a Loja</option>
+                    <option v-for="l in (Lojas ?? lojas)" :key="l.id || l.Id" :value="l.id || l.Id">
+                      {{ l.nome || l.Nome }}
+                    </option>
+                  </select>
+                </div>
+                <div>
+                  <label class="block font-bold uppercase text-slate-500 mb-1">Vendedora Responsável *</label>
+                  <select v-model="formEdicaoAdmin.vendedorId" class="w-full rounded-xl border-slate-200 text-xs font-bold bg-slate-50 focus:border-indigo-500">
+                    <option value="">Selecione a Vendedora</option>
+                    <option v-for="v in (Vendedores ?? vendedores)" :key="v.id || v.Id" :value="v.id || v.Id">
+                      {{ v.nome || v.Nome }}
+                    </option>
+                  </select>
+                </div>
+              </div>
+
+              <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label class="block font-bold uppercase text-slate-500 mb-1">Médico Responsável</label>
+                  <input v-model="formEdicaoAdmin.medicoNome" type="text" placeholder="Dr(a)..." class="w-full rounded-xl border-slate-200 text-xs bg-slate-50 focus:border-indigo-500" />
+                </div>
+                <div>
+                  <label class="block font-bold uppercase text-slate-500 mb-1">CRM / Registro</label>
+                  <input v-model="formEdicaoAdmin.medicoCrm" type="text" placeholder="00000-UF" class="w-full rounded-xl border-slate-200 text-xs bg-slate-50 focus:border-indigo-500" />
+                </div>
+                <div>
+                  <label class="block font-bold uppercase text-slate-500 mb-1">Tipo Profissional</label>
+                  <select v-model="formEdicaoAdmin.medicoTipo" class="w-full rounded-xl border-slate-200 text-xs bg-slate-50 focus:border-indigo-500">
+                    <option value="NAO_ESPECIFICADO">Não Especificado</option>
+                    <option value="OFTALMOLOGISTA">Oftalmologista</option>
+                    <option value="OPTOMETRISTA">Optometrista</option>
+                  </select>
+                </div>
+              </div>
+
+              <div>
+                <label class="block font-bold uppercase text-slate-500 mb-1">Observações Gerais</label>
+                <textarea v-model="formEdicaoAdmin.observacoes" rows="2" class="w-full rounded-xl border-slate-200 text-xs bg-slate-50 focus:border-indigo-500"></textarea>
+              </div>
             </div>
 
-            <div>
-              <label class="block font-bold uppercase text-slate-500 tracking-wider mb-1">Motivo do Ajuste *</label>
-              <input 
-                v-model="formEdicaoAdmin.motivo" 
-                type="text" 
-                placeholder="Ex: Lançamento retroativo de OS entregue em dia anterior" 
-                required 
-                class="w-full rounded-xl border-slate-200 text-xs text-slate-900 bg-slate-50 focus:border-indigo-500 focus:ring-indigo-500"
-              />
+            <!-- ABA 2: DADOS DO CLIENTE -->
+            <div v-show="abaEdicaoAdmin === 'cliente'" class="space-y-4 text-xs">
+              <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div class="md:col-span-2">
+                  <label class="block font-bold uppercase text-slate-500 mb-1">Nome Completo do Cliente *</label>
+                  <input v-model="formEdicaoAdmin.clienteNome" type="text" required class="w-full rounded-xl border-slate-200 text-xs font-bold bg-slate-50 focus:border-indigo-500" />
+                </div>
+                <div>
+                  <label class="block font-bold uppercase text-slate-500 mb-1">CPF</label>
+                  <input v-model="formEdicaoAdmin.clienteCpf" type="text" class="w-full rounded-xl border-slate-200 text-xs font-mono bg-slate-50 focus:border-indigo-500" />
+                </div>
+              </div>
+
+              <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label class="block font-bold uppercase text-slate-500 mb-1">Telefone / WhatsApp</label>
+                  <input v-model="formEdicaoAdmin.clienteTelefone" type="text" class="w-full rounded-xl border-slate-200 text-xs bg-slate-50 focus:border-indigo-500" />
+                </div>
+                <div>
+                  <label class="block font-bold uppercase text-slate-500 mb-1">E-mail</label>
+                  <input v-model="formEdicaoAdmin.clienteEmail" type="email" class="w-full rounded-xl border-slate-200 text-xs bg-slate-50 focus:border-indigo-500" />
+                </div>
+                <div>
+                  <label class="block font-bold uppercase text-slate-500 mb-1">Convênio</label>
+                  <input v-model="formEdicaoAdmin.clienteConvenio" type="text" class="w-full rounded-xl border-slate-200 text-xs bg-slate-50 focus:border-indigo-500" />
+                </div>
+              </div>
+
+              <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                <div class="md:col-span-2">
+                  <label class="block font-bold uppercase text-slate-500 mb-1">Logradouro</label>
+                  <input v-model="formEdicaoAdmin.clienteLogradouro" type="text" class="w-full rounded-xl border-slate-200 text-xs bg-slate-50 focus:border-indigo-500" />
+                </div>
+                <div>
+                  <label class="block font-bold uppercase text-slate-500 mb-1">Número</label>
+                  <input v-model="formEdicaoAdmin.clienteNumero" type="text" class="w-full rounded-xl border-slate-200 text-xs bg-slate-50 focus:border-indigo-500" />
+                </div>
+                <div>
+                  <label class="block font-bold uppercase text-slate-500 mb-1">Bairro</label>
+                  <input v-model="formEdicaoAdmin.clienteBairro" type="text" class="w-full rounded-xl border-slate-200 text-xs bg-slate-50 focus:border-indigo-500" />
+                </div>
+              </div>
+
+              <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label class="block font-bold uppercase text-slate-500 mb-1">Cidade</label>
+                  <input v-model="formEdicaoAdmin.clienteCidade" type="text" class="w-full rounded-xl border-slate-200 text-xs bg-slate-50 focus:border-indigo-500" />
+                </div>
+                <div>
+                  <label class="block font-bold uppercase text-slate-500 mb-1">Estado (UF)</label>
+                  <input v-model="formEdicaoAdmin.clienteEstado" type="text" maxlength="2" class="w-full rounded-xl border-slate-200 text-xs uppercase bg-slate-50 focus:border-indigo-500" />
+                </div>
+                <div>
+                  <label class="block font-bold uppercase text-slate-500 mb-1">CEP</label>
+                  <input v-model="formEdicaoAdmin.clienteCep" type="text" class="w-full rounded-xl border-slate-200 text-xs font-mono bg-slate-50 focus:border-indigo-500" />
+                </div>
+              </div>
             </div>
 
-            <div class="p-3 bg-amber-50 border border-amber-200 rounded-xl text-[11px] text-amber-900 leading-relaxed font-sans">
-              ⚠️ <b>Atenção:</b> Alterar a data de emissão vai recalcular o caixa e o período de comissões. Períodos com comissão fechada ou paga não permitem alteração.
+            <!-- ABA 3: RECEITA & MEDIDAS -->
+            <div v-show="abaEdicaoAdmin === 'receita'" class="space-y-4 text-xs">
+              <div class="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-3">
+                <span class="font-black uppercase text-slate-700 tracking-wider block">Grau de Longe</span>
+                <div class="grid grid-cols-4 gap-2 text-center font-bold text-slate-400">
+                  <div>Olho</div><div>Esférico</div><div>Cilíndrico</div><div>Eixo</div>
+                </div>
+                <div class="grid grid-cols-4 gap-2 items-center">
+                  <span class="font-black text-center text-slate-800">OD</span>
+                  <input v-model.number="formEdicaoAdmin.odEsferico" type="number" step="0.25" class="rounded-xl border-slate-200 text-xs text-center font-mono bg-white" />
+                  <input v-model.number="formEdicaoAdmin.odCilindrico" type="number" step="0.25" class="rounded-xl border-slate-200 text-xs text-center font-mono text-amber-700 bg-white" />
+                  <input v-model.number="formEdicaoAdmin.odEixo" type="number" min="0" max="180" class="rounded-xl border-slate-200 text-xs text-center font-mono bg-white" />
+                </div>
+                <div class="grid grid-cols-4 gap-2 items-center">
+                  <span class="font-black text-center text-slate-800">OE</span>
+                  <input v-model.number="formEdicaoAdmin.oeEsferico" type="number" step="0.25" class="rounded-xl border-slate-200 text-xs text-center font-mono bg-white" />
+                  <input v-model.number="formEdicaoAdmin.oeCilindrico" type="number" step="0.25" class="rounded-xl border-slate-200 text-xs text-center font-mono text-amber-700 bg-white" />
+                  <input v-model.number="formEdicaoAdmin.oeEixo" type="number" min="0" max="180" class="rounded-xl border-slate-200 text-xs text-center font-mono bg-white" />
+                </div>
+              </div>
+
+              <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div>
+                  <label class="block font-bold uppercase text-slate-500 mb-1">Adição (AD)</label>
+                  <input v-model.number="formEdicaoAdmin.adicao" type="number" step="0.25" min="0" max="3.5" class="w-full rounded-xl border-slate-200 text-xs font-mono font-bold text-teal-800 bg-slate-50" />
+                </div>
+                <div>
+                  <label class="block font-bold uppercase text-slate-500 mb-1">DNP OD (mm)</label>
+                  <input v-model.number="formEdicaoAdmin.dnpOd" type="number" step="0.5" class="w-full rounded-xl border-slate-200 text-xs font-mono bg-slate-50" />
+                </div>
+                <div>
+                  <label class="block font-bold uppercase text-slate-500 mb-1">DNP OE (mm)</label>
+                  <input v-model.number="formEdicaoAdmin.dnpOe" type="number" step="0.5" class="w-full rounded-xl border-slate-200 text-xs font-mono bg-slate-50" />
+                </div>
+              </div>
+
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label class="block font-bold uppercase text-slate-500 mb-1">Altura Mont. OD (mm)</label>
+                  <input v-model.number="formEdicaoAdmin.alturaMontagemOd" type="number" step="0.5" class="w-full rounded-xl border-slate-200 text-xs font-mono bg-slate-50" />
+                </div>
+                <div>
+                  <label class="block font-bold uppercase text-slate-500 mb-1">Altura Mont. OE (mm)</label>
+                  <input v-model.number="formEdicaoAdmin.alturaMontagemOe" type="number" step="0.5" class="w-full rounded-xl border-slate-200 text-xs font-mono bg-slate-50" />
+                </div>
+              </div>
+
+              <div class="p-3 bg-slate-50 rounded-xl border border-slate-200 space-y-2">
+                <span class="font-black uppercase text-slate-700 tracking-wider block">Medidas da Armação (Laboratório)</span>
+                <div class="grid grid-cols-3 md:grid-cols-6 gap-2">
+                  <div>
+                    <label class="block text-[9px] uppercase font-bold text-slate-400">ARO</label>
+                    <input v-model.number="formEdicaoAdmin.aro" type="number" step="0.5" class="w-full rounded-xl border-slate-200 text-xs text-center font-mono bg-white" />
+                  </div>
+                  <div>
+                    <label class="block text-[9px] uppercase font-bold text-slate-400">DM</label>
+                    <input v-model.number="formEdicaoAdmin.dm" type="number" step="0.5" class="w-full rounded-xl border-slate-200 text-xs text-center font-mono bg-white" />
+                  </div>
+                  <div>
+                    <label class="block text-[9px] uppercase font-bold text-slate-400">VERT</label>
+                    <input v-model.number="formEdicaoAdmin.vert" type="number" step="0.5" class="w-full rounded-xl border-slate-200 text-xs text-center font-mono bg-white" />
+                  </div>
+                  <div>
+                    <label class="block text-[9px] uppercase font-bold text-slate-400">PO</label>
+                    <input v-model.number="formEdicaoAdmin.po" type="number" step="0.5" class="w-full rounded-xl border-slate-200 text-xs text-center font-mono bg-white" />
+                  </div>
+                  <div>
+                    <label class="block text-[9px] uppercase font-bold text-slate-400">CO OD</label>
+                    <input v-model.number="formEdicaoAdmin.coOd" type="number" step="0.5" class="w-full rounded-xl border-slate-200 text-xs text-center font-mono bg-white" />
+                  </div>
+                  <div>
+                    <label class="block text-[9px] uppercase font-bold text-slate-400">CO OE</label>
+                    <input v-model.number="formEdicaoAdmin.coOe" type="number" step="0.5" class="w-full rounded-xl border-slate-200 text-xs text-center font-mono bg-white" />
+                  </div>
+                </div>
+              </div>
             </div>
 
-            <div class="flex justify-end gap-2 pt-2 border-t border-slate-100">
-              <button 
-                type="button" 
-                @click="modalEditarAdminAberta = false" 
-                class="px-4 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold transition"
-              >
-                Cancelar
-              </button>
-              <button 
-                type="submit" 
-                :disabled="processandoEdicaoAdmin" 
-                class="px-5 py-2 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white rounded-xl font-bold transition shadow-sm"
-              >
-                {{ processandoEdicaoAdmin ? 'Salvando...' : 'Salvar Data' }}
-              </button>
+            <!-- ABA 4: PRODUTOS & FINANCEIRO COM RECÁLCULO AUTOMÁTICO -->
+            <div v-show="abaEdicaoAdmin === 'financeiro'" class="space-y-4 text-xs">
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label class="block font-bold uppercase text-slate-500 mb-1">Descrição / Modelo da Armação</label>
+                  <input v-model="formEdicaoAdmin.armacaoDescricaoManual" type="text" placeholder="Ex: Ray-Ban Aviador Dourado" class="w-full rounded-xl border-slate-200 text-xs bg-slate-50 focus:border-indigo-500" />
+                </div>
+                <div>
+                  <label class="block font-bold uppercase text-slate-500 mb-1">Descrição / Tabela da Lente</label>
+                  <input v-model="formEdicaoAdmin.lenteDescricaoManual" type="text" placeholder="Ex: Multifocal Varilux Comfort" class="w-full rounded-xl border-slate-200 text-xs bg-slate-50 focus:border-indigo-500" />
+                </div>
+              </div>
+
+              <!-- Grade de Valores Financeiros com Recálculo Dinâmico (Regra 3 do PDF) -->
+              <div class="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-4">
+                <span class="font-black uppercase text-slate-800 tracking-wider block">Valores e Cadeia de Cálculo Automática</span>
+                <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
+                  <div>
+                    <label class="block font-bold uppercase text-slate-500 mb-1">Valor Armação (R$)</label>
+                    <input v-model.number="formEdicaoAdmin.valorArmacao" type="number" step="0.01" min="0" class="w-full rounded-xl border-slate-200 text-xs font-mono font-bold bg-white focus:border-indigo-500" />
+                  </div>
+                  <div>
+                    <label class="block font-bold uppercase text-slate-500 mb-1">Valor Lente (R$)</label>
+                    <input v-model.number="formEdicaoAdmin.valorLente" type="number" step="0.01" min="0" class="w-full rounded-xl border-slate-200 text-xs font-mono font-bold bg-white focus:border-indigo-500" />
+                  </div>
+                  <div>
+                    <label class="block font-bold uppercase text-slate-500 mb-1">Desconto (R$)</label>
+                    <input v-model.number="formEdicaoAdmin.descontoReais" type="number" step="0.01" min="0" class="w-full rounded-xl border-slate-200 text-xs font-mono font-bold text-amber-700 bg-white focus:border-indigo-500" />
+                  </div>
+                  <div>
+                    <label class="block font-bold uppercase text-slate-500 mb-1">Valor Entrada (R$)</label>
+                    <input v-model.number="formEdicaoAdmin.valorEntrada" type="number" step="0.01" min="0" class="w-full rounded-xl border-slate-200 text-xs font-mono font-bold text-teal-700 bg-white focus:border-indigo-500" />
+                  </div>
+                </div>
+
+                <!-- Painel de Conferência da Cadeia -->
+                <div class="p-3 bg-white rounded-xl border border-slate-200 grid grid-cols-2 md:grid-cols-4 gap-2 font-mono text-center">
+                  <div class="p-2 bg-slate-50 rounded-lg">
+                    <span class="block text-[9px] text-slate-400 uppercase font-bold">Total Bruto</span>
+                    <b class="text-slate-800">{{ formatarMoeda(valorBrutoEdicaoAdmin) }}</b>
+                  </div>
+                  <div class="p-2 bg-amber-50 rounded-lg">
+                    <span class="block text-[9px] text-amber-700 uppercase font-bold">Desconto</span>
+                    <b class="text-amber-800">{{ formatarMoeda(formEdicaoAdmin.descontoReais) }}</b>
+                  </div>
+                  <div class="p-2 bg-indigo-50 rounded-lg">
+                    <span class="block text-[9px] text-indigo-700 uppercase font-bold">Total Líquido</span>
+                    <b class="text-indigo-900">{{ formatarMoeda(valorLiquidoEdicaoAdmin) }}</b>
+                  </div>
+                  <div class="p-2 bg-rose-50 rounded-lg">
+                    <span class="block text-[9px] text-rose-700 uppercase font-bold">Saldo Restante</span>
+                    <b :class="valorRestanteEdicaoAdmin > 0 ? 'text-rose-700' : 'text-emerald-700'">
+                      {{ formatarMoeda(valorRestanteEdicaoAdmin) }}
+                    </b>
+                  </div>
+                </div>
+              </div>
+
+              <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label class="block font-bold uppercase text-slate-500 mb-1">Forma de Pagamento</label>
+                  <select v-model="formEdicaoAdmin.formaPagamento" class="w-full rounded-xl border-slate-200 text-xs bg-slate-50 focus:border-indigo-500">
+                    <option value="DINHEIRO">Dinheiro</option>
+                    <option value="PIX">Pix</option>
+                    <option value="CARTAO_CREDITO">Cartão de Crédito</option>
+                    <option value="CARTAO_DEBITO">Cartão de Débito</option>
+                    <option value="BOLETO">Boleto</option>
+                  </select>
+                </div>
+                <div>
+                  <label class="block font-bold uppercase text-slate-500 mb-1">Parcelas</label>
+                  <input v-model.number="formEdicaoAdmin.parcelas" type="number" min="1" max="24" class="w-full rounded-xl border-slate-200 text-xs font-mono bg-slate-50 focus:border-indigo-500" />
+                </div>
+              </div>
+            </div>
+
+            <!-- MOTIVO DO AJUSTE & AVISOS (SEMPRE VISÍVEIS) -->
+            <div class="pt-4 border-t border-slate-200 space-y-3">
+              <div>
+                <label class="block font-bold uppercase text-slate-700 mb-1">
+                  Motivo da Alteração / Justificativa (Obrigatório para Auditoria) *
+                </label>
+                <input 
+                  v-model="formEdicaoAdmin.motivo" 
+                  type="text" 
+                  placeholder="Ex: Correção de receita médica solicitada pelo cliente / ajuste de valor" 
+                  required 
+                  class="w-full rounded-xl border-slate-300 text-xs text-slate-900 bg-slate-50 focus:border-indigo-500 focus:ring-indigo-500"
+                />
+              </div>
+
+              <div class="p-3 bg-amber-50 border border-amber-200 rounded-xl text-[11px] text-amber-900 space-y-1 font-sans">
+                <p>⚠️ <b>Regras Mandatórias:</b></p>
+                <p>• Toda alteração é registrada no <b>log de auditoria visível</b> com nome do responsável e data/hora.</p>
+                <p>• O registro de comissão da vendedora é <b>automaticamente recalculado</b> com o novo valor líquido.</p>
+                <p>• Se a OS pertencer a um período contábil <b>já fechado e pago</b>, alterações financeiras e de data serão bloqueadas.</p>
+              </div>
+            </div>
+
+            <!-- Rodapé / Ações da Modal -->
+            <div class="flex items-center justify-between pt-4 border-t border-slate-100">
+              <span class="text-[11px] text-slate-400 font-mono">
+                Ação restrita a Administradores
+              </span>
+              <div class="flex gap-2">
+                <button 
+                  type="button" 
+                  @click="modalEditarAdminAberta = false" 
+                  class="px-5 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-bold transition text-xs"
+                >
+                  Cancelar
+                </button>
+                <button 
+                  type="submit" 
+                  :disabled="processandoEdicaoAdmin" 
+                  class="px-6 py-2.5 bg-indigo-600 hover:bg-indigo-700 disabled:opacity-50 text-white rounded-xl font-bold transition shadow-sm text-xs flex items-center gap-1.5"
+                >
+                  <span v-if="processandoEdicaoAdmin">Processando Alterações...</span>
+                  <span v-else>💾 Gravar Alterações da OS</span>
+                </button>
+              </div>
             </div>
           </form>
         </div>
@@ -600,11 +1036,18 @@
 <script setup>
 import { ref, computed } from 'vue'
 import { router, usePage, useForm } from '@inertiajs/vue3'
+import axios from 'axios'
 import AuthenticatedLayout from '../../Shared/AuthenticatedLayout.vue'
 
 const props = defineProps({
   Ordens: Array, ordens: Array,
   Vendedores: Array, vendedores: Array,
+  Lojas: Array, lojas: Array,
+  FiltroComposicao: String, filtroComposicao: String,
+  FiltroVendedorId: String, filtroVendedorId: String,
+  FiltroLojaId: String, filtroLojaId: String,
+  Busca: String, busca: String,
+  TotalFaturamento: Number, totalFaturamento: Number,
   FiltroAtivo: String, filtroAtivo: String,
   VendedorFiltro: String, vendedorFiltro: String,
   TotalFiltroAtivo: Number, totalFiltroAtivo: Number
@@ -616,69 +1059,43 @@ const eAdmin = computed(() => {
   return ['admin', 'sistema', 'gerente'].includes(perfil)
 })
 
-const osSelecionada = ref(null)
-const modalEntregaAberta = ref(false)
-const osParaEntrega = ref(null)
-const processandoEntrega = ref(false)
-const vendedorSelecionado = ref(props.VendedorFiltro ?? props.vendedorFiltro ?? '')
+// Filtros Reativos (Seção 3 do PDF)
+const termoBusca = ref(props.Busca ?? props.busca ?? '')
+const lojaSelecionada = ref(props.FiltroLojaId ?? props.filtroLojaId ?? '')
+const vendedorSelecionado = ref(props.FiltroVendedorId ?? props.filtroVendedorId ?? props.VendedorFiltro ?? props.vendedorFiltro ?? '')
+const filtroAtivoComp = computed(() => props.FiltroComposicao ?? props.filtroComposicao ?? props.FiltroAtivo ?? props.filtroAtivo ?? 'total')
+const totalExibido = computed(() => props.TotalFaturamento ?? props.totalFaturamento ?? props.TotalFiltroAtivo ?? props.totalFiltroAtivo ?? 0)
 
-const modalEditarAdminAberta = ref(false)
-const osParaEdicaoAdmin = ref(null)
-const processandoEdicaoAdmin = ref(false)
-const formEdicaoAdmin = useForm({
-  novaDataEntrada: '',
-  motivo: ''
+const tipoBuscaDetectado = computed(() => {
+  const val = (termoBusca.value || '').trim()
+  if (!val) return null
+  return /^\d+$/.test(val) ? 'NUMERO' : 'CLIENTE'
 })
 
-const abrirModalEditarAdmin = (os) => {
-  osParaEdicaoAdmin.value = os
-  const dataRaw = os.dataEntrada || os.DataEntrada
-  const dataIso = dataRaw ? new Date(dataRaw).toISOString().split('T')[0] : new Date().toISOString().split('T')[0]
-  formEdicaoAdmin.novaDataEntrada = dataIso
-  formEdicaoAdmin.motivo = ''
-  modalEditarAdminAberta.value = true
-}
-
-const salvarEdicaoAdmin = () => {
-  if (!osParaEdicaoAdmin.value) return
-  const id = osParaEdicaoAdmin.value.id || osParaEdicaoAdmin.value.Id
-  processandoEdicaoAdmin.value = true
-
-  formEdicaoAdmin.post(`/ordens/editar-admin/${id}`, {
-    preserveScroll: true,
-    onSuccess: () => {
-      processandoEdicaoAdmin.value = false
-      modalEditarAdminAberta.value = false
-      osParaEdicaoAdmin.value = null
-      alert('✅ Data de emissão da OS atualizada com sucesso!')
-    },
-    onError: (errors) => {
-      processandoEdicaoAdmin.value = false
-      alert(errors?.erro || 'Erro ao atualizar data de emissão.')
+let timerBusca = null
+const onInputBusca = () => {
+  if (timerBusca) clearTimeout(timerBusca)
+  timerBusca = setTimeout(() => {
+    const val = (termoBusca.value || '').trim()
+    const ehNumero = /^\d+$/.test(val)
+    if (ehNumero || val.length >= 3 || val.length === 0) {
+      aplicarFiltros()
     }
-  })
+  }, 300)
 }
 
-const formEntrega = ref({
-  opcaoQuitacao: 'PAGO_RETIRADA',
-  formaPagamentoRetirada: 'DINHEIRO',
-  parcelasRetirada: 1
-})
-
-const filtroAtivoComp = computed(() => props.FiltroAtivo ?? props.filtroAtivo ?? 'total')
-const totalExibido = computed(() => props.TotalFiltroAtivo ?? props.totalFiltroAtivo ?? 0)
-
-const receitaObj = computed(() => osSelecionada.value?.receita || osSelecionada.value?.Receita || {})
-const financeiroObj = computed(() => osSelecionada.value?.financeiro || osSelecionada.value?.Financeiro || {})
-const parcelasLista = computed(() => osSelecionada.value?.parcelas || osSelecionada.value?.Parcelas || [])
-
-const irParaNovaOrdem = () => router.get('/ordens/nova')
+const limparBusca = () => {
+  termoBusca.value = ''
+  aplicarFiltros()
+}
 
 const aplicarFiltros = (tipoComposicao = null) => {
   const comp = tipoComposicao !== null ? tipoComposicao : filtroAtivoComp.value
   const params = {}
   if (comp && comp !== 'total') params.filtroComposicao = comp
   if (vendedorSelecionado.value) params.vendedorId = vendedorSelecionado.value
+  if (lojaSelecionada.value) params.lojaId = lojaSelecionada.value
+  if (termoBusca.value && termoBusca.value.trim().length > 0) params.busca = termoBusca.value.trim()
 
   router.get('/ordens', params, { preserveState: true, replace: true })
 }
@@ -686,9 +1103,224 @@ const aplicarFiltros = (tipoComposicao = null) => {
 const filtrarPorComposicao = (tipo) => aplicarFiltros(tipo)
 const filtrarPorVendedor = () => aplicarFiltros()
 
-const abrirPranchetaClinica = (ordem) => { 
+// Modal de Detalhes / Prancheta Clínica e Auditoria (Seção 1 do PDF)
+const osSelecionada = ref(null)
+const logsAuditoria = ref([])
+const carregandoAuditoria = ref(false)
+
+const abrirPranchetaClinica = async (ordem) => { 
   osSelecionada.value = { ...ordem } 
+  logsAuditoria.value = []
+  carregandoAuditoria.value = true
+  try {
+    const id = ordem.id || ordem.Id
+    const { data } = await axios.get(`/api/ordens/${id}/auditoria`)
+    logsAuditoria.value = data || []
+  } catch {
+    logsAuditoria.value = []
+  } finally {
+    carregandoAuditoria.value = false
+  }
 }
+
+// Modal de Entrega & Quitação
+const modalEntregaAberta = ref(false)
+const osParaEntrega = ref(null)
+const processandoEntrega = ref(false)
+const formEntrega = ref({
+  opcaoQuitacao: 'PAGO_RETIRADA',
+  formaPagamentoRetirada: 'DINHEIRO',
+  parcelasRetirada: 1
+})
+
+// Modal de Edição Administrativa Completa (Seção 1 do PDF)
+const modalEditarAdminAberta = ref(false)
+const osParaEdicaoAdmin = ref(null)
+const processandoEdicaoAdmin = ref(false)
+const abaEdicaoAdmin = ref('geral')
+
+const formEdicaoAdmin = useForm({
+  numeroOS: '',
+  novaDataEntrada: '',
+  dataPrevistaEntrega: '',
+  dataEntregaReal: '',
+  lojaVenda: '',
+  oticaId: '',
+  vendedorId: '',
+  medicoNome: '',
+  medicoCrm: '',
+  medicoTipo: 'NAO_ESPECIFICADO',
+  observacoes: '',
+  motivo: '',
+  status: 'LANCADA',
+
+  clienteNome: '',
+  clienteCpf: '',
+  clienteTelefone: '',
+  clienteDataNascimento: '',
+  clienteEmail: '',
+  clienteConvenio: '',
+  clienteLogradouro: '',
+  clienteNumero: '',
+  clienteBairro: '',
+  clienteCidade: '',
+  clienteEstado: '',
+  clienteCep: '',
+
+  odEsferico: null,
+  odCilindrico: null,
+  odEixo: null,
+  oeEsferico: null,
+  oeCilindrico: null,
+  oeEixo: null,
+  adicao: null,
+  dnpOd: null,
+  dnpOe: null,
+  alturaMontagemOd: null,
+  alturaMontagemOe: null,
+  aro: null,
+  dm: null,
+  vert: null,
+  po: null,
+  coOd: null,
+  coOe: null,
+  obsReceita: '',
+
+  armacaoDescricaoManual: '',
+  lenteDescricaoManual: '',
+
+  valorArmacao: 0,
+  valorLente: 0,
+  descontoReais: 0,
+  valorTotalLiquido: 0,
+  valorEntrada: 0,
+  formaPagamento: 'DINHEIRO',
+  parcelas: 1
+})
+
+const valorBrutoEdicaoAdmin = computed(() => {
+  return Number(formEdicaoAdmin.valorArmacao || 0) + Number(formEdicaoAdmin.valorLente || 0)
+})
+
+const valorLiquidoEdicaoAdmin = computed(() => {
+  const bruto = valorBrutoEdicaoAdmin.value
+  let desc = Number(formEdicaoAdmin.descontoReais || 0)
+  if (desc > bruto) desc = bruto
+  return Math.max(0, bruto - desc)
+})
+
+const valorRestanteEdicaoAdmin = computed(() => {
+  const liq = valorLiquidoEdicaoAdmin.value
+  let ent = Number(formEdicaoAdmin.valorEntrada || 0)
+  if (ent > liq) ent = liq
+  return Math.max(0, liq - ent)
+})
+
+const abrirModalEditarAdmin = (os) => {
+  osParaEdicaoAdmin.value = os
+  abaEdicaoAdmin.value = 'geral'
+
+  const dataRaw = os.dataEntrada || os.DataEntrada
+  const dataIso = dataRaw ? new Date(dataRaw).toISOString().split('T')[0] : ''
+  const prevRaw = os.dataPrevistaEntrega || os.DataPrevistaEntrega
+  const prevIso = prevRaw ? new Date(prevRaw).toISOString().split('T')[0] : ''
+  const realRaw = os.dataEntregaReal || os.DataEntregaReal
+  const realIso = realRaw ? new Date(realRaw).toISOString().split('T')[0] : ''
+
+  const cli = os.cliente || os.Cliente || {}
+  const cliNascRaw = cli.dataNascimento || cli.DataNascimento
+  const cliNascIso = cliNascRaw ? new Date(cliNascRaw).toISOString().split('T')[0] : ''
+
+  const rec = os.receita || os.Receita || {}
+  const fin = os.financeiro || os.Financeiro || {}
+
+  formEdicaoAdmin.numeroOS = os.numeroOS || os.NumeroOS || ''
+  formEdicaoAdmin.novaDataEntrada = dataIso
+  formEdicaoAdmin.dataPrevistaEntrega = prevIso
+  formEdicaoAdmin.dataEntregaReal = realIso
+  formEdicaoAdmin.lojaVenda = os.lojaVenda || os.LojaVenda || ''
+  formEdicaoAdmin.oticaId = os.oticaId || os.OticaId || ''
+  formEdicaoAdmin.vendedorId = os.vendedorId || os.VendedorId || ''
+  formEdicaoAdmin.medicoNome = os.medico || os.medicoNome || os.MedicoNome || ''
+  formEdicaoAdmin.medicoCrm = os.medicoCrm || os.MedicoCrm || ''
+  formEdicaoAdmin.medicoTipo = os.medicoTipo || os.MedicoTipo || 'NAO_ESPECIFICADO'
+  formEdicaoAdmin.observacoes = os.observacoes || os.Observacoes || ''
+  formEdicaoAdmin.motivo = ''
+  formEdicaoAdmin.status = (os.status || os.Status || 'LANCADA').toUpperCase()
+
+  formEdicaoAdmin.clienteNome = cli.nome || cli.Nome || os.clienteNome || os.ClienteNome || ''
+  formEdicaoAdmin.clienteCpf = cli.cpf || cli.Cpf || cli.CPF || ''
+  formEdicaoAdmin.clienteTelefone = cli.telefone || cli.Telefone || ''
+  formEdicaoAdmin.clienteDataNascimento = cliNascIso
+  formEdicaoAdmin.clienteEmail = cli.email || cli.Email || ''
+  formEdicaoAdmin.clienteConvenio = cli.convenio || cli.Convenio || ''
+  formEdicaoAdmin.clienteLogradouro = cli.logradouro || cli.Logradouro || ''
+  formEdicaoAdmin.clienteNumero = cli.numero || cli.Numero || ''
+  formEdicaoAdmin.clienteBairro = cli.bairro || cli.Bairro || ''
+  formEdicaoAdmin.clienteCidade = cli.cidade || cli.Cidade || ''
+  formEdicaoAdmin.clienteEstado = cli.estado || cli.Estado || ''
+  formEdicaoAdmin.clienteCep = cli.cep || cli.Cep || ''
+
+  formEdicaoAdmin.odEsferico = rec.odEsferico !== undefined && rec.odEsferico !== null ? Number(rec.odEsferico) : null
+  formEdicaoAdmin.odCilindrico = rec.odCilindrico !== undefined && rec.odCilindrico !== null ? Number(rec.odCilindrico) : null
+  formEdicaoAdmin.odEixo = rec.odEixo !== undefined && rec.odEixo !== null ? Number(rec.odEixo) : null
+  formEdicaoAdmin.oeEsferico = rec.oeEsferico !== undefined && rec.oeEsferico !== null ? Number(rec.oeEsferico) : null
+  formEdicaoAdmin.oeCilindrico = rec.oeCilindrico !== undefined && rec.oeCilindrico !== null ? Number(rec.oeCilindrico) : null
+  formEdicaoAdmin.oeEixo = rec.oeEixo !== undefined && rec.oeEixo !== null ? Number(rec.oeEixo) : null
+  formEdicaoAdmin.adicao = rec.adicao !== undefined && rec.adicao !== null ? Number(rec.adicao) : null
+  formEdicaoAdmin.dnpOd = rec.dnpOd !== undefined && rec.dnpOd !== null ? Number(rec.dnpOd) : null
+  formEdicaoAdmin.dnpOe = rec.dnpOe !== undefined && rec.dnpOe !== null ? Number(rec.dnpOe) : null
+  formEdicaoAdmin.alturaMontagemOd = rec.alturaMontagemOd !== undefined && rec.alturaMontagemOd !== null ? Number(rec.alturaMontagemOd) : null
+  formEdicaoAdmin.alturaMontagemOe = rec.alturaMontagemOe !== undefined && rec.alturaMontagemOe !== null ? Number(rec.alturaMontagemOe) : null
+  formEdicaoAdmin.aro = rec.aro !== undefined && rec.aro !== null ? Number(rec.aro) : null
+  formEdicaoAdmin.dm = rec.dm !== undefined && rec.dm !== null ? Number(rec.dm) : null
+  formEdicaoAdmin.vert = rec.vert !== undefined && rec.vert !== null ? Number(rec.vert) : null
+  formEdicaoAdmin.po = rec.po !== undefined && rec.po !== null ? Number(rec.po) : null
+  formEdicaoAdmin.coOd = rec.coOd !== undefined && rec.coOd !== null ? Number(rec.coOd) : null
+  formEdicaoAdmin.coOe = rec.coOe !== undefined && rec.coOe !== null ? Number(rec.coOe) : null
+  formEdicaoAdmin.obsReceita = rec.obsReceita || ''
+
+  formEdicaoAdmin.armacaoDescricaoManual = os.armacaoModeloManual || os.ArmacaoModeloManual || ''
+  formEdicaoAdmin.lenteDescricaoManual = os.lenteDescricaoManual || os.LenteDescricaoManual || ''
+
+  formEdicaoAdmin.valorArmacao = Number(fin.valorArmacao || fin.ValorArmacao || 0)
+  formEdicaoAdmin.valorLente = Number(fin.valorLente || fin.ValorLente || 0)
+  formEdicaoAdmin.descontoReais = Number(fin.descontoReais || fin.DescontoReais || 0)
+  formEdicaoAdmin.valorTotalLiquido = Number(fin.valorTotalLiquido || fin.ValorTotalLiquido || os.valorTotal || os.ValorTotal || 0)
+  formEdicaoAdmin.valorEntrada = Number(fin.valorEntrada || fin.ValorEntrada || 0)
+  formEdicaoAdmin.formaPagamento = fin.formaPagamento || fin.FormaPagamento || 'DINHEIRO'
+  formEdicaoAdmin.parcelas = Number(fin.parcelas || fin.Parcelas || 1)
+
+  modalEditarAdminAberta.value = true
+}
+
+const salvarEdicaoAdmin = () => {
+  if (!osParaEdicaoAdmin.value) return
+  const id = osParaEdicaoAdmin.value.id || osParaEdicaoAdmin.value.Id
+  processandoEdicaoAdmin.value = true
+  formEdicaoAdmin.valorTotalLiquido = valorLiquidoEdicaoAdmin.value
+
+  formEdicaoAdmin.post(`/ordens/editar-admin/${id}`, {
+    preserveScroll: true,
+    onSuccess: () => {
+      processandoEdicaoAdmin.value = false
+      modalEditarAdminAberta.value = false
+      osParaEdicaoAdmin.value = null
+      alert('✅ Ordem de Serviço atualizada com sucesso pelo administrador!')
+    },
+    onError: (errors) => {
+      processandoEdicaoAdmin.value = false
+      const msg = errors?.erro || errors?.mensagem || 'Erro ao salvar alterações da OS. Verifique se o período está fechado.'
+      alert(`⚠️ ${msg}`)
+    }
+  })
+}
+
+const receitaObj = computed(() => osSelecionada.value?.receita || osSelecionada.value?.Receita || {})
+const financeiroObj = computed(() => osSelecionada.value?.financeiro || osSelecionada.value?.Financeiro || {})
+const parcelasLista = computed(() => osSelecionada.value?.parcelas || osSelecionada.value?.Parcelas || [])
+
+const irParaNovaOrdem = () => router.get('/ordens/nova')
 
 const temLente = (os) => {
   const fin = os?.financeiro || os?.Financeiro
@@ -705,7 +1337,7 @@ const obterValorRestante = (os) => {
   return Math.max(0, liq - ent)
 }
 
-// SEÇÃO 3.2: MARCAR LENTE COMO PEDIDA
+// Marcar Lente Pedida
 const marcarLentePedida = (id) => {
   if (!id) return
   if (confirm('Confirmar que as lentes desta OS foram encomendadas ao laboratório?')) {
@@ -736,7 +1368,7 @@ const alterarStatusOS = (id, novoStatus) => {
   })
 }
 
-// SEÇÃO 3.1 & 6: QUITAÇÃO E ENTREGA
+// Quitação e Entrega
 const abrirModalEntrega = (os) => {
   osParaEntrega.value = os
   formEntrega.value = {
@@ -766,7 +1398,7 @@ const confirmarEntregaEQuitacao = () => {
   })
 }
 
-// ENVIAR WHATSAPP DIRETO DA TABELA
+// WhatsApp Direto
 const abrirWhatsAppOS = async (os) => {
   const id = os.id || os.Id
   const statusAtual = (os.status || '').toUpperCase()
@@ -780,12 +1412,12 @@ const abrirWhatsAppOS = async (os) => {
     } else {
       alert(`Cliente não possui telefone válido para WhatsApp cadastrado.\nMensagem gerada:\n\n${data.mensagem}`)
     }
-  } catch (err) {
+  } catch {
     alert('Erro ao gerar mensagem de WhatsApp.')
   }
 }
 
-// SUBISTITUIÇÃO DE EXCLUSÃO POR CANCELAMENTO AUDITÁVEL
+// Cancelamento
 const cancelarOS = (id, numero) => {
   if (confirm(`Deseja realmente CANCELAR a OS ${numero}? O estoque da armação será estornado e a venda será desconsiderada dos relatórios e comissões.`)) {
     router.post(`/ordens/cancelar/${id}`, {}, {
