@@ -9,7 +9,8 @@ services:
       POSTGRES_PASSWORD: SenhaSeguraOtica2026
       POSTGRES_DB: retsys_db_prod
     ports:
-      - "5432:5432"
+      # Amarrado exclusivamente ao localhost para evitar exposição pública
+      - "127.0.0.1:5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     networks:
@@ -21,7 +22,8 @@ services:
     container_name: retsys_ollama_container
     restart: always
     ports:
-      - "11434:11434"
+      # Amarrado ao localhost (elimina a brecha de RCE do Ollama na internet)
+      - "127.0.0.1:11434:11434"
     volumes:
       - ollama_data:/root/.ollama
     networks:
@@ -35,9 +37,9 @@ services:
     container_name: retsys_app_container
     restart: always
     ports:
-      - "5000:8080"
-      - "5001:8081"
-   
+      # Amarrado ao localhost para receber tráfego apenas via Nginx local (80/443)
+      - "127.0.0.1:5000:8080"
+      - "127.0.0.1:5001:8081"
     depends_on:
       - retsys_db
       - ollama
