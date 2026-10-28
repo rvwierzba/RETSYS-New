@@ -2,1537 +2,643 @@
   <AuthenticatedLayout>
     <div class="p-4 md:p-8 space-y-6 max-w-5xl mx-auto">
 
-      <!-- Alertas de Erro Globais -->
-      <div v-if="$page.props.flash?.erro" class="p-4 bg-red-50 border border-red-200 text-red-800 rounded-xl text-sm font-semibold shadow-sm no-print">
-        🛑 {{ $page.props.flash.erro }}
+      <!-- CABEÇALHO DO FLUXO DE EMISSÃO -->
+      <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
+        <div>
+          <div class="flex items-center gap-2">
+            <span class="w-2.5 h-2.5 rounded-full bg-teal-500"></span>
+            <h1 class="text-2xl font-black text-slate-950 font-mono tracking-tight">Nova Ordem de Serviço (O.S.)</h1>
+          </div>
+          <p class="text-xs text-slate-500 mt-1">Fluxo passo a passo: Identificação, Refração Clínica, Produtos e Fechamento Financeiro.</p>
+        </div>
+
+        <div class="flex items-center gap-2 font-mono text-xs">
+          <span class="px-3 py-1.5 rounded-xl bg-slate-100 text-slate-700 font-bold border border-slate-200">
+            Nº OS: <b class="text-teal-700">{{ form.numeroOS }}</b>
+          </span>
+          <Link href="/ordens" class="px-3.5 py-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-600 font-bold transition">
+            Cancelar
+          </Link>
+        </div>
       </div>
 
-      <div v-if="erroSubmissao" class="p-4 bg-red-50 border border-red-200 text-red-800 rounded-xl text-sm font-semibold shadow-sm no-print">
-        🛑 {{ erroSubmissao }}
-      </div>
+      <!-- PROGRESSO DAS ETAPAS (STEPPER VISUAL ESTILO SSÓTICA / PWI) -->
+      <div class="grid grid-cols-4 gap-2 bg-white p-2.5 rounded-2xl border border-slate-200 text-xs font-mono">
+        <button 
+          type="button"
+          @click="etapaAtual = 1"
+          :class="etapaAtual === 1 ? 'bg-teal-600 text-white font-bold shadow-xs' : (etapaAtual > 1 ? 'bg-teal-50 text-teal-800' : 'text-slate-400 hover:text-slate-700')"
+          class="py-2.5 px-3 rounded-xl transition flex items-center justify-center gap-2 text-center"
+        >
+          <span class="w-5 h-5 rounded-full border flex items-center justify-center text-[10px]" :class="etapaAtual === 1 ? 'border-white' : 'border-current'">1</span>
+          <span class="hidden sm:inline">Cliente</span>
+        </button>
 
-      <!-- Aviso de Rascunho Restaurado -->
-      <div v-if="rascunhoRestaurado" class="p-3 bg-teal-50 border border-teal-200 text-teal-800 rounded-xl text-xs font-semibold flex items-center justify-between no-print animate-fadeIn">
-        <span>💾 Rascunho não finalizado recuperado automaticamente! Seus dados digitados foram preservados.</span>
-        <button type="button" @click="limparRascunhoManual" class="text-[10px] uppercase font-bold text-teal-900 underline hover:text-teal-950">
-          Descartar Rascunho
+        <button 
+          type="button"
+          @click="etapaAtual = 2"
+          :class="etapaAtual === 2 ? 'bg-teal-600 text-white font-bold shadow-xs' : (etapaAtual > 2 ? 'bg-teal-50 text-teal-800' : 'text-slate-400 hover:text-slate-700')"
+          class="py-2.5 px-3 rounded-xl transition flex items-center justify-center gap-2 text-center"
+        >
+          <span class="w-5 h-5 rounded-full border flex items-center justify-center text-[10px]" :class="etapaAtual === 2 ? 'border-white' : 'border-current'">2</span>
+          <span class="hidden sm:inline">Receita</span>
+        </button>
+
+        <button 
+          type="button"
+          @click="etapaAtual = 3"
+          :class="etapaAtual === 3 ? 'bg-teal-600 text-white font-bold shadow-xs' : (etapaAtual > 3 ? 'bg-teal-50 text-teal-800' : 'text-slate-400 hover:text-slate-700')"
+          class="py-2.5 px-3 rounded-xl transition flex items-center justify-center gap-2 text-center"
+        >
+          <span class="w-5 h-5 rounded-full border flex items-center justify-center text-[10px]" :class="etapaAtual === 3 ? 'border-white' : 'border-current'">3</span>
+          <span class="hidden sm:inline">Produtos</span>
+        </button>
+
+        <button 
+          type="button"
+          @click="etapaAtual = 4"
+          :class="etapaAtual === 4 ? 'bg-teal-600 text-white font-bold shadow-xs' : (etapaAtual > 4 ? 'bg-teal-50 text-teal-800' : 'text-slate-400 hover:text-slate-700')"
+          class="py-2.5 px-3 rounded-xl transition flex items-center justify-center gap-2 text-center"
+        >
+          <span class="w-5 h-5 rounded-full border flex items-center justify-center text-[10px]" :class="etapaAtual === 4 ? 'border-white' : 'border-current'">4</span>
+          <span class="hidden sm:inline">Pagamento</span>
         </button>
       </div>
 
-      <!-- FORMULÁRIO OPERACIONAL DE EMISSÃO -->
-      <div v-if="!exibirFaturaSucesso" class="bg-white rounded-3xl border border-slate-200 shadow-xl overflow-hidden no-print">
+      <!-- FORMULÁRIO OPERACIONAL -->
+      <form @submit.prevent="salvarOrdemServico" class="space-y-6">
 
-        <div class="bg-slate-950 text-white p-6 flex items-center justify-between">
-          <div>
-            <h1 class="text-xl font-black tracking-wide">Central Unificada de Emissão de OS</h1>
-            <p class="text-xs text-slate-400">Fluxo flexível: Identificação do cliente, dados clínicos e fechamento financeiro.</p>
+        <!-- ETAPA 1: DADOS DO CLIENTE & ATENDIMENTO -->
+        <div v-show="etapaAtual === 1" class="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200 shadow-sm space-y-6 animate-fadeIn">
+          <div class="border-b border-slate-100 pb-3">
+            <h3 class="text-base font-black text-slate-900 font-mono flex items-center gap-2">
+              <span>👤</span> 1. Identificação do Cliente &amp; Atendente
+            </h3>
+            <p class="text-xs text-slate-400">Consulte pelo CPF para preenchimento automático de cadastros existentes.</p>
           </div>
-          <span class="text-xs font-mono bg-teal-500/20 text-teal-400 px-3 py-1 rounded-full border border-teal-500/30">RETSYS CRM v5</span>
+
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <!-- Número da OS -->
+            <div>
+              <label class="block text-[11px] font-mono font-bold uppercase text-slate-500 mb-1">Número da OS *</label>
+              <input 
+                v-model="form.numeroOS" 
+                type="text" 
+                class="w-full rounded-2xl border-slate-200 text-xs font-mono font-bold bg-slate-50 focus:border-teal-500" 
+                required 
+              />
+            </div>
+
+            <!-- Vendedora / Atendente -->
+            <div>
+              <label class="block text-[11px] font-mono font-bold uppercase text-slate-500 mb-1">Atendente / Responsável</label>
+              <select v-model="form.vendedorId" class="w-full rounded-2xl border-slate-200 text-xs font-bold bg-slate-50 focus:border-teal-500">
+                <option v-for="v in (vendedores || Vendedores || [])" :key="v.id || v.Id" :value="v.id || v.Id">
+                  👩‍💼 {{ v.nome || v.Nome }}
+                </option>
+              </select>
+            </div>
+
+            <!-- Busca por CPF -->
+            <div>
+              <label class="block text-[11px] font-mono font-bold uppercase text-slate-500 mb-1">Buscar por CPF</label>
+              <div class="flex gap-2">
+                <input 
+                  v-model="form.cpf" 
+                  type="text" 
+                  placeholder="000.000.000-00" 
+                  class="w-full rounded-2xl border-slate-200 text-xs font-mono bg-slate-50 focus:border-teal-500"
+                />
+                <button 
+                  type="button" 
+                  @click="consultarCpf"
+                  :disabled="buscandoCpf"
+                  class="px-3 py-2 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-xs font-bold transition font-mono whitespace-nowrap"
+                >
+                  {{ buscandoCpf ? '...' : 'Buscar' }}
+                </button>
+              </div>
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <!-- Nome do Cliente -->
+            <div class="md:col-span-2">
+              <label class="block text-[11px] font-mono font-bold uppercase text-slate-500 mb-1">Nome Completo do Cliente / Paciente *</label>
+              <input 
+                v-model="form.nome" 
+                type="text" 
+                placeholder="Ex: Maria das Graças Silva"
+                class="w-full rounded-2xl border-slate-200 text-xs font-bold bg-slate-50 focus:border-teal-500" 
+                required 
+              />
+            </div>
+
+            <!-- WhatsApp / Telefone -->
+            <div>
+              <label class="block text-[11px] font-mono font-bold uppercase text-slate-500 mb-1">WhatsApp / Telefone *</label>
+              <input 
+                v-model="form.telefone" 
+                type="text" 
+                placeholder="(00) 00000-0000"
+                class="w-full rounded-2xl border-slate-200 text-xs font-bold bg-slate-50 focus:border-teal-500" 
+                required 
+              />
+            </div>
+          </div>
+
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <div>
+              <label class="block text-[11px] font-mono font-bold uppercase text-slate-500 mb-1">Data de Nascimento</label>
+              <input 
+                v-model="form.dataNascimento" 
+                type="date" 
+                class="w-full rounded-2xl border-slate-200 text-xs bg-slate-50 focus:border-teal-500" 
+              />
+            </div>
+
+            <div>
+              <label class="block text-[11px] font-mono font-bold uppercase text-slate-500 mb-1">E-mail</label>
+              <input 
+                v-model="form.email" 
+                type="email" 
+                placeholder="cliente@email.com"
+                class="w-full rounded-2xl border-slate-200 text-xs bg-slate-50 focus:border-teal-500" 
+              />
+            </div>
+
+            <div>
+              <label class="block text-[11px] font-mono font-bold uppercase text-slate-500 mb-1">Convênio / Parceria</label>
+              <input 
+                v-model="form.convenio" 
+                type="text" 
+                placeholder="Ex: Unimed, Sindicato, etc."
+                class="w-full rounded-2xl border-slate-200 text-xs bg-slate-50 focus:border-teal-500" 
+              />
+            </div>
+          </div>
+
+          <div class="flex justify-end pt-4 border-t border-slate-100">
+            <button 
+              type="button" 
+              @click="etapaAtual = 2"
+              class="px-6 py-2.5 rounded-2xl bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs shadow-sm transition flex items-center gap-1.5"
+            >
+              <span>Avançar para Receita ➔</span>
+            </button>
+          </div>
         </div>
 
-        <form @submit.prevent="salvarOrdemServico" @keydown.enter.prevent class="p-6 space-y-8">
+        <!-- ETAPA 2: PRESCRIÇÃO CLÍNICA (REFRAÇÃO OFTALMOLÓGICA) -->
+        <div v-show="etapaAtual === 2" class="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200 shadow-sm space-y-6 animate-fadeIn">
+          <div class="border-b border-slate-100 pb-3 flex items-center justify-between">
+            <div>
+              <h3 class="text-base font-black text-slate-900 font-mono flex items-center gap-2">
+                <span>👓</span> 2. Refração Clínica &amp; Medidas Ópticas
+              </h3>
+              <p class="text-xs text-slate-400">Preencha a prescrição médica de Longe e Perto com cálculo automático de Adição.</p>
+            </div>
+            <span class="text-[10px] font-mono font-bold text-teal-700 bg-teal-50 border border-teal-200 px-2.5 py-1 rounded-full">
+              Padrão Oftalmológico BR
+            </span>
+          </div>
 
-          <!-- 1. Identificação do Cliente (CRM) -->
-          <div class="bg-slate-50 p-6 rounded-2xl border border-slate-200 space-y-4">
-            <h3 class="text-sm font-black text-slate-700 uppercase tracking-wider flex items-center gap-2">
-              <span class="w-2 h-2 rounded-full bg-slate-950"></span> 1. Identificação do Cliente & Documento
-            </h3>
-
-            <div class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
-              <!-- SEÇÃO 2: NUMERAÇÃO DA OS EDITÁVEL -->
-              <div>
-                <label class="block text-[11px] font-bold uppercase text-teal-800 tracking-wider mb-1.5">
-                  Número da OS (Editável) *
-                </label>
-                <input
-                  v-model="form.numeroOS"
-                  type="text"
-                  placeholder="Ex: OS-2026-00001"
-                  @keydown.enter.prevent
-                  class="w-full rounded-xl border-teal-300 text-sm font-mono font-bold text-teal-950 bg-white focus:border-teal-500 focus:ring-teal-500"
-                  required
-                />
-              </div>
-              <input type="hidden" v-model="form.lojaVenda" />
-
-              <!-- SEÇÃO 5.3: NOME DA VENDEDORA FIXO (ATENDENTE / RESPONSÁVEL) -->
-              <div>
-                <label class="block text-[11px] font-bold uppercase text-slate-500 tracking-wider mb-1.5 flex items-center justify-between">
-                  <span>Atendente / Responsável</span>
-                  <span class="text-[10px] text-slate-400 font-mono">🔒 Fixo</span>
-                </label>
-                <div class="w-full h-[42px] px-3 py-2 rounded-xl border border-slate-200 bg-slate-100 text-slate-800 text-sm font-semibold flex items-center gap-2 select-none shadow-inner">
-                  <span class="w-2 h-2 rounded-full bg-emerald-500 shrink-0"></span>
-                  <span class="truncate">{{ nomeVendedoraLogada }}</span>
-                </div>
-              </div>
-
-              <div class="md:col-span-2">
-                <label class="block text-[11px] font-bold uppercase text-slate-400 tracking-wider mb-1.5">CPF do Cliente (Opcional)</label>
-                <div class="flex gap-2">
-                  <input
-                    v-model="form.cpf"
-                    type="text"
-                    placeholder="Apenas os 11 números"
-                    maxlength="11"
-                    @input="form.cpf = form.cpf.replace(/\D/g, '').slice(0, 11)"
-                    @keydown.enter.prevent
-                    class="w-full rounded-xl border-slate-200 text-sm font-mono focus:border-teal-500 focus:ring-teal-500"
-                  />
-                  <button type="button" @click="consultarCpfNoBanco" :disabled="consultandoCpf || !form.cpf" class="bg-slate-950 hover:bg-slate-800 disabled:bg-slate-400 text-white px-4 py-2.5 rounded-xl text-xs font-bold transition whitespace-nowrap">
-                    {{ consultandoCpf ? 'Buscando...' : 'Buscar CPF' }}
-                  </button>
-                </div>
-              </div>
+          <!-- Grade de Longe -->
+          <div class="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-3">
+            <span class="text-xs font-mono font-bold uppercase text-slate-700 tracking-wider block">Grau de Longe</span>
+            
+            <div class="grid grid-cols-4 gap-2 text-center text-[10px] font-mono font-bold text-slate-400">
+              <div>Olho</div><div>Esférico</div><div>Cilíndrico</div><div>Eixo (0° a 180°)</div>
             </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div class="md:col-span-3">
-                <label class="block text-[11px] font-bold uppercase text-slate-400 tracking-wider mb-1.5">Nome Completo *</label>
-                <input v-model="form.nome" type="text" placeholder="Nome do Paciente" @keydown.enter.prevent class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500" required />
-              </div>
+            <div class="grid grid-cols-4 gap-2 items-center font-mono">
+              <span class="font-bold text-slate-900 text-center">OD</span>
+              <input v-model.number="form.odEsferico" type="number" step="0.25" placeholder="0.00" class="rounded-xl border-slate-200 text-xs text-center font-bold bg-white" />
+              <input v-model.number="form.odCilindrico" type="number" step="0.25" placeholder="0.00" class="rounded-xl border-slate-200 text-xs text-center font-bold text-amber-700 bg-white" />
+              <input v-model.number="form.odEixo" type="number" min="0" max="180" placeholder="180" class="rounded-xl border-slate-200 text-xs text-center bg-white" />
             </div>
 
-            <div v-if="clienteLocalizado !== null" class="animate-fadeIn">
-              <div v-if="clienteLocalizado" class="p-3 bg-teal-50 border border-teal-200 text-teal-800 rounded-xl text-xs font-semibold flex items-center gap-2">
-                <span>✓ Cliente localizado no CRM! Os dados de cadastro e endereço foram preenchidos de forma automática.</span>
-              </div>
+            <div class="grid grid-cols-4 gap-2 items-center font-mono">
+              <span class="font-bold text-slate-900 text-center">OE</span>
+              <input v-model.number="form.oeEsferico" type="number" step="0.25" placeholder="0.00" class="rounded-xl border-slate-200 text-xs text-center font-bold bg-white" />
+              <input v-model.number="form.oeCilindrico" type="number" step="0.25" placeholder="0.00" class="rounded-xl border-slate-200 text-xs text-center font-bold text-amber-700 bg-white" />
+              <input v-model.number="form.oeEixo" type="number" min="0" max="180" placeholder="180" class="rounded-xl border-slate-200 text-xs text-center bg-white" />
+            </div>
+          </div>
 
-              <div v-else class="p-3 bg-amber-50 border border-amber-200 text-amber-800 rounded-xl text-xs font-semibold flex items-center gap-2">
-                <span>📝 CPF não localizado. Continue preenchendo os campos abaixo; este cliente será cadastrado automaticamente ao faturar a OS!</span>
-              </div>
+          <!-- Adição e DNP / Alturas -->
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div>
+              <label class="block text-[11px] font-mono font-bold uppercase text-teal-800 mb-1">Adição (AD)</label>
+              <input 
+                v-model.number="form.adicao" 
+                type="number" 
+                step="0.25" 
+                min="0" 
+                max="4.00" 
+                placeholder="+2.00"
+                class="w-full rounded-2xl border-teal-300 text-xs font-mono font-bold text-teal-900 bg-teal-50/30 focus:border-teal-500" 
+              />
             </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div>
-                <label 
-                  class="block text-[11px] font-bold uppercase tracking-wider mb-1.5 flex items-center justify-between"
-                  :class="eAdmin ? 'text-indigo-600 font-black' : 'text-slate-400'"
-                >
-                  <span>Emissão da OS {{ eAdmin ? '✏️ (Admin)' : '🔒' }}</span>
-                </label>
-                <input
-                  v-if="eAdmin"
-                  v-model="form.dataEmissao"
-                  type="date"
-                  class="w-full rounded-xl border-indigo-200 text-sm font-mono font-bold bg-indigo-50/50 text-indigo-950 focus:border-indigo-500 focus:ring-indigo-500 shadow-sm"
-                  title="Administradores podem alterar a data de emissão da OS"
-                />
-                <input
-                  v-else
-                  :value="dataEmissaoHoje"
-                  type="date"
-                  disabled
-                  class="w-full rounded-xl border-slate-200 text-sm font-mono font-bold bg-slate-100 text-slate-600 cursor-not-allowed"
-                  title="Data de emissão definida automaticamente com a data de hoje"
-                />
-              </div>
-
-              <div>
-                <label class="block text-[11px] font-bold uppercase text-slate-400 tracking-wider mb-1.5">WhatsApp / Telefone *</label>
-                <input v-model="form.telefone" type="text" placeholder="(00) 00000-0000" @keydown.enter.prevent class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500" required />
-              </div>
-
-              <div>
-                <label class="block text-[11px] font-bold uppercase text-slate-400 tracking-wider mb-1.5">Data de Nascimento</label>
-                <input v-model="form.dataNascimento" type="date" @keydown.enter.prevent class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500" />
-              </div>
-
-              <div>
-                <label class="block text-[11px] font-bold uppercase text-slate-400 tracking-wider mb-1.5">Convênio / Plano Óptico</label>
-                <input v-model="form.convenio" type="text" placeholder="Particular, Porto Seguro, etc." @keydown.enter.prevent class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500" />
-              </div>
-            </div>
-
-            <div class="grid grid-cols-1 md:grid-cols-4 gap-4 pt-2 border-t border-slate-200/60">
-              <div>
-                <label class="block text-[11px] font-bold uppercase text-slate-400 tracking-wider mb-1.5">
-                  CEP Residência <span v-if="buscandoCep" class="text-teal-600 animate-pulse">(buscando...)</span>
-                </label>
-                <input
-                  v-model="form.cep"
-                  type="text"
-                  @input="tratarDigitacaoCep"
-                  @blur="buscarEnderecoViaCep"
-                  @keydown.enter.prevent
-                  placeholder="00000-000"
-                  maxlength="9"
-                  class="w-full rounded-xl border-slate-200 text-sm font-mono focus:border-teal-500 focus:ring-teal-500"
-                />
-              </div>
-
-              <div class="md:col-span-2">
-                <label class="block text-[11px] font-bold uppercase text-slate-400 tracking-wider mb-1.5">Logradouro</label>
-                <input v-model="form.logradouro" type="text" placeholder="Rua / Avenida" @keydown.enter.prevent class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500" />
-              </div>
-
-              <div>
-                <label class="block text-[11px] font-bold uppercase text-slate-400 tracking-wider mb-1.5">Número</label>
-                <input v-model="form.numero" type="text" placeholder="Nº" @keydown.enter.prevent class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500" />
-              </div>
-            </div>
-
-            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div>
-                <label class="block text-[11px] font-bold uppercase text-slate-400 tracking-wider mb-1.5">Complemento</label>
-                <input v-model="form.complemento" type="text" placeholder="Apto, Bloco, etc." @keydown.enter.prevent class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500" />
-              </div>
-
-              <div>
-                <label class="block text-[11px] font-bold uppercase text-slate-400 tracking-wider mb-1.5">Bairro</label>
-                <input v-model="form.bairro" type="text" @keydown.enter.prevent class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500" />
-              </div>
-
-              <div>
-                <label class="block text-[11px] font-bold uppercase text-slate-400 tracking-wider mb-1.5">Cidade</label>
-                <input v-model="form.cidade" type="text" @keydown.enter.prevent class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500" />
-              </div>
-
-              <div>
-                <label class="block text-[11px] font-bold uppercase text-slate-400 tracking-wider mb-1.5">Estado (UF)</label>
-                <input v-model="form.estado" type="text" maxlength="2" placeholder="EX: SP" @keydown.enter.prevent class="w-full rounded-xl border-slate-200 text-sm uppercase text-center focus:border-teal-500 focus:ring-teal-500" />
+            <div>
+              <label class="block text-[11px] font-mono font-bold uppercase text-slate-500 mb-1">DNP OD / OE (mm)</label>
+              <div class="grid grid-cols-2 gap-2">
+                <input v-model.number="form.dnpOd" type="number" step="0.5" placeholder="OD" class="rounded-2xl border-slate-200 text-xs font-mono text-center bg-slate-50" />
+                <input v-model.number="form.dnpOe" type="number" step="0.5" placeholder="OE" class="rounded-2xl border-slate-200 text-xs font-mono text-center bg-slate-50" />
               </div>
             </div>
 
             <div>
-              <label class="block text-[11px] font-bold uppercase text-slate-400 tracking-wider mb-1.5">E-mail do Cliente</label>
-              <input v-model="form.email" type="email" placeholder="cliente@provedor.com" @keydown.enter.prevent class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500" />
-            </div>
-          </div>
-
-          <!-- Anexar foto da receita -->
-          <div class="bg-amber-50/50 p-6 rounded-2xl border border-amber-200 space-y-3">
-            <h3 class="text-xs font-black text-amber-950 uppercase tracking-wider flex items-center gap-2">
-              <span>📸 Anexar Foto/Scan da Receita na OS</span>
-            </h3>
-
-            <p class="text-[11px] text-amber-700">Anexe a imagem da receita para salvar no histórico do cliente e da OS (opcional e independente da IA).</p>
-
-            <div class="flex items-center gap-3 pt-1">
-              <input type="file" id="fotoReceitaAnexo" accept="image/*" @change="vincularFotoReceitaDireta" class="hidden" />
-
-              <label for="fotoReceitaAnexo" class="bg-amber-600 hover:bg-amber-700 text-white text-xs font-bold px-4 py-2.5 rounded-xl transition cursor-pointer shadow-sm select-none">
-                {{ fotoAnexaArquivo ? 'Alterar Foto Anexada' : '📎 Selecionar Imagem da Receita' }}
-              </label>
-
-              <span class="text-xs font-mono text-amber-900 truncate">
-                {{ fotoAnexaArquivo ? fotoAnexaArquivo.name : 'Nenhuma imagem anexada' }}
-              </span>
-            </div>
-          </div>
-
-          <!-- Assistente de IA -->
-          <div class="bg-white rounded-2xl border-2 border-dashed border-slate-200 p-6 space-y-4">
-            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
-              <div>
-                <h3 class="text-sm font-black text-slate-950 uppercase tracking-wider flex items-center gap-2">
-                  <span class="w-2.5 h-2.5 rounded-full bg-teal-500 animate-pulse"></span>
-                  Assistente de Leitura por IA (Moondream)
-                </h3>
-
-                <p class="text-xs text-slate-400 mt-0.5">Opcional: Preenche os graus automaticamente analisando a foto.</p>
-              </div>
-            </div>
-
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 pt-2">
-              <div class="space-y-3">
-                <div class="flex items-center gap-3">
-                  <input type="file" id="fotoReceitaIa" accept="image/*" @change="manipularArquivoIa" class="hidden" />
-
-                  <label for="fotoReceitaIa" class="bg-slate-900 hover:bg-slate-800 text-white text-xs font-bold px-4 py-3 rounded-xl transition cursor-pointer shadow-sm active:scale-95 select-none">
-                    {{ arquivoIaSelecionado ? 'Alterar Imagem IA' : 'Selecionar Foto para Leitura' }}
-                  </label>
-
-                  <span class="text-xs font-mono text-slate-500 truncate block max-w-[200px]">
-                    {{ arquivoIaSelecionado ? arquivoIaSelecionado.name : 'Nenhum arquivo para IA' }}
-                  </span>
-                </div>
-
-                <div class="flex items-start gap-2">
-                  <input type="checkbox" id="termoOcr" v-model="termoAceito" class="mt-0.5 rounded border-slate-300 text-teal-600 focus:ring-teal-500" />
-
-                  <label for="termoOcr" class="text-[11px] text-slate-500 leading-tight cursor-pointer select-none">
-                    Confirmo que revisarei os graus após a leitura.
-                  </label>
-                </div>
-              </div>
-
-              <div class="flex items-end justify-start md:justify-end">
-                <button type="button" @click="executarOcrInteligente" :disabled="!termoAceito || !arquivoIaSelecionado || carregandoIA" class="w-full sm:w-auto bg-teal-600 hover:bg-teal-700 disabled:bg-slate-100 text-white disabled:text-slate-400 font-bold py-3 px-6 rounded-xl text-xs uppercase tracking-wider transition shadow-sm flex items-center justify-center gap-2">
-                  <span v-if="carregandoIA" class="animate-pulse">Analisando...</span>
-                  <span v-else>Iniciar Leitura Digital</span>
-                </button>
+              <label class="block text-[11px] font-mono font-bold uppercase text-slate-500 mb-1">Altura Montagem (mm)</label>
+              <div class="grid grid-cols-2 gap-2">
+                <input v-model.number="form.alturaMontagemOd" type="number" step="0.5" placeholder="Alt OD" class="rounded-2xl border-slate-200 text-xs font-mono text-center bg-slate-50" />
+                <input v-model.number="form.alturaMontagemOe" type="number" step="0.5" placeholder="Alt OE" class="rounded-2xl border-slate-200 text-xs font-mono text-center bg-slate-50" />
               </div>
             </div>
           </div>
 
-          <!-- 2. Dados Clínicos da Receita Médica -->
-          <div class="bg-slate-50 p-6 rounded-2xl border border-slate-200 space-y-4">
-            <h3 class="text-sm font-black text-slate-700 uppercase tracking-wider flex items-center gap-2">
-              <span class="w-2 h-2 rounded-full bg-teal-500"></span> 2. Dados Clínicos da Receita Médica (Opcional se sem grau)
-            </h3>
-
-            <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-              <div class="md:col-span-2">
-                <label class="block text-[11px] font-bold uppercase text-slate-400 tracking-wider mb-1.5">Médico Responsável</label>
-                <input v-model="form.medicoNome" type="text" placeholder="Dr. Nome do Profissional" @keydown.enter.prevent class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500" />
-              </div>
-
-              <div>
-                <label class="block text-[11px] font-bold uppercase text-slate-400 tracking-wider mb-1.5">CRM / Registro</label>
-                <input v-model="form.medicoCrm" type="text" placeholder="000000-UF" @keydown.enter.prevent class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500" />
-              </div>
-
-              <div>
-                <label class="block text-[11px] font-bold uppercase text-slate-400 tracking-wider mb-1.5">Tipo de Profissional</label>
-                <select v-model="form.medicoTipo" @keydown.enter.prevent class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 focus:ring-teal-500">
-                  <option value="NAO_ESPECIFICADO">Não Especificado</option>
-                  <option value="OFTALMOLOGISTA">Oftalmologista</option>
-                  <option value="OPTOMETRISTA">Optometrista</option>
-                </select>
-              </div>
-            </div>
-
-            <!-- SELETOR MODERNO DE TIPO DE LENTE / FOCO -->
-            <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-2 mt-2">
-              <label class="block text-xs font-black uppercase text-slate-600 tracking-wider">
-                🎯 Tipo de Lente / Foco da Prescrição
-              </label>
-
-              <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
-                <button
-                  type="button"
-                  @click="selecionarTipoLente('MULTIFOCAL')"
-                  :class="[
-                    'p-3 rounded-xl border text-left transition-all flex flex-col gap-1',
-                    form.tipoLente === 'MULTIFOCAL'
-                      ? 'border-teal-500 bg-teal-50/70 text-teal-950 font-bold shadow-sm ring-2 ring-teal-500/20'
-                      : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
-                  ]"
-                >
-                  <span class="text-xs font-black flex items-center gap-1.5">
-                    🔬 Multifocal / Bifocal
-                  </span>
-                  <span class="text-[10px] text-slate-500 leading-tight">Longe + Perto com Adição</span>
-                </button>
-
-                <button
-                  type="button"
-                  @click="selecionarTipoLente('MEIA_DISTANCIA')"
-                  :class="[
-                    'p-3 rounded-xl border text-left transition-all flex flex-col gap-1',
-                    form.tipoLente === 'MEIA_DISTANCIA'
-                      ? 'border-teal-500 bg-teal-50/70 text-teal-950 font-bold shadow-sm ring-2 ring-teal-500/20'
-                      : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
-                  ]"
-                >
-                  <span class="text-xs font-black flex items-center gap-1.5">
-                    💻 Meia Distância
-                  </span>
-                  <span class="text-[10px] text-slate-500 leading-tight">Longe/Intermediário + Perto</span>
-                </button>
-
-                <button
-                  type="button"
-                  @click="selecionarTipoLente('SO_LONGE')"
-                  :class="[
-                    'p-3 rounded-xl border text-left transition-all flex flex-col gap-1',
-                    form.tipoLente === 'SO_LONGE'
-                      ? 'border-teal-500 bg-teal-50/70 text-teal-950 font-bold shadow-sm ring-2 ring-teal-500/20'
-                      : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
-                  ]"
-                >
-                  <span class="text-xs font-black flex items-center gap-1.5">
-                    👓 Só Longe
-                  </span>
-                  <span class="text-[10px] text-slate-500 leading-tight">Visão simples de longe</span>
-                </button>
-
-                <button
-                  type="button"
-                  @click="selecionarTipoLente('SO_PERTO')"
-                  :class="[
-                    'p-3 rounded-xl border text-left transition-all flex flex-col gap-1',
-                    form.tipoLente === 'SO_PERTO'
-                      ? 'border-teal-500 bg-teal-50/70 text-teal-950 font-bold shadow-sm ring-2 ring-teal-500/20'
-                      : 'border-slate-200 bg-white text-slate-600 hover:border-slate-300'
-                  ]"
-                >
-                  <span class="text-xs font-black flex items-center gap-1.5">
-                    🔍 Só Perto
-                  </span>
-                  <span class="text-[10px] text-slate-500 leading-tight">Visão simples de perto</span>
-                </button>
-              </div>
-            </div>
-
-            <!-- 1º BLOCO: GRAU DE LONGE (Exibido para Multifocal, Meia Distância e Só Longe) -->
-            <div v-if="form.tipoLente !== 'SO_PERTO'" class="bg-slate-50/70 p-4 rounded-xl border border-slate-200 space-y-3 mt-4">
-              <div class="flex items-center justify-between border-b pb-2">
-                <span class="text-xs font-black text-slate-800 uppercase tracking-wider flex items-center gap-1.5">
-                  👓 1º Grau de Longe (Visão de Longe)
-                </span>
-                <span class="text-[10px] text-slate-400 font-medium">Refração clínica de longe</span>
-              </div>
-
-              <div class="grid grid-cols-4 gap-4 font-bold text-[11px] text-slate-400 uppercase tracking-wider text-center border-b pb-2">
-                <div>Olho</div>
-                <div>Esférico Longe</div>
-                <div>Cilíndrico (-)</div>
-                <div>Eixo (0° a 180°)</div>
-              </div>
-
-              <div class="grid grid-cols-4 gap-4 items-center">
-                <div class="text-sm font-black text-slate-700 text-center">OD</div>
-
-                <input v-model.number="form.odEsferico" type="number" step="0.25" placeholder="0,00" @blur="dispararCalculoAdicaoAoSair" @keydown.enter.prevent class="rounded-xl border-slate-200 text-sm text-center font-mono focus:border-teal-500 bg-white" />
-
-                <input v-model.number="form.odCilindrico" type="number" step="0.25" max="0" placeholder="-0,00" @input="validarCilindrico('odCilindrico')" @keydown.enter.prevent class="rounded-xl border-slate-200 text-sm text-center font-mono text-amber-700 font-bold focus:border-teal-500 bg-white" />
-
-                <input v-model.number="form.odEixo" type="number" min="0" max="180" step="1" placeholder="0" @input="validarEixo('odEixo')" @keydown.enter.prevent class="rounded-xl border-slate-200 text-sm text-center font-mono focus:border-teal-500 bg-white" />
-              </div>
-
-              <div class="grid grid-cols-4 gap-4 items-center">
-                <div class="text-sm font-black text-slate-700 text-center">OE</div>
-
-                <input v-model.number="form.oeEsferico" type="number" step="0.25" placeholder="0,00" @blur="dispararCalculoAdicaoAoSair" @keydown.enter.prevent class="rounded-xl border-slate-200 text-sm text-center font-mono focus:border-teal-500 bg-white" />
-
-                <input v-model.number="form.oeCilindrico" type="number" step="0.25" max="0" placeholder="-0,00" @input="validarCilindrico('oeCilindrico')" @keydown.enter.prevent class="rounded-xl border-slate-200 text-sm text-center font-mono text-amber-700 font-bold focus:border-teal-500 bg-white" />
-
-                <input v-model.number="form.oeEixo" type="number" min="0" max="180" step="1" placeholder="0" @input="validarEixo('oeEixo')" @keydown.enter.prevent class="rounded-xl border-slate-200 text-sm text-center font-mono focus:border-teal-500 bg-white" />
-              </div>
-            </div>
-
-            <!-- 2º BLOCO: GRAU DE PERTO (Exibido para Multifocal, Meia Distância e Só Perto) -->
-            <div v-if="form.tipoLente !== 'SO_LONGE'" class="bg-teal-50/40 p-4 rounded-xl border border-teal-200/80 space-y-3 mt-4">
-              <div class="flex items-center justify-between border-b border-teal-100 pb-2">
-                <span class="text-xs font-black text-teal-900 uppercase tracking-wider flex items-center gap-1.5">
-                  🔍 2º Grau de Perto (Visão de Perto)
-                </span>
-                <span v-if="form.tipoLente === 'SO_PERTO'" class="px-2 py-0.5 bg-teal-100 text-teal-800 rounded-md text-[10px] font-bold uppercase tracking-wider">
-                  👓 Visão Simples de Perto
-                </span>
-                <span v-else class="px-2 py-0.5 bg-teal-100 text-teal-800 rounded-md text-[10px] font-bold uppercase tracking-wider">
-                  ⚡ Preencher Longe e Perto calcula a Adição automaticamente
-                </span>
-              </div>
-
-              <div class="grid grid-cols-4 gap-4 font-bold text-[11px] text-teal-800 uppercase tracking-wider text-center border-b border-teal-100 pb-2">
-                <div>Olho</div>
-                <div>Esférico Perto</div>
-                <div>Cilíndrico (-)</div>
-                <div>Eixo</div>
-              </div>
-
-              <div class="grid grid-cols-4 gap-4 items-center">
-                <div class="text-sm font-black text-teal-900 text-center">OD</div>
-
-                <input v-if="form.tipoLente === 'SO_PERTO'" v-model.number="form.odEsferico" type="number" step="0.25" placeholder="0,00" @keydown.enter.prevent class="rounded-xl border-teal-300 text-sm text-center font-mono text-teal-950 font-bold focus:border-teal-500 bg-white" />
-                <input v-else v-model.number="form.odEsfericoPerto" @blur="dispararCalculoAdicaoAoSair" type="number" step="0.25" placeholder="0,00" @keydown.enter.prevent class="rounded-xl border-teal-300 text-sm text-center font-mono text-teal-950 font-bold focus:border-teal-500 bg-white" />
-
-                <input v-if="form.tipoLente === 'SO_PERTO'" v-model.number="form.odCilindrico" type="number" step="0.25" max="0" placeholder="-0,00" @input="validarCilindrico('odCilindrico')" @keydown.enter.prevent class="rounded-xl border-slate-200 text-sm text-center font-mono text-amber-700 font-bold focus:border-teal-500 bg-white" />
-                <input v-else :value="form.odCilindrico" type="number" step="0.25" placeholder="-0,00" disabled class="rounded-xl border-slate-200 text-sm text-center font-mono text-amber-700 font-bold bg-slate-100 cursor-not-allowed" />
-
-                <input v-if="form.tipoLente === 'SO_PERTO'" v-model.number="form.odEixo" type="number" min="0" max="180" step="1" placeholder="0" @input="validarEixo('odEixo')" @keydown.enter.prevent class="rounded-xl border-slate-200 text-sm text-center font-mono focus:border-teal-500 bg-white" />
-                <input v-else :value="form.odEixo" type="number" placeholder="0" disabled class="rounded-xl border-slate-200 text-sm text-center font-mono text-slate-600 bg-slate-100 cursor-not-allowed" />
-              </div>
-
-              <div class="grid grid-cols-4 gap-4 items-center">
-                <div class="text-sm font-black text-slate-700 text-center">OE</div>
-
-                <input v-if="form.tipoLente === 'SO_PERTO'" v-model.number="form.oeEsferico" type="number" step="0.25" placeholder="0,00" @keydown.enter.prevent class="rounded-xl border-teal-300 text-sm text-center font-mono text-teal-950 font-bold focus:border-teal-500 bg-white" />
-                <input v-else v-model.number="form.oeEsfericoPerto" @blur="dispararCalculoAdicaoAoSair" type="number" step="0.25" placeholder="0,00" @keydown.enter.prevent class="rounded-xl border-teal-300 text-sm text-center font-mono text-teal-950 font-bold focus:border-teal-500 bg-white" />
-
-                <input v-if="form.tipoLente === 'SO_PERTO'" v-model.number="form.oeCilindrico" type="number" step="0.25" max="0" placeholder="-0,00" @input="validarCilindrico('oeCilindrico')" @keydown.enter.prevent class="rounded-xl border-slate-200 text-sm text-center font-mono text-amber-700 font-bold focus:border-teal-500 bg-white" />
-                <input v-else :value="form.oeCilindrico" type="number" step="0.25" placeholder="-0,00" disabled class="rounded-xl border-slate-200 text-sm text-center font-mono text-amber-700 font-bold bg-slate-100 cursor-not-allowed" />
-
-                <input v-if="form.tipoLente === 'SO_PERTO'" v-model.number="form.oeEixo" type="number" min="0" max="180" step="1" placeholder="0" @input="validarEixo('oeEixo')" @keydown.enter.prevent class="rounded-xl border-slate-200 text-sm text-center font-mono focus:border-teal-500 bg-white" />
-                <input v-else :value="form.oeEixo" type="number" placeholder="0" disabled class="rounded-xl border-slate-200 text-sm text-center font-mono text-slate-600 bg-slate-100 cursor-not-allowed" />
-              </div>
-            </div>
-
-            <!-- 3º BLOCO: ADIÇÃO (Exibida para Multifocal e Meia Distância) -->
-            <div v-if="form.tipoLente === 'MULTIFOCAL' || form.tipoLente === 'MEIA_DISTANCIA'" class="bg-teal-50/70 p-4 rounded-xl border border-teal-200 space-y-3 mt-4">
-              <div class="flex items-center justify-between">
-                <span class="text-xs font-black text-teal-900 uppercase tracking-wider flex items-center gap-1.5">
-                  ➕ 3º Adição (AD) <span class="text-[10px] text-teal-600 font-normal">(Máx +3.50)</span>
-                </span>
-                <div class="flex items-center gap-2">
-                  <span v-if="adicaoEditadaManualmente" class="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-100 text-amber-800 border border-amber-300">
-                    ✏️ Ajustado manualmente
-                  </span>
-                  <span v-else-if="form.adicao" class="px-2 py-0.5 rounded text-[10px] font-bold bg-teal-100 text-teal-800 border border-teal-300">
-                    ⚡ Calculada automaticamente (Perto − Longe)
-                  </span>
-                </div>
-              </div>
-
-              <div class="grid grid-cols-1 md:grid-cols-3 gap-4 items-center">
-                <div>
-                  <input
-                    v-model.number="form.adicao"
-                    type="number"
-                    step="0.25"
-                    min="0"
-                    max="3.5"
-                    placeholder="0.00"
-                    @input="aoEditarAdicaoManualmente"
-                    @keydown.enter.prevent
-                    class="w-full rounded-xl border-teal-300 text-sm focus:border-teal-500 focus:ring-teal-500 bg-white font-mono text-teal-950 font-bold"
-                  />
-                </div>
-                <div class="md:col-span-2 text-xs text-teal-800 leading-snug">
-                  Cálculo automático disparado ao sair de Longe ou Perto (<code class="font-bold">adição = esférico perto − esférico longe</code>). Caso a receita traga um valor de adição diferente ou explícito, você pode editá-la manualmente a qualquer momento.
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- 3. Medidas Técnicas & Montagem da Armação -->
-          <div class="bg-white p-6 rounded-2xl border border-slate-200 space-y-4">
-            <h3 class="text-sm font-black text-slate-700 uppercase tracking-wider flex items-center gap-2">
-              <span class="w-2 h-2 rounded-full bg-indigo-500"></span> 3. Medidas Técnicas & Montagem da Armação
-            </h3>
-
-            <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
-              <div>
-                <label class="block text-xs font-bold uppercase text-slate-400 tracking-wider mb-2">DNP OD (20 a 40 mm)</label>
-                <input v-model="form.dnpOd" type="text" placeholder="30.0" @keydown.enter.prevent class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 font-mono font-bold text-slate-800" />
-              </div>
-
-              <div>
-                <label class="block text-xs font-bold uppercase text-slate-400 tracking-wider mb-2">DNP OE (20 a 40 mm)</label>
-                <input v-model="form.dnpOe" type="text" placeholder="30.0" @keydown.enter.prevent class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 font-mono font-bold text-slate-800" />
-              </div>
-
-              <div>
-                <label class="block text-xs font-bold uppercase text-slate-400 tracking-wider mb-2">Altura Mont. OD (mm)</label>
-                <input v-model="form.alturaMontagemOd" type="text" placeholder="Ex: 18.0" @keydown.enter.prevent class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 font-mono font-bold text-slate-800" />
-              </div>
-
-              <div>
-                <label class="block text-xs font-bold uppercase text-slate-400 tracking-wider mb-2">Altura Mont. OE (mm)</label>
-                <input v-model="form.alturaMontagemOe" type="text" placeholder="Ex: 18.0" @keydown.enter.prevent class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 font-mono font-bold text-slate-800" />
-              </div>
-
-              <div>
-                <label class="block text-xs font-bold uppercase text-slate-400 tracking-wider mb-2">Data Prevista de Entrega *</label>
-                <input v-model="form.dataPrevistaEntrega" type="date" @keydown.enter.prevent class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500 font-mono" required />
-              </div>
-            </div>
-
-            <div class="p-4 bg-indigo-50/40 rounded-xl border border-indigo-100 space-y-3">
-              <span class="text-xs font-black uppercase text-indigo-900 tracking-wider block">📐 Medidas Físicas da Armação (Digitação Livre)</span>
-
-              <div class="grid grid-cols-2 md:grid-cols-6 gap-3">
-                <div>
-                  <label class="block text-[10px] font-bold uppercase text-indigo-700 tracking-wider mb-1">ARO (Máx 80)</label>
-                  <input v-model="form.aro" type="text" placeholder="Ex: 52.0" @keydown.enter.prevent class="w-full rounded-xl border-indigo-200 text-xs text-center font-mono font-bold bg-white" />
-                </div>
-
-                <div>
-                  <label class="block text-[10px] font-bold uppercase text-indigo-700 tracking-wider mb-1">DM (Máx 80)</label>
-                  <input v-model="form.dm" type="text" placeholder="Ex: 55.0" @keydown.enter.prevent class="w-full rounded-xl border-indigo-200 text-xs text-center font-mono font-bold bg-white" />
-                </div>
-
-                <div>
-                  <label class="block text-[10px] font-bold uppercase text-indigo-700 tracking-wider mb-1">VERT (Máx 80)</label>
-                  <input v-model="form.vert" type="text" placeholder="Ex: 40.0" @keydown.enter.prevent class="w-full rounded-xl border-indigo-200 text-xs text-center font-mono font-bold bg-white" />
-                </div>
-
-                <div>
-                  <label class="block text-[10px] font-bold uppercase text-indigo-700 tracking-wider mb-1">PO (Máx 25)</label>
-                  <input v-model="form.po" type="text" placeholder="Ex: 18.0" @keydown.enter.prevent class="w-full rounded-xl border-indigo-200 text-xs text-center font-mono font-bold bg-white" />
-                </div>
-
-                <div>
-                  <label class="block text-[10px] font-bold uppercase text-indigo-700 tracking-wider mb-1">C.O OD (80)</label>
-                  <input v-model="form.coOd" type="text" placeholder="Ex: 31.0" @keydown.enter.prevent class="w-full rounded-xl border-indigo-200 text-xs text-center font-mono font-bold bg-white" />
-                </div>
-
-                <div>
-                  <label class="block text-[10px] font-bold uppercase text-indigo-700 tracking-wider mb-1">C.O OE (80)</label>
-                  <input v-model="form.coOe" type="text" placeholder="Ex: 31.0" @keydown.enter.prevent class="w-full rounded-xl border-indigo-200 text-xs text-center font-mono font-bold bg-white" />
-                </div>
-              </div>
+          <!-- Médico e Validade -->
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2 border-t border-slate-100">
+            <div>
+              <label class="block text-[11px] font-mono font-bold uppercase text-slate-500 mb-1">Médico / Optometrista</label>
+              <input v-model="form.medicoNome" type="text" placeholder="Dr. Nome do Especialista" class="w-full rounded-2xl border-slate-200 text-xs bg-slate-50" />
             </div>
 
             <div>
-              <label class="block text-[11px] font-bold uppercase text-slate-400 tracking-wider mb-1.5">Observações da Receita / Laboratório</label>
-              <input v-model="form.obsReceita" type="text" placeholder="Ex: Quebrar cantos das lentes" @keydown.enter.prevent class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500" />
+              <label class="block text-[11px] font-mono font-bold uppercase text-slate-500 mb-1">CRM / CROO</label>
+              <input v-model="form.medicoCrm" type="text" placeholder="CRM 12345 / SP" class="w-full rounded-2xl border-slate-200 text-xs bg-slate-50 font-mono" />
+            </div>
+
+            <div>
+              <label class="block text-[11px] font-mono font-bold uppercase text-slate-500 mb-1">Data do Exame</label>
+              <input v-model="form.receitaDataExame" type="date" class="w-full rounded-2xl border-slate-200 text-xs bg-slate-50 font-mono" />
             </div>
           </div>
 
-          <!-- Seleção Direta de Produtos -->
-          <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
-            <div class="space-y-2">
-              <label class="block text-xs font-bold uppercase text-slate-400 tracking-wider mb-1.5">Armação Selecionada (Opcional)</label>
+          <div class="flex justify-between pt-4 border-t border-slate-100">
+            <button type="button" @click="etapaAtual = 1" class="px-5 py-2.5 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition">
+              ➔ Voltar
+            </button>
+            <button type="button" @click="etapaAtual = 3" class="px-6 py-2.5 rounded-2xl bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs shadow-sm transition">
+              Avançar para Produtos ➔
+            </button>
+          </div>
+        </div>
 
-              <select v-model="form.armacaoId" @change="processarSnapshotProdutos" @keydown.enter.prevent class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500">
-                <option value="">(Nenhuma / Cliente trouxe armação própria)</option>
-
-                <option v-for="a in (Armacoes ?? armacoes)" :key="a.id || a.Id" :value="a.id || a.Id">
-                  [{{ a.marcaNome || a.MarcaNome || 'Sem Marca' }}] {{ a.modeloReferencia || a.Modelo }} ({{ a.cor || a.Cor || 'Padrão' }}) — {{ formatarMoeda(a.precoVenda ?? a.PrecoFinal ?? 0) }}
-                </option>
-              </select>
-            </div>
-
-            <div class="space-y-2">
-              <label class="block text-xs font-bold uppercase text-slate-400 tracking-wider mb-1.5">Lente do Catálogo / Tabela (Opcional)</label>
-
-              <select v-model="form.lenteId" @change="processarSnapshotProdutos" @keydown.enter.prevent class="w-full rounded-xl border-slate-200 text-sm focus:border-teal-500">
-                <option value="">(Nenhuma / Tabela Própria)</option>
-
-                <option v-for="l in (Lentes ?? lentes)" :key="l.id || l.Id" :value="l.id || l.Id">
-                  {{ l.laboratorio || l.Laboratorio }} — {{ l.tipo || l.Tipo }} {{ (l.tratamento || l.Tratamento) ? `(${l.tratamento || l.Tratamento})` : '' }} — {{ formatarMoeda(l.precoVenda ?? l.PrecoFinal ?? 0) }}
-                </option>
-              </select>
-
-              <div class="animate-fadeIn p-4 bg-teal-50/50 rounded-2xl border border-teal-200/60 mt-3">
-                <label class="block text-xs font-bold uppercase text-teal-900 tracking-wider mb-1">Preço da Lente (Tabela Própria / Editável)</label>
-
-                <div class="relative mt-1 rounded-xl shadow-sm">
-                  <input
-                    :value="valorLenteFormatado"
-                    @input="tratarInputValorLente"
-                    @keydown.enter.prevent
-                    type="text"
-                    placeholder="R$ 0,00"
-                    class="w-full rounded-xl border-teal-200 text-sm font-mono font-bold focus:border-teal-500"
-                  />
-                </div>
-              </div>
-            </div>
+        <!-- ETAPA 3: PRODUTOS (ARMAÇÃO & LENTES) -->
+        <div v-show="etapaAtual === 3" class="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200 shadow-sm space-y-6 animate-fadeIn">
+          <div class="border-b border-slate-100 pb-3">
+            <h3 class="text-base font-black text-slate-900 font-mono flex items-center gap-2">
+              <span>🔬</span> 3. Escolha da Armação &amp; Lentes
+            </h3>
+            <p class="text-xs text-slate-400">Vincule as peças do estoque físico ou descreva itens sob encomenda.</p>
           </div>
 
-          <!-- Resumo Financeiro, Desconto, Entrada Parcial e Saldo (Seções 1, 4.5 e 5) -->
-          <div class="p-5 bg-amber-50/40 rounded-2xl border border-amber-200/60 space-y-4">
-            <h4 class="font-bold text-amber-950 uppercase tracking-wider text-[10px]">Resumo do Pedido & Condições de Pagamento</h4>
+          <!-- Armação -->
+          <div class="p-5 bg-slate-50 rounded-2xl border border-slate-200 space-y-4">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-mono font-bold uppercase text-slate-700">1. Armação de Óculos</span>
+              <label class="flex items-center gap-2 text-xs cursor-pointer text-slate-600">
+                <input v-model="form.armacaoPropria" type="checkbox" class="rounded text-teal-600 focus:ring-teal-500" />
+                <span>Armação Própria do Cliente</span>
+              </label>
+            </div>
 
-            <div class="grid grid-cols-1 md:grid-cols-5 gap-4">
-              <!-- SEÇÃO 4.5: FORMA DE PAGAMENTO (SEM CONVENIO, COM BOLETO) -->
-              <div>
-                <label class="block font-bold text-amber-900 uppercase mb-1.5">Forma Pagamento *</label>
-
-                <select v-model="form.formaPagamento" @keydown.enter.prevent class="w-full rounded-xl border-amber-200 text-xs bg-white font-bold">
-                  <option value="DINHEIRO">Dinheiro</option>
-                  <option value="PIX">Pix</option>
-                  <option value="CARTAO_CREDITO">Cartão de Crédito</option>
-                  <option value="CARTAO_DEBITO">Cartão de Débito</option>
-                  <option value="BOLETO">Boleto</option>
-                </select>
-              </div>
-
-              <div v-if="form.formaPagamento === 'CARTAO_CREDITO'">
-                <label class="block font-bold text-amber-900 uppercase mb-1.5">Parcelas *</label>
-
-                <select v-model.number="qtdParcelas" @keydown.enter.prevent class="w-full rounded-xl border-amber-200 text-xs bg-white font-bold">
-                  <option value="1">1x à Vista</option>
-                  <option v-for="n in [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]" :key="n" :value="n">
-                    {{ n }}x
+            <div v-if="!form.armacaoPropria" class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div class="sm:col-span-2">
+                <label class="block text-[11px] font-mono font-bold uppercase text-slate-500 mb-1">Selecione no Estoque</label>
+                <select v-model="form.armacaoId" @change="onArmacaoSelecionada" class="w-full rounded-2xl border-slate-200 text-xs bg-white font-bold">
+                  <option value="">(Selecione uma armação do estoque...)</option>
+                  <option v-for="a in (armacoes || Armacoes || [])" :key="a.id || a.Id" :value="a.id || a.Id">
+                    {{ a.marcaNome || a.MarcaNome }} - {{ a.modeloReferencia || a.ModeloReferencia }} ({{ a.cor || a.Cor }}) - R$ {{ formatarMoeda(a.precoVenda || a.PrecoVenda) }}
                   </option>
                 </select>
               </div>
 
-              <!-- SEÇÃO 1: DESCONTO -->
               <div>
-                <label class="block font-bold text-amber-900 uppercase mb-1.5">Desconto (R$)</label>
-
-                <div class="relative">
-                  <input
-                    :value="descontoReaisFormatado"
-                    @input="tratarInputDescontoReais"
-                    @keydown.enter.prevent
-                    type="text"
-                    placeholder="R$ 0,00"
-                    class="w-full rounded-xl border-amber-200 text-xs bg-white font-mono font-bold pr-16"
-                  />
-
-                  <span class="absolute right-2 top-1.5 text-[10px] text-amber-700 font-mono font-bold bg-amber-100 px-1.5 py-0.5 rounded">
-                    {{ form.descontoPercentual.toFixed(1) }}% off
-                  </span>
-                </div>
-              </div>
-
-              <!-- SEÇÃO 5: VALOR DE ENTRADA -->
-              <div>
-                <label class="block font-bold text-teal-900 uppercase mb-1.5">Valor de Entrada (R$)</label>
-
-                <input
-                  :value="valorEntradaFormatado"
-                  @input="tratarInputValorEntrada"
-                  @keydown.enter.prevent
-                  type="text"
-                  placeholder="R$ 0,00"
-                  class="w-full rounded-xl border-teal-200 text-xs bg-white font-mono font-bold text-teal-900 focus:border-teal-500"
-                />
-              </div>
-
-              <!-- TOTAL LÍQUIDO E SALDO RESTANTE -->
-              <div>
-                <label class="block font-bold text-teal-950 uppercase mb-1.5">Total Líquido</label>
-
-                <div class="text-sm font-black font-mono text-teal-700 bg-teal-50 px-3 py-2 rounded-xl border border-teal-100 text-center">
-                  {{ formatarMoeda(form.valorTotalLiquido) }}
-                </div>
+                <label class="block text-[11px] font-mono font-bold uppercase text-slate-500 mb-1">Valor Armação (R$)</label>
+                <input v-model.number="form.valorArmacao" type="number" step="0.01" class="w-full rounded-2xl border-slate-200 text-xs font-mono font-bold bg-white text-slate-900" />
               </div>
             </div>
 
-            <!-- EXIBIÇÃO DO SALDO RESTANTE -->
-            <div class="p-3 bg-white rounded-xl border border-amber-200 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2 font-mono text-xs">
-              <div class="flex items-center gap-2">
-                <span class="text-slate-500">Bruto: <b>{{ formatarMoeda(form.valorTotalBruto) }}</b></span>
-                <span class="text-slate-300">|</span>
-                <span class="text-amber-700">Desconto: <b>{{ formatarMoeda(form.descontoReais) }}</b></span>
-                <span class="text-slate-300">|</span>
-                <span class="text-teal-700">Entrada: <b>{{ formatarMoeda(form.valorEntrada) }}</b></span>
+            <div v-else class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label class="block text-[11px] font-mono font-bold uppercase text-slate-500 mb-1">Descrição da Armação Própria</label>
+                <input v-model="form.armacaoDescricaoManual" type="text" placeholder="Ex: Ray-Ban tartaruga trazida pelo cliente" class="w-full rounded-2xl border-slate-200 text-xs bg-white" />
               </div>
-
-              <div class="text-right">
-                <span class="text-slate-500 uppercase text-[10px] font-sans font-bold block sm:inline mr-1">Saldo a Pagar na Retirada:</span>
-                <b :class="[form.valorRestante > 0 ? 'text-rose-600 font-black text-sm' : 'text-emerald-600 font-bold']">
-                  {{ form.valorRestante > 0 ? formatarMoeda(form.valorRestante) : 'R$ 0,00 - Quitado' }}
-                </b>
+              <div>
+                <label class="block text-[11px] font-mono font-bold uppercase text-slate-500 mb-1">Taxa de Montagem / Manuseio (R$)</label>
+                <input v-model.number="form.valorArmacao" type="number" step="0.01" placeholder="0.00" class="w-full rounded-2xl border-slate-200 text-xs font-mono bg-white" />
               </div>
             </div>
           </div>
 
-          <div class="flex items-center justify-end gap-3 border-t border-slate-100 pt-4">
-            <Link href="/ordens" class="px-5 py-3 text-sm font-semibold text-slate-500 hover:text-slate-800 transition">
-              Cancelar
-            </Link>
+          <!-- Lente -->
+          <div class="p-5 bg-slate-50 rounded-2xl border border-slate-200 space-y-4">
+            <span class="text-xs font-mono font-bold uppercase text-slate-700 block">2. Lentes Oftálmicas</span>
 
-            <button type="submit" :disabled="salvandoOS" class="bg-teal-600 hover:bg-teal-700 disabled:bg-slate-200 text-white font-bold py-3.5 px-8 rounded-xl shadow-md transition text-sm min-w-[200px]">
-              <span v-if="salvandoOS">Processando Emissão...</span>
-              <span v-else>Faturar Ordem de Serviço</span>
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <div class="sm:col-span-2">
+                <label class="block text-[11px] font-mono font-bold uppercase text-slate-500 mb-1">Tabela de Lentes da Rede</label>
+                <select v-model="form.lentePrecoId" @change="onLenteSelecionada" class="w-full rounded-2xl border-slate-200 text-xs bg-white font-bold">
+                  <option value="">(Selecione da tabela ou digite abaixo...)</option>
+                  <option v-for="l in (lentes || Lentes || [])" :key="l.id || l.Id" :value="l.id || l.Id">
+                    {{ l.laboratorio || l.Laboratorio }} • {{ l.tipo || l.Tipo }} ({{ l.tratamento || l.Tratamento }}) - R$ {{ formatarMoeda(l.precoVenda || l.PrecoVenda) }}
+                  </option>
+                </select>
+              </div>
+
+              <div>
+                <label class="block text-[11px] font-mono font-bold uppercase text-slate-500 mb-1">Valor Lentes (R$)</label>
+                <input v-model.number="form.valorLente" type="number" step="0.01" class="w-full rounded-2xl border-slate-200 text-xs font-mono font-bold bg-white text-slate-900" />
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label class="block text-[11px] font-mono font-bold uppercase text-slate-500 mb-1">Descrição / Especificação Manual</label>
+                <input v-model="form.lenteDescricaoManual" type="text" placeholder="Ex: Multifocal Digital Antirreflexo Crizal" class="w-full rounded-2xl border-slate-200 text-xs bg-white" />
+              </div>
+              <div>
+                <label class="block text-[11px] font-mono font-bold uppercase text-slate-500 mb-1">Laboratório Parceiro</label>
+                <select v-model="form.laboratorioParceiro" class="w-full rounded-2xl border-slate-200 text-xs bg-white font-bold">
+                  <option value="Essilor">Essilor (Varilux / Crizal)</option>
+                  <option value="Hoya">Hoya (MiyoSmart / BlueControl)</option>
+                  <option value="Zeiss">Zeiss (DuraVision)</option>
+                  <option value="Local">Laboratório de Montagem Local</option>
+                  <option value="Outro">Outro Fornecedor</option>
+                </select>
+              </div>
+            </div>
+          </div>
+
+          <div class="flex justify-between pt-4 border-t border-slate-100">
+            <button type="button" @click="etapaAtual = 2" class="px-5 py-2.5 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition">
+              ➔ Voltar
+            </button>
+            <button type="button" @click="etapaAtual = 4" class="px-6 py-2.5 rounded-2xl bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs shadow-sm transition">
+              Avançar para Pagamento ➔
             </button>
           </div>
-        </form>
-      </div>
+        </div>
 
-      <!-- TELA DE SUCESSO E IMPRESSÃO (SEÇÃO 7: GUIA DO CLIENTE) -->
-      <div class="bg-white rounded-3xl border border-slate-200 shadow-xl overflow-hidden p-8 space-y-6 no-print text-center" v-else>
-        <div class="inline-flex items-center justify-center w-16 h-16 rounded-full bg-teal-100 text-teal-600 text-3xl">✓</div>
-
-        <h2 class="text-2xl font-black text-slate-900">OS Emitida com Sucesso!</h2>
-
-        <p class="text-sm text-slate-500">A Ordem de Serviço {{ osFaturadaResponse.numeroOS }} foi gravada de forma definitiva no sistema.</p>
-
-        <!-- AÇÕES EM DESTAQUE: WHATSAPP E KANBAN -->
-        <div class="max-w-xl mx-auto space-y-3 pt-2">
-          <button 
-            @click="enviarWhatsAppCadastro" 
-            class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-black py-3.5 px-6 rounded-xl text-xs uppercase tracking-wider transition shadow-lg shadow-emerald-600/20 flex items-center justify-center gap-2 active:scale-95"
-          >
-            <span>📱</span> Enviar Confirmação via WhatsApp ao Cliente
-          </button>
-
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
-            <button @click="imprimirDocumento('completa')" class="w-full bg-slate-950 hover:bg-slate-800 text-white font-bold py-3 px-4 rounded-xl text-xs uppercase tracking-wider transition shadow-md flex items-center justify-center gap-2">
-              🖨️ Imprimir OS Completa (A4)
-            </button>
-
-            <!-- SEÇÃO 7: BOTÃO DE IMPRESSÃO DA GUIA DO CLIENTE -->
-            <button @click="imprimirDocumento('guia')" class="w-full bg-teal-600 hover:bg-teal-700 text-white font-bold py-3 px-4 rounded-xl text-xs uppercase tracking-wider transition shadow-md flex items-center justify-center gap-2">
-              📄 Imprimir Guia do Cliente (A4)
-            </button>
+        <!-- ETAPA 4: FECHAMENTO FINANCEIRO & CREDIÁRIO -->
+        <div v-show="etapaAtual === 4" class="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200 shadow-sm space-y-6 animate-fadeIn">
+          <div class="border-b border-slate-100 pb-3">
+            <h3 class="text-base font-black text-slate-900 font-mono flex items-center gap-2">
+              <span>💰</span> 4. Fechamento Financeiro &amp; Carnê / Crediário
+            </h3>
+            <p class="text-xs text-slate-400">Totalize os valores, aplique desconto e gere o parcelamento ou carnê.</p>
           </div>
-        </div>
 
-        <div class="pt-6 flex flex-col sm:flex-row items-center justify-center gap-4">
-          <Link href="/ordens/kanban" class="text-xs font-bold text-purple-600 hover:text-purple-800 bg-purple-50 hover:bg-purple-100 border border-purple-200 px-4 py-2 rounded-xl transition">
-            📊 Acompanhar na Esteira Kanban
-          </Link>
-          <button @click="voltarAoPainel" class="text-xs font-bold text-slate-500 hover:text-slate-800 transition">
-            ← Voltar à Lista de Ordens
-          </button>
-        </div>
-      </div>
+          <!-- Totalizadores em Destaque -->
+          <div class="p-5 bg-teal-50/60 rounded-3xl border border-teal-200 grid grid-cols-2 sm:grid-cols-4 gap-3 text-center font-mono">
+            <div class="bg-white p-3 rounded-2xl border border-teal-100">
+              <span class="text-[10px] text-slate-400 uppercase font-bold block">Armação</span>
+              <b class="text-slate-900 text-sm">R$ {{ formatarMoeda(form.valorArmacao) }}</b>
+            </div>
+            <div class="bg-white p-3 rounded-2xl border border-teal-100">
+              <span class="text-[10px] text-slate-400 uppercase font-bold block">Lentes</span>
+              <b class="text-slate-900 text-sm">R$ {{ formatarMoeda(form.valorLente) }}</b>
+            </div>
+            <div class="bg-white p-3 rounded-2xl border border-teal-100">
+              <span class="text-[10px] text-amber-700 uppercase font-bold block">Desconto</span>
+              <b class="text-amber-800 text-sm">R$ {{ formatarMoeda(form.descontoReais) }}</b>
+            </div>
+            <div class="bg-teal-900 text-white p-3 rounded-2xl shadow-sm">
+              <span class="text-[10px] text-teal-300 uppercase font-bold block">Total Líquido</span>
+              <b class="text-base">R$ {{ formatarMoeda(totalLiquidoCalculado) }}</b>
+            </div>
+          </div>
 
-      <!-- TEMPLATE IMPRESSO - GUIA DO CLIENTE (SEÇÃO 7 DO PDF) -->
-      <div v-if="exibirFaturaSucesso && tipoComprovanteImpressao === 'guia'" class="only-print p-8 space-y-6 text-slate-900 font-sans">
-        <div class="border-b-2 border-slate-950 pb-4 text-center">
-          <h1 class="text-2xl font-black uppercase tracking-wider">RETSYS ÓTICA</h1>
-          <p class="text-sm font-bold uppercase text-slate-600">Guia de Retirada do Cliente</p>
-        </div>
+          <!-- Desconto e Entrada -->
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+            <div>
+              <label class="block text-[11px] font-mono font-bold uppercase text-slate-500 mb-1">Desconto em Reais (R$)</label>
+              <input v-model.number="form.descontoReais" type="number" step="0.01" min="0" placeholder="0.00" class="w-full rounded-2xl border-slate-200 text-xs font-mono font-bold bg-slate-50 text-amber-800" />
+            </div>
 
-        <div class="grid grid-cols-2 gap-4 text-xs font-mono border-b pb-4">
+            <div>
+              <label class="block text-[11px] font-mono font-bold uppercase text-slate-500 mb-1">Valor de Entrada (R$)</label>
+              <input v-model.number="form.valorEntrada" type="number" step="0.01" min="0" placeholder="0.00" class="w-full rounded-2xl border-slate-200 text-xs font-mono font-bold bg-slate-50 text-emerald-800" />
+            </div>
+
+            <div>
+              <label class="block text-[11px] font-mono font-bold uppercase text-slate-500 mb-1">Saldo Restante na Entrega</label>
+              <div class="h-10 px-4 rounded-2xl bg-slate-100 flex items-center font-mono font-bold text-sm" :class="saldoRestanteCalculado > 0 ? 'text-rose-700' : 'text-emerald-700'">
+                R$ {{ formatarMoeda(saldoRestanteCalculado) }}
+              </div>
+            </div>
+          </div>
+
+          <!-- Forma de Pagamento e Parcelas -->
+          <div class="p-5 bg-slate-50 rounded-2xl border border-slate-200 space-y-4">
+            <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+              <div>
+                <label class="block text-[11px] font-mono font-bold uppercase text-slate-500 mb-1">Forma de Pagamento</label>
+                <select v-model="form.formaPagamento" class="w-full rounded-2xl border-slate-200 text-xs bg-white font-bold">
+                  <option value="DINHEIRO">💵 Dinheiro à Vista</option>
+                  <option value="PIX">⚡ PIX</option>
+                  <option value="CARTAO_CREDITO">💳 Cartão de Crédito</option>
+                  <option value="CARTAO_DEBITO">💳 Cartão de Débito</option>
+                  <option value="CREDIARIO_PROPRIO">📜 Crediário Próprio (Carnê)</option>
+                </select>
+              </div>
+
+              <div>
+                <label class="block text-[11px] font-mono font-bold uppercase text-slate-500 mb-1">Quantidade de Parcelas</label>
+                <select v-model.number="form.parcelas" class="w-full rounded-2xl border-slate-200 text-xs bg-white font-bold font-mono">
+                  <option v-for="n in 12" :key="n" :value="n">
+                    {{ n }}x de R$ {{ formatarMoeda((saldoRestanteCalculado || totalLiquidoCalculado) / n) }}
+                  </option>
+                </select>
+              </div>
+
+              <div>
+                <label class="block text-[11px] font-mono font-bold uppercase text-slate-500 mb-1">Data Prevista de Entrega</label>
+                <input v-model="form.dataPrevistaEntrega" type="date" class="w-full rounded-2xl border-slate-200 text-xs bg-white font-mono" />
+              </div>
+            </div>
+
+            <!-- Aviso de Carnê -->
+            <div v-if="form.formaPagamento === 'CREDIARIO_PROPRIO'" class="p-3 bg-amber-50 rounded-xl border border-amber-200 text-xs text-amber-900 flex items-center gap-2">
+              <span>📜</span>
+              <span><b>Crediário Próprio Selecionado:</b> As lâminas de carnê (via do cliente e canhoto da loja) serão geradas automaticamente após salvar!</span>
+            </div>
+          </div>
+
+          <!-- Observações Gerais -->
           <div>
-            <p><b>OS N°:</b> {{ osFaturadaResponse.numeroOS }}</p>
-            <p><b>Cliente:</b> {{ form.nome }}</p>
-            <p><b>CPF:</b> {{ form.cpf }}</p>
+            <label class="block text-[11px] font-mono font-bold uppercase text-slate-500 mb-1">Observações Internas do Laboratório</label>
+            <textarea v-model="form.observacoes" rows="2" placeholder="Ex: Cliente tem sensibilidade à luz; fazer montagem com chanfro fino..." class="w-full rounded-2xl border-slate-200 text-xs bg-slate-50"></textarea>
           </div>
-          <div class="text-right">
-            <p><b>Data de Emissão:</b> {{ formatarDataBR(dataEmissaoHoje) }}</p>
-            <p><b>Previsão de Retirada:</b> {{ formatarDataBR(form.dataPrevistaEntrega) }}</p>
+
+          <!-- Botão Salvar e Emitir -->
+          <div class="flex items-center justify-between pt-4 border-t border-slate-100">
+            <button type="button" @click="etapaAtual = 3" class="px-5 py-2.5 rounded-2xl bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold text-xs transition">
+              ➔ Voltar
+            </button>
+
+            <button 
+              type="submit" 
+              :disabled="salvando"
+              class="px-8 py-3 rounded-2xl bg-teal-600 hover:bg-teal-700 disabled:opacity-50 text-white font-black text-xs uppercase tracking-wider shadow-lg shadow-teal-700/20 transition flex items-center gap-2"
+            >
+              <span v-if="salvando">Gravando Ordem...</span>
+              <span v-else>💾 Finalizar e Emitir Ordem de Serviço</span>
+            </button>
           </div>
         </div>
 
-        <div class="bg-slate-50 p-6 rounded-xl border border-slate-300 space-y-3 font-mono">
-          <div class="flex justify-between text-sm">
-            <span>Valor Total da Compra:</span>
-            <b>{{ formatarMoeda(form.valorTotalLiquido) }}</b>
-          </div>
-          <div class="flex justify-between text-sm text-teal-800">
-            <span>Total Pago (Entrada):</span>
-            <b>{{ formatarMoeda(form.valorEntrada) }}</b>
-          </div>
-          <div class="flex justify-between text-base border-t border-slate-300 pt-2 font-black">
-            <span>Saldo a Pagar na Retirada:</span>
-            <span :class="[form.valorRestante > 0 ? 'text-rose-700' : 'text-emerald-700']">
-              {{ form.valorRestante > 0 ? formatarMoeda(form.valorRestante) : 'R$ 0,00 - Quitado' }}
-            </span>
-          </div>
-        </div>
-
-        <div class="pt-16 grid grid-cols-2 gap-12 text-center text-xs font-mono">
-          <div class="border-t border-slate-950 pt-2">
-            Assinatura do Cliente
-          </div>
-          <div class="border-t border-slate-950 pt-2">
-            Carimbo / Assinatura da Loja
-          </div>
-        </div>
-      </div>
+      </form>
 
     </div>
   </AuthenticatedLayout>
 </template>
 
 <script setup>
-import { ref, watch, onMounted, onBeforeUnmount, computed } from 'vue'
-import { useForm, Link, router, usePage } from '@inertiajs/vue3'
+import { ref, computed, onMounted } from 'vue'
+import { router, Link, usePage } from '@inertiajs/vue3'
 import axios from 'axios'
 import AuthenticatedLayout from '../../Shared/AuthenticatedLayout.vue'
 
 const props = defineProps({
-  ProximoNumeroOS: String,
-  Vendedores: Array,
-  vendedores: Array,
-  Armacoes: Array,
-  armacoes: Array,
-  Lentes: Array,
-  lentes: Array,
-  UsuarioLogadoId: String,
-  UsuarioLogadoNome: String
+  ProximoNumeroOS: String, proximoNumeroOS: String,
+  Vendedores: Array, vendedores: Array,
+  Armacoes: Array, armacoes: Array,
+  Lentes: Array, lentes: Array,
+  UsuarioLogadoId: String, usuarioLogadoId: String,
+  UsuarioLogadoNome: String, usuarioLogadoNome: String
 })
-
-const CHAVE_RASCUNHO = 'retsys_os_rascunho'
 
 const page = usePage()
-const eAdmin = computed(() => {
-  const perfil = (page.props.auth?.usuarioPerfil || '').toLowerCase()
-  return ['admin', 'sistema', 'gerente'].includes(perfil)
-})
+const etapaAtual = ref(1)
+const salvando = ref(false)
+const buscandoCpf = ref(false)
 
-const nomeVendedoraLogada = computed(() => {
-  return props.UsuarioLogadoNome || page.props.auth?.user?.name || page.props.auth?.usuarioNome || 'Colaboradora'
-})
-
-const dataEmissaoHoje = computed(() => new Date().toISOString().split('T')[0])
-
-const exibirFaturaSucesso = ref(false)
-const tipoComprovanteImpressao = ref('completa')
-const osFaturadaResponse = ref({ numeroOS: 'OS-TEMP-00000' })
-const salvandoOS = ref(false)
-const erroSubmissao = ref(null)
-const qtdParcelas = ref(1)
-const clienteLocalizado = ref(null)
-const consultandoCpf = ref(false)
-const buscandoCep = ref(false)
-const termoAceito = ref(false)
-const carregandoIA = ref(false)
-const arquivoIaSelecionado = ref(null)
-const fotoAnexaArquivo = ref(null)
-const rascunhoRestaurado = ref(false)
-const adicaoEditadaManualmente = ref(false)
-
-const dispararCalculoAdicaoAoSair = () => {
-  if (form.tipoLente === 'SO_LONGE' || form.tipoLente === 'SO_PERTO') {
-    return
-  }
-
-  const temLongeOd = form.odEsferico !== null && form.odEsferico !== undefined && form.odEsferico !== ''
-  const temPertoOd = form.odEsfericoPerto !== null && form.odEsfericoPerto !== undefined && form.odEsfericoPerto !== ''
-
-  const temLongeOe = form.oeEsferico !== null && form.oeEsferico !== undefined && form.oeEsferico !== ''
-  const temPertoOe = form.oeEsfericoPerto !== null && form.oeEsfericoPerto !== undefined && form.oeEsfericoPerto !== ''
-
-  const temLonge = temLongeOd || temLongeOe
-  const temPerto = temPertoOd || temPertoOe
-
-  if (temLonge && temPerto) {
-    let adicaoCalc = null
-    if (temLongeOd && temPertoOd) {
-      adicaoCalc = Number(form.odEsfericoPerto) - Number(form.odEsferico)
-    } else if (temLongeOe && temPertoOe) {
-      adicaoCalc = Number(form.oeEsfericoPerto) - Number(form.oeEsferico)
-    }
-
-    if (adicaoCalc !== null) {
-      adicaoCalc = Math.round(adicaoCalc * 100) / 100
-      if (adicaoCalc >= 0 && adicaoCalc <= 3.5) {
-        form.adicao = adicaoCalc
-        adicaoEditadaManualmente.value = false
-      }
-    }
-  } else {
-    if (!adicaoEditadaManualmente.value) {
-      form.adicao = null
-    }
-  }
-}
-
-const aoEditarAdicaoManualmente = () => {
-  adicaoEditadaManualmente.value = true
-  validarAdicao()
-}
-
-const form = useForm({
-  tipoLente: 'MULTIFOCAL',
-  numeroOS: props.ProximoNumeroOS || '',
-  dataEmissao: new Date().toISOString().split('T')[0],
-  lojaVenda: 'Matriz',
+const form = ref({
+  numeroOS: props.ProximoNumeroOS || props.proximoNumeroOS || '',
+  vendedorId: props.UsuarioLogadoId || props.usuarioLogadoId || '',
   cpf: '',
   nome: '',
   telefone: '',
   dataNascimento: '',
-  logradouro: '',
-  numero: '',
-  complemento: '',
-  bairro: '',
-  cidade: '',
-  estado: '',
-  cep: '',
-  convenio: '',
   email: '',
-  vendedorId: '',
-  dataReceita: new Date().toISOString().split('T')[0],
-  dataPrevistaEntrega: '',
-  medicoNome: '',
-  medicoCrm: '',
-  medicoTipo: 'NAO_ESPECIFICADO',
-  observacoes: '',
-  odEsferico: 0,
-  odCilindrico: 0,
-  odEixo: 0,
-  oeEsferico: 0,
-  oeCilindrico: 0,
-  oeEixo: 0,
-  odEsfericoPerto: null,
-  oeEsfericoPerto: null,
+  convenio: '',
+
+  // Receita
+  odEsferico: null,
+  odCilindrico: null,
+  odEixo: null,
+  oeEsferico: null,
+  oeCilindrico: null,
+  oeEixo: null,
   adicao: null,
-  dnpOd: 0,
-  dnpOe: 0,
+  dnpOd: null,
+  dnpOe: null,
   alturaMontagemOd: null,
   alturaMontagemOe: null,
-  aro: null,
-  dm: null,
-  vert: null,
-  po: null,
-  coOd: null,
-  coOe: null,
-  obsReceita: '',
+  medicoNome: '',
+  medicoCrm: '',
+  receitaDataExame: new Date().toISOString().substring(0, 10),
+
+  // Produtos
+  armacaoPropria: false,
   armacaoId: '',
-  lenteId: '',
+  armacaoDescricaoManual: '',
   valorArmacao: 0,
+
+  lentePrecoId: '',
+  lenteDescricaoManual: '',
+  laboratorioParceiro: 'Essilor',
   valorLente: 0,
-  valorTotalBruto: 0,
+
+  // Financeiro
   descontoReais: 0,
-  descontoPercentual: 0,
-  valorTotalLiquido: 0,
   valorEntrada: 0,
-  valorRestante: 0,
-  formaPagamento: 'DINHEIRO'
+  formaPagamento: 'DINHEIRO',
+  parcelas: 1,
+  dataPrevistaEntrega: new Date(Date.now() + 7 * 86400000).toISOString().substring(0, 10),
+  observacoes: ''
 })
 
-const selecionarTipoLente = (tipo) => {
-  form.tipoLente = tipo
-  if (tipo === 'SO_LONGE' || tipo === 'SO_PERTO') {
-    form.adicao = null
-    form.odEsfericoPerto = null
-    form.oeEsfericoPerto = null
+// Cálculos Financeiros Dinâmicos
+const totalLiquidoCalculado = computed(() => {
+  const bruto = Number(form.value.valorArmacao || 0) + Number(form.value.valorLente || 0)
+  const desc = Number(form.value.descontoReais || 0)
+  return Math.max(0, bruto - desc)
+})
+
+const saldoRestanteCalculado = computed(() => {
+  const liquido = totalLiquidoCalculado.value
+  const entrada = Number(form.value.valorEntrada || 0)
+  return Math.max(0, liquido - entrada)
+})
+
+// Manipuladores de Seleção de Armação e Lente
+const onArmacaoSelecionada = () => {
+  const lista = props.armacoes || props.Armacoes || []
+  const item = lista.find(a => (a.id || a.Id) === form.value.armacaoId)
+  if (item) {
+    form.value.valorArmacao = item.precoVenda || item.PrecoVenda || 0
   }
 }
 
-const calcularAdicaoOuPerto = (origem) => {
-  if (form.tipoLente === 'SO_LONGE' || form.tipoLente === 'SO_PERTO') {
-    form.adicao = null
+const onLenteSelecionada = () => {
+  const lista = props.lentes || props.Lentes || []
+  const item = lista.find(l => (l.id || l.Id) === form.value.lentePrecoId)
+  if (item) {
+    form.value.valorLente = item.precoVenda || item.PrecoVenda || 0
+    form.value.laboratorioParceiro = item.laboratorio || item.Laboratorio || 'Essilor'
+  }
+}
+
+// Consulta de CPF
+const consultarCpf = async () => {
+  const clean = (form.value.cpf || '').replace(/\D/g, '')
+  if (clean.length !== 11) {
+    alert('Digite um CPF válido com 11 números.')
     return
   }
-
-  const longeOd = converterParaNumeroSeguro(form.odEsferico)
-  const longeOe = converterParaNumeroSeguro(form.oeEsferico)
-
-  if (origem === 'pertoOd') {
-    if (form.odEsfericoPerto !== null && form.odEsfericoPerto !== undefined && form.odEsfericoPerto !== '') {
-      const pertoOd = converterParaNumeroSeguro(form.odEsfericoPerto)
-      const dif = Math.max(0, Math.min(3.5, Math.round((pertoOd - longeOd) * 100) / 100))
-      form.adicao = dif > 0 ? dif : null
-
-      if (longeOe !== 0 && (form.oeEsfericoPerto === null || form.oeEsfericoPerto === undefined || form.oeEsfericoPerto === '')) {
-        form.oeEsfericoPerto = Number((longeOe + (form.adicao || 0)).toFixed(2))
-      }
-    }
-  } else if (origem === 'pertoOe') {
-    if (form.oeEsfericoPerto !== null && form.oeEsfericoPerto !== undefined && form.oeEsfericoPerto !== '') {
-      const pertoOe = converterParaNumeroSeguro(form.oeEsfericoPerto)
-      const dif = Math.max(0, Math.min(3.5, Math.round((pertoOe - longeOe) * 100) / 100))
-      form.adicao = dif > 0 ? dif : null
-
-      if (longeOd !== 0 && (form.odEsfericoPerto === null || form.odEsfericoPerto === undefined || form.odEsfericoPerto === '')) {
-        form.odEsfericoPerto = Number((longeOd + (form.adicao || 0)).toFixed(2))
-      }
-    }
-  } else if (origem === 'adicao') {
-    const add = converterParaNumeroSeguro(form.adicao)
-    if (add > 0) {
-      if (form.odEsferico !== null && form.odEsferico !== undefined) {
-        form.odEsfericoPerto = Number((longeOd + add).toFixed(2))
-      }
-      if (form.oeEsferico !== null && form.oeEsferico !== undefined) {
-        form.oeEsfericoPerto = Number((longeOe + add).toFixed(2))
-      }
-    }
-  } else if (origem === 'longe') {
-    const add = converterParaNumeroSeguro(form.adicao)
-    if (add > 0) {
-      form.odEsfericoPerto = Number((longeOd + add).toFixed(2))
-      form.oeEsfericoPerto = Number((longeOe + add).toFixed(2))
-    } else if (form.odEsfericoPerto !== null && form.odEsfericoPerto !== undefined && form.odEsfericoPerto !== '') {
-      const pertoOd = converterParaNumeroSeguro(form.odEsfericoPerto)
-      const dif = Math.max(0, Math.min(3.5, Math.round((pertoOd - longeOd) * 100) / 100))
-      form.adicao = dif > 0 ? dif : null
-    }
-  }
-}
-
-const converterParaNumeroSeguro = (valor) => {
-  const numero = Number(valor)
-  return Number.isFinite(numero) ? numero : 0
-}
-
-const formatarMoeda = (valor) => {
-  return converterParaNumeroSeguro(valor).toLocaleString('pt-BR', {
-    style: 'currency',
-    currency: 'BRL'
-  })
-}
-
-const formatarDataBR = (dataRaw) => {
-  if (!dataRaw) return '--/--/----'
-  const partes = dataRaw.split('-')
-  if (partes.length === 3) return `${partes[2]}/${partes[1]}/${partes[0]}`
-  return new Date(dataRaw).toLocaleDateString('pt-BR')
-}
-
-const valorLenteFormatado = computed(() => formatarMoeda(form.valorLente))
-const descontoReaisFormatado = computed(() => formatarMoeda(form.descontoReais))
-const valorEntradaFormatado = computed(() => formatarMoeda(form.valorEntrada))
-
-const odEsfericoPertoComputed = computed({
-  get() {
-    if (form.tipoLente === 'SO_PERTO') {
-      return converterParaNumeroSeguro(form.odEsferico)
-    }
-    const longe = converterParaNumeroSeguro(form.odEsferico)
-    const adicao = converterParaNumeroSeguro(form.adicao)
-    return Number((longe + adicao).toFixed(2))
-  },
-  set(novoValor) {
-    if (form.tipoLente === 'SO_PERTO') {
-      form.odEsferico = converterParaNumeroSeguro(novoValor)
-      form.adicao = null
-      return
-    }
-    const longe = converterParaNumeroSeguro(form.odEsferico)
-    const novoPerto = converterParaNumeroSeguro(novoValor)
-    const dif = Math.max(0, Math.min(3.5, Math.round((novoPerto - longe) * 100) / 100))
-    form.adicao = dif > 0 ? dif : null
-  }
-})
-
-const oeEsfericoPertoComputed = computed({
-  get() {
-    if (form.tipoLente === 'SO_PERTO') {
-      return converterParaNumeroSeguro(form.oeEsferico)
-    }
-    const longe = converterParaNumeroSeguro(form.oeEsferico)
-    const adicao = converterParaNumeroSeguro(form.adicao)
-    return Number((longe + adicao).toFixed(2))
-  },
-  set(novoValor) {
-    if (form.tipoLente === 'SO_PERTO') {
-      form.oeEsferico = converterParaNumeroSeguro(novoValor)
-      form.adicao = null
-      return
-    }
-    const longe = converterParaNumeroSeguro(form.oeEsferico)
-    const novoPerto = converterParaNumeroSeguro(novoValor)
-    const dif = Math.max(0, Math.min(3.5, Math.round((novoPerto - longe) * 100) / 100))
-    form.adicao = dif > 0 ? dif : null
-  }
-})
-
-const tratarInputValorLente = (event) => {
-  const digitos = event.target.value.replace(/\D/g, '')
-
-  form.valorLente = digitos
-    ? parseFloat(digitos) / 100
-    : 0
-
-  recalcularTotaisGenericos()
-}
-
-const tratarInputDescontoReais = (event) => {
-  const digitos = event.target.value.replace(/\D/g, '')
-
-  form.descontoReais = digitos
-    ? parseFloat(digitos) / 100
-    : 0
-
-  recalcularTotaisGenericos()
-}
-
-const tratarInputValorEntrada = (event) => {
-  const digitos = event.target.value.replace(/\D/g, '')
-
-  form.valorEntrada = digitos
-    ? parseFloat(digitos) / 100
-    : 0
-
-  recalcularTotaisGenericos()
-}
-
-onMounted(() => {
-  if (props.UsuarioLogadoId) {
-    form.vendedorId = props.UsuarioLogadoId
-  } else if (page.props.auth?.user?.id) {
-    form.vendedorId = page.props.auth.user.id
-  }
-
-  if (props.ProximoNumeroOS && !form.numeroOS) {
-    form.numeroOS = props.ProximoNumeroOS
-  }
-
-  const dadosSalvos = localStorage.getItem(CHAVE_RASCUNHO)
-
-  if (dadosSalvos) {
-    try {
-      const objetoConvertido = JSON.parse(dadosSalvos)
-
-      Object.assign(form, objetoConvertido)
-
-      if (props.UsuarioLogadoId) {
-        form.vendedorId = props.UsuarioLogadoId
-      }
-
-      rascunhoRestaurado.value = true
-
-      processarSnapshotProdutos()
-    } catch {
-      localStorage.removeItem(CHAVE_RASCUNHO)
-    }
-  }
-
-  window.addEventListener('beforeunload', avisarSairPagina)
-})
-
-onBeforeUnmount(() => {
-  window.removeEventListener('beforeunload', avisarSairPagina)
-})
-
-watch(form, (novoForm) => {
-  if (!exibirFaturaSucesso.value) {
-    localStorage.setItem(CHAVE_RASCUNHO, JSON.stringify(novoForm))
-  }
-}, { deep: true })
-
-watch(() => form.formaPagamento, (novaForma) => {
-  if (novaForma !== 'CARTAO_CREDITO') {
-    qtdParcelas.value = 1
-  }
-})
-
-const limparRascunhoManual = () => {
-  localStorage.removeItem(CHAVE_RASCUNHO)
-  form.reset()
-  if (props.ProximoNumeroOS) form.numeroOS = props.ProximoNumeroOS
-  rascunhoRestaurado.value = false
-}
-
-const avisarSairPagina = (event) => {
-  if (!exibirFaturaSucesso.value && form.cpf) {
-    event.preventDefault()
-    event.returnValue = ''
-  }
-}
-
-const vincularFotoReceitaDireta = (event) => {
-  const files = event.target.files
-
-  if (files.length > 0) {
-    fotoAnexaArquivo.value = files[0]
-  }
-}
-
-const validarCilindrico = (campo) => {
-  let valor = converterParaNumeroSeguro(form[campo])
-
-  if (valor > 0) {
-    valor = -Math.abs(valor)
-  }
-
-  if (valor < -15) {
-    valor = -15
-  }
-
-  form[campo] = valor
-}
-
-const validarEixo = (campo) => {
-  let valor = form[campo]
-
-  if (valor !== null && valor !== undefined && valor !== '') {
-    valor = Math.floor(converterParaNumeroSeguro(valor))
-
-    if (valor < 0) {
-      form[campo] = 0
-      return
-    }
-
-    if (valor > 180) {
-      form[campo] = 180
-      return
-    }
-
-    form[campo] = valor
-  }
-}
-
-const validarAdicao = () => {
-  if (form.adicao === null || form.adicao === undefined || form.adicao === '') {
-    return
-  }
-
-  const valor = converterParaNumeroSeguro(form.adicao)
-
-  if (valor < 0) {
-    form.adicao = 0
-    return
-  }
-
-  if (valor > 3.5) {
-    form.adicao = 3.5
-    return
-  }
-
-  form.adicao = valor
-}
-
-const tratarDigitacaoCep = () => {
-  form.cep = form.cep
-    .replace(/\D/g, '')
-    .replace(/^(\d{5})(\d)/, '$1-$2')
-    .slice(0, 9)
-
-  if (form.cep.replace(/\D/g, '').length === 8) {
-    buscarEnderecoViaCep()
-  }
-}
-
-const buscarEnderecoViaCep = async () => {
-  const cepLimpo = form.cep.replace(/\D/g, '')
-
-  if (cepLimpo.length !== 8) {
-    return
-  }
-
-  buscandoCep.value = true
-
+  buscandoCpf.value = true
   try {
-    const resposta = await fetch(`https://viacep.com.br/ws/${cepLimpo}/json/`)
-
-    if (resposta.ok) {
-      const dados = await resposta.json()
-
-      if (!dados.erro) {
-        form.logradouro = dados.logradouro || form.logradouro
-        form.bairro = dados.bairro || form.bairro
-        form.cidade = dados.localidade || form.cidade
-        form.estado = dados.uf || form.estado
+    const { data } = await axios.get(`/api/clientes/buscar-cpf/${clean}`)
+    if (data) {
+      form.value.nome = data.nome || form.value.nome
+      form.value.telefone = data.telefone || form.value.telefone
+      form.value.email = data.email || form.value.email
+      form.value.convenio = data.convenio || form.value.convenio
+      if (data.dataNascimento) {
+        form.value.dataNascimento = data.dataNascimento.substring(0, 10)
       }
-    }
-  } catch (erro) {
-    console.error(erro)
-  } finally {
-    buscandoCep.value = false
-  }
-}
-
-const processarSnapshotProdutos = () => {
-  const listaArmacoes = props.Armacoes ?? props.armacoes ?? []
-
-  const armacao = listaArmacoes.find((item) => {
-    return (item.id || item.Id) === form.armacaoId
-  })
-
-  form.valorArmacao = armacao
-    ? converterParaNumeroSeguro(armacao.precoVenda ?? armacao.PrecoFinal)
-    : 0
-
-  const listaLentes = props.Lentes ?? props.lentes ?? []
-
-  const lente = listaLentes.find((item) => {
-    return (item.id || item.Id) === form.lenteId
-  })
-
-  if (lente) {
-    form.valorLente = converterParaNumeroSeguro(lente.precoVenda ?? lente.PrecoFinal)
-  }
-
-  recalcularTotaisGenericos()
-}
-
-// --- SEÇÕES 1 E 5: CADEIA DE CÁLCULO REATIVA (BRUTO -> DESCONTO -> LÍQUIDO -> ENTRADA -> RESTANTE) ---
-const recalcularTotaisGenericos = () => {
-  const valorArmacao = Math.max(0, converterParaNumeroSeguro(form.valorArmacao))
-  const valorLente = Math.max(0, converterParaNumeroSeguro(form.valorLente))
-  const valorTotalBruto = valorArmacao + valorLente
-
-  let descontoReais = Math.max(0, converterParaNumeroSeguro(form.descontoReais))
-
-  if (valorTotalBruto <= 0) {
-    form.valorArmacao = 0
-    form.valorLente = 0
-    form.valorTotalBruto = 0
-    form.descontoReais = 0
-    form.descontoPercentual = 0
-    form.valorTotalLiquido = 0
-    form.valorEntrada = 0
-    form.valorRestante = 0
-    return
-  }
-
-  if (descontoReais > valorTotalBruto) {
-    descontoReais = valorTotalBruto
-  }
-
-  const valorTotalLiquido = Number((valorTotalBruto - descontoReais).toFixed(2))
-
-  let valorEntrada = Math.max(0, converterParaNumeroSeguro(form.valorEntrada))
-
-  if (valorEntrada > valorTotalLiquido) {
-    valorEntrada = valorTotalLiquido
-  }
-
-  const valorRestante = Number((valorTotalLiquido - valorEntrada).toFixed(2))
-
-  form.valorArmacao = valorArmacao
-  form.valorLente = valorLente
-  form.valorTotalBruto = valorTotalBruto
-  form.descontoReais = descontoReais
-  form.descontoPercentual = Number(((descontoReais / valorTotalBruto) * 100).toFixed(2))
-  form.valorTotalLiquido = valorTotalLiquido
-  form.valorEntrada = valorEntrada
-  form.valorRestante = valorRestante
-}
-
-const consultarCpfNoBanco = async () => {
-  const cpfLimpo = form.cpf.replace(/\D/g, '')
-
-  if (cpfLimpo.length !== 11) {
-    alert('O CPF precisa conter exatamente 11 números.')
-    return
-  }
-
-  consultandoCpf.value = true
-
-  try {
-    const reply = await axios.get(`/api/clientes/buscar-cpf/${cpfLimpo}`)
-
-    if (reply.data) {
-      Object.assign(form, reply.data)
-      clienteLocalizado.value = true
-    } else {
-      clienteLocalizado.value = false
+      alert('✓ Cliente localizado no cadastro da ótica!')
     }
   } catch {
-    clienteLocalizado.value = false
+    alert('Cliente não localizado pelo CPF. Continue preenchendo os dados para cadastrá-lo agora.')
   } finally {
-    consultandoCpf.value = false
+    buscandoCpf.value = false
   }
 }
 
-const manipularArquivoIa = (event) => {
-  const arquivos = event.target.files
-
-  if (arquivos.length > 0) {
-    arquivoIaSelecionado.value = arquivos[0]
-  }
-}
-
-const executarOcrInteligente = async () => {
-  if (!arquivoIaSelecionado.value || !termoAceito.value) {
+// Salvar OS
+const salvarOrdemServico = () => {
+  if (!form.value.nome || !form.value.telefone) {
+    alert('Preencha o Nome e o WhatsApp do cliente na Etapa 1.')
+    etapaAtual.value = 1
     return
   }
 
-  carregandoIA.value = true
-
-  try {
-    const formData = new FormData()
-
-    formData.append('foto', arquivoIaSelecionado.value)
-
-    const resposta = await axios.post(
-      '/ordens-servico/processar-receita-ia',
-      formData,
-      {
-        headers: {
-          'Content-Type': 'multipart/form-data'
-        }
-      }
-    )
-
-    const dados = resposta.data
-
-    if (dados.esfericoLongeDireito !== null && dados.esfericoLongeDireito !== undefined) {
-      form.odEsferico = dados.esfericoLongeDireito
+  salvando.value = true
+  router.post('/ordens', form.value, {
+    preserveScroll: true,
+    onError: () => {
+      salvando.value = false
     }
-
-    if (dados.cilindricoLongeDireito !== null && dados.cilindricoLongeDireito !== undefined) {
-      form.odCilindrico = -Math.abs(dados.cilindricoLongeDireito)
-    }
-
-    if (dados.eixoLongeDireito !== null && dados.eixoLongeDireito !== undefined) {
-      form.odEixo = dados.eixoLongeDireito
-      validarEixo('odEixo')
-    }
-
-    if (dados.esfericoLongeEsquerdo !== null && dados.esfericoLongeEsquerdo !== undefined) {
-      form.oeEsferico = dados.esfericoLongeEsquerdo
-    }
-
-    if (dados.cilindricoLongeEsquerdo !== null && dados.cilindricoLongeEsquerdo !== undefined) {
-      form.oeCilindrico = -Math.abs(dados.cilindricoLongeEsquerdo)
-    }
-
-    if (dados.eixoLongeEsquerdo !== null && dados.eixoLongeEsquerdo !== undefined) {
-      form.oeEixo = dados.eixoLongeEsquerdo
-      validarEixo('oeEixo')
-    }
-
-    if (dados.adicao !== null && dados.adicao !== undefined) {
-      form.adicao = dados.adicao
-      validarAdicao()
-    }
-
-    if (dados.medico) {
-      form.medicoNome = dados.medico
-    }
-
-    validarCilindrico('odCilindrico')
-    validarCilindrico('oeCilindrico')
-
-    alert('✨ Leitura concluída!')
-  } catch {
-    alert('Preencha os campos manualmente.')
-  } finally {
-    carregandoIA.value = false
-  }
+  })
 }
 
-const salvarOrdemServico = async () => {
-  erroSubmissao.value = null
-  salvandoOS.value = true
-
-  try {
-    recalcularTotaisGenericos()
-
-    const formData = new FormData()
-
-    Object.keys(form).forEach((key) => {
-      if (form[key] !== null && form[key] !== undefined) {
-        formData.append(key, form[key])
-      }
-    })
-
-    if (fotoAnexaArquivo.value) {
-      formData.append('fotoReceitaArquivo', fotoAnexaArquivo.value)
-    }
-
-    const query = form.formaPagamento === 'CARTAO_CREDITO'
-      ? `?quantidadeParcelas=${qtdParcelas.value}`
-      : ''
-
-    const { data } = await axios.post(`/ordens${query}`, formData, {
-      headers: {
-        'Content-Type': 'multipart/form-data'
-      }
-    })
-
-    localStorage.removeItem(CHAVE_RASCUNHO)
-
-    osFaturadaResponse.value = {
-      id: data.id,
-      numeroOS: data.numeroOS || form.numeroOS || 'OS-FINALIZADA'
-    }
-
-    exibirFaturaSucesso.value = true
-  } catch (erro) {
-    erroSubmissao.value =
-      erro.response?.data?.mensagem ||
-      erro.response?.data?.erro ||
-      'Erro ao emitir a Ordem de Serviço.'
-  } finally {
-    salvandoOS.value = false
-  }
-}
-
-const enviarWhatsAppCadastro = async () => {
-  const osId = osFaturadaResponse.value?.id
-  if (!osId) {
-    alert('Ordem emitida com sucesso. Acesse a lista de ordens ou Kanban para enviar WhatsApp.')
-    return
-  }
-
-  try {
-    const { data } = await axios.get(`/api/ordens/${osId}/whatsapp-info?tipo=cadastro`)
-    if (data.urlWhatsApp) {
-      window.open(data.urlWhatsApp, '_blank')
-      await axios.post(`/api/ordens/${osId}/marcar-whatsapp-enviado`, { tipo: 'cadastro' })
-    } else {
-      alert(`Cliente não possui telefone válido para WhatsApp cadastrado.\n\nMensagem gerada:\n\n${data.mensagem}`)
-    }
-  } catch (err) {
-    alert('Erro ao carregar informações de WhatsApp.')
-  }
-}
-
-const imprimirDocumento = (tipo) => {
-  tipoComprovanteImpressao.value = tipo
-  setTimeout(() => {
-    window.print()
-  }, 100)
-}
-
-const voltarAoPainel = () => {
-  router.get('/ordens')
+const formatarMoeda = (val) => {
+  return Number(val || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 </script>
-
-<style>
-@media print {
-  .no-print {
-    display: none !important;
-  }
-  .only-print {
-    display: block !important;
-  }
-}
-@media screen {
-  .only-print {
-    display: none !important;
-  }
-}
-</style>

@@ -1,469 +1,225 @@
 <template>
   <AuthenticatedLayout>
-    <div class="p-4 md:p-8 space-y-6 max-w-6xl mx-auto">
+    <div class="p-4 md:p-8 space-y-6 max-w-7xl mx-auto">
       
-      <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
+      <!-- CABEÇALHO DA CARTEIRA DE CLIENTES (PADRÃO SSÓTICA / PWI) -->
+      <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
         <div>
-          <h1 class="text-2xl font-black text-slate-950 font-mono tracking-tight">Carteira de Clientes & CRM Óptico</h1>
-          <p class="text-xs text-slate-500">Consulte históricos ópticos, acompanhe entregas, filtre períodos ou cadastre leads e fichas antigas.</p>
-        </div>
-      </div>
-
-      <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex flex-col lg:flex-row items-end gap-4 justify-between">
-        
-        <div class="w-full lg:max-w-md space-y-1">
-          <label class="block text-[10px] font-bold uppercase text-slate-400 tracking-wider">Busca por Nome ou Identificador</label>
-          <input 
-            v-model="termoBusca" 
-            @input="executarFiltroCombinado"
-            @keydown.enter.prevent 
-            type="text" 
-            placeholder="Pesquisa rápida por nome parcial ou CPF do cliente..." 
-            class="w-full rounded-xl border-slate-200 text-xs focus:border-teal-500 focus:ring-teal-500 shadow-sm placeholder:text-slate-400"
-          />
+          <div class="flex items-center gap-3">
+            <span class="w-10 h-10 rounded-2xl bg-teal-500/10 text-teal-600 flex items-center justify-center text-xl font-black border border-teal-500/20">
+              👥
+            </span>
+            <div>
+              <h1 class="text-2xl font-black text-slate-950 font-mono tracking-tight">Carteira de Clientes &amp; Prontuários</h1>
+              <p class="text-xs text-slate-500 mt-0.5">Gestão de fichas clínicas, histórico oftalmológico, receitas e contatos via WhatsApp.</p>
+            </div>
+          </div>
         </div>
 
-        <div class="flex flex-wrap sm:flex-nowrap gap-3 items-end w-full lg:w-auto">
-          <div class="w-full sm:w-36 space-y-1">
-            <label class="block text-[10px] font-bold uppercase text-slate-400 tracking-wider">Mês de Compra</label>
-            <select v-model="filtroPeriodo.mes" @change="executarFiltroCombinado" class="w-full rounded-xl border-slate-200 text-xs focus:border-teal-500 font-bold text-slate-700 bg-slate-50">
-              <option :value="null">Todos os Meses</option>
-              <option v-for="(nome, index) in meses" :key="index + 1" :value="index + 1">{{ nome }}</option>
-            </select>
-          </div>
-
-          <div class="w-full sm:w-28 space-y-1">
-            <label class="block text-[10px] font-bold uppercase text-slate-400 tracking-wider">Ano de Compra</label>
-            <select v-model="filtroPeriodo.ano" @change="executarFiltroCombinado" class="w-full rounded-xl border-slate-200 text-xs focus:border-teal-500 font-bold text-slate-700 bg-slate-50">
-              <option :value="null">Todos os Anos</option>
-              <option v-for="ano in anos" :key="ano" :value="ano">{{ ano }}</option>
-            </select>
-          </div>
-
-          <button 
-            @click="exibirFormNovoCliente = !exibirFormNovoCliente" 
-            class="w-full sm:w-auto text-xs bg-slate-950 hover:bg-slate-800 text-white px-5 py-3 rounded-xl font-bold transition flex items-center justify-center gap-2 shadow-sm"
+        <div class="flex items-center gap-2 font-mono text-xs">
+          <Link 
+            href="/crm" 
+            class="px-4 py-2.5 rounded-2xl bg-amber-50 hover:bg-amber-100 text-amber-900 border border-amber-200 font-bold transition flex items-center gap-1.5"
           >
-            <span>{{ exibirFormNovoCliente ? '✕ Ocultar Painel' : '＋ Novo Cadastro' }}</span>
+            <span>📢</span> Central de Recall
+          </Link>
+          <button 
+            @click="exibirModalNovoCliente = true"
+            class="px-5 py-2.5 rounded-2xl bg-teal-600 hover:bg-teal-700 text-white font-bold transition shadow-sm flex items-center gap-1.5 uppercase tracking-wider"
+          >
+            <span>+</span> Novo Cliente
           </button>
         </div>
       </div>
 
-      <!-- Form com Seletor de Modo: Cadastro Rápido vs Ficha Antiga -->
-      <div v-if="exibirFormNovoCliente" class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm transition duration-300">
-        
-        <!-- Abas de Alternância dos Modos de Cadastro -->
-        <div class="flex items-center gap-2 border-b pb-3 mb-6">
-          <button 
-            type="button" 
-            @click="modoCadastro = 'rapido'; form.RegistrarHistorico = false"
-            :class="['px-4 py-2 rounded-xl text-xs font-bold transition', modoCadastro === 'rapido' ? 'bg-slate-950 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200']"
-          >
-            ⚡ Cadastro Rápido (Lead)
-          </button>
-          <button 
-            type="button" 
-            @click="modoCadastro = 'ficha_antiga'; form.RegistrarHistorico = true"
-            :class="['px-4 py-2 rounded-xl text-xs font-bold transition', modoCadastro === 'ficha_antiga' ? 'bg-amber-600 text-white' : 'bg-slate-100 text-slate-600 hover:bg-slate-200']"
-          >
-            📜 Ficha Antiga / Migração
-          </button>
-        </div>
-        
-        <form @submit.prevent="cadastrarCliente" @keydown.enter.prevent class="space-y-6 text-xs" enctype="multipart/form-data">
+      <!-- BARRA DE BUSCA & FILTROS -->
+      <div class="bg-white p-5 rounded-3xl border border-slate-200 shadow-sm space-y-3">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3 items-center">
           
-          <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div class="md:col-span-2">
-              <label class="block font-bold uppercase text-slate-400 tracking-wider mb-1.5">Nome Completo *</label>
-              <input v-model="form.Nome" type="text" placeholder="Ex: João Silva" @keydown.enter.prevent class="w-full rounded-xl border-slate-200 text-xs focus:border-teal-500" required />
-            </div>
-            <div>
-              <label class="block font-bold uppercase text-slate-400 tracking-wider mb-1.5">Convênio</label>
-              <input v-model="form.Convenio" type="text" placeholder="Plano Óptico" @keydown.enter.prevent class="w-full rounded-xl border-slate-200 text-xs focus:border-teal-500" />
-            </div>
-          </div>
-
-          <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div>
-              <!-- PONTO 1: CPF opcional tanto no Cadastro Rápido quanto na Ficha Antiga -->
-              <label class="block font-bold uppercase text-slate-400 tracking-wider mb-1.5">
-                CPF <span class="text-[10px] text-slate-400 font-normal">(Opcional)</span>
-              </label>
-              <input 
-                v-model="form.CPF" 
-                type="text" 
-                placeholder="000.000.000-00" 
-                @keydown.enter.prevent 
-                class="w-full rounded-xl border-slate-200 text-xs focus:border-teal-500" 
-                :required="false" 
-              />
-            </div>
-            <div>
-              <label class="block font-bold uppercase text-slate-400 tracking-wider mb-1.5">WhatsApp / Telefone</label>
-              <input v-model="form.Telefone" type="text" placeholder="(11) 99999-0000" @keydown.enter.prevent class="w-full rounded-xl border-slate-200 text-xs focus:border-teal-500" />
-            </div>
-            <div>
-              <label class="block font-bold uppercase text-slate-400 tracking-wider mb-1.5">E-mail</label>
-              <input v-model="form.Email" type="email" placeholder="cliente@email.com" @keydown.enter.prevent class="w-full rounded-xl border-slate-200 text-xs focus:border-teal-500" />
-            </div>
-          </div>
-
-          <div class="border-t border-slate-100 pt-4 grid grid-cols-1 sm:grid-cols-4 gap-4">
-            <div>
-              <label class="block font-bold text-teal-600 uppercase tracking-wider mb-1.5">CEP Residência</label>
-              <input v-model="form.Cep" @blur="buscarCepAutomático" @keydown.enter.prevent type="text" placeholder="00000-000" class="w-full rounded-xl border-slate-200 text-xs focus:border-teal-500 font-mono" />
-            </div>
-            <div class="sm:col-span-2">
-              <label class="block font-bold uppercase text-slate-400 tracking-wider mb-1.5">Logradouro</label>
-              <input v-model="form.Logradouro" type="text" placeholder="Rua, Avenida..." @keydown.enter.prevent class="w-full rounded-xl border-slate-200 text-xs focus:border-teal-500" />
-            </div>
-            <div>
-              <label class="block font-bold uppercase text-slate-400 tracking-wider mb-1.5">Número</label>
-              <input v-model="form.Numero" type="text" placeholder="123" @keydown.enter.prevent class="w-full rounded-xl border-slate-200 text-xs focus:border-teal-500 font-mono text-center" />
-            </div>
-          </div>
-
-          <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div>
-              <label class="block font-bold uppercase text-slate-400 tracking-wider mb-1.5">Bairro</label>
-              <input v-model="form.Bairro" type="text" @keydown.enter.prevent class="w-full rounded-xl border-slate-200 text-xs focus:border-teal-500" />
-            </div>
-            <div>
-              <label class="block font-bold uppercase text-slate-400 tracking-wider mb-1.5">Cidade</label>
-              <input v-model="form.Cidade" type="text" @keydown.enter.prevent class="w-full rounded-xl border-slate-200 text-xs focus:border-teal-500" />
-            </div>
-            <div>
-              <label class="block font-bold uppercase text-slate-400 tracking-wider mb-1.5">UF</label>
-              <input v-model="form.Estado" type="text" placeholder="SP" maxlength="2" @keydown.enter.prevent class="w-full rounded-xl border-slate-200 text-xs focus:border-teal-500 uppercase font-mono text-center" />
-            </div>
-          </div>
-
-          <!-- Seção de Ficha Antiga (Migração de Histórico) -->
-          <div v-if="modoCadastro === 'ficha_antiga'" class="p-5 bg-amber-50/60 rounded-2xl border border-amber-200 space-y-4 animate-fadeIn">
-            <div>
-              <h4 class="font-bold text-amber-950 uppercase tracking-wider text-[10px] flex items-center gap-2">
-                <span class="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></span>
-                Registro Histórico de Compra Antiga (Digitalizar Ficha de Papel)
-              </h4>
-              <p class="text-[10px] text-amber-600 mt-0.5">Preencha os valores conhecidos da última compra e receita do cliente antes do sistema.</p>
-            </div>
-
-            <div class="space-y-4 pt-3 border-t border-amber-200/50">
-              <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-                <div>
-                  <label class="block font-bold text-amber-900 uppercase mb-1.5">Nº OS / Ficha Antiga</label>
-                  <input v-model="form.HistoricoNumeroOs" type="text" placeholder="Ex: 1042 / Antiga-01" @keydown.enter.prevent class="w-full rounded-xl border-amber-200 bg-white font-mono font-bold" />
-                </div>
-
-                <div>
-                  <label class="block font-bold text-amber-900 uppercase mb-1.5">Data da Última Compra</label>
-                  <input v-model="form.HistoricoData" type="date" @keydown.enter.prevent class="w-full rounded-xl border-amber-200 bg-white" />
-                </div>
-
-                <!-- PONTO 4: Formatação de Valor Monetário em Reais -->
-                <div>
-                  <label class="block font-bold text-amber-900 uppercase mb-1.5">Valor Total Gasto (R$)</label>
-                  <div class="relative">
-                    <input 
-                      :value="historicoValorFormatado" 
-                      @input="tratarInputHistoricoValor" 
-                      @keydown.enter.prevent 
-                      type="text" 
-                      placeholder="R$ 0,00" 
-                      class="w-full rounded-xl border-amber-200 bg-white font-mono font-bold" 
-                    />
-                  </div>
-                </div>
-
-                <div>
-                  <label class="block font-bold text-amber-900 uppercase mb-1.5">Produto Adquirido (Armação/Lente)</label>
-                  <input v-model="form.HistoricoLente" type="text" placeholder="Ex: Ray-Ban + Bifocal Tomada AR" @keydown.enter.prevent class="w-full rounded-xl border-amber-200 bg-white" />
-                </div>
-              </div>
-
-              <div class="bg-white p-4 rounded-xl border border-amber-200/60 space-y-3">
-                <p class="font-bold text-amber-950 uppercase text-[10px] tracking-wider mb-1">Última Refração Conhecida (Graus Clínicos do Papel)</p>
-                
-                <div class="grid grid-cols-4 gap-2 font-bold text-[10px] text-slate-400 uppercase text-center border-b pb-1">
-                  <div>Olho</div>
-                  <div>Esférico</div>
-                  <div>Cilíndrico (-)</div>
-                  <div>Eixo (°)</div>
-                </div>
-
-                <!-- OD -->
-                <div class="grid grid-cols-4 gap-2 items-center">
-                  <div class="text-xs font-black text-slate-700 text-center">OD</div>
-                  <input v-model.number="form.UltimaOdEsferico" type="number" step="0.25" placeholder="0,00" @keydown.enter.prevent class="rounded-xl border-slate-200 text-center font-mono py-1" />
-                  <!-- PONTO 2.1: Cilíndrico negativo automático -->
-                  <input v-model.number="form.UltimaOdCilindrico" @blur="validarCilindricoFicha('UltimaOdCilindrico')" type="number" step="0.25" placeholder="-0,00" @keydown.enter.prevent class="rounded-xl border-slate-200 text-center font-mono py-1 text-amber-700 font-bold" />
-                  <!-- PONTO 2.2: Eixo 0 a 180 -->
-                  <input v-model.number="form.UltimaOdEixo" @input="validarEixoFicha('UltimaOdEixo')" type="number" min="0" max="180" placeholder="0" @keydown.enter.prevent class="rounded-xl border-slate-200 text-center font-mono py-1" />
-                </div>
-
-                <!-- OE -->
-                <div class="grid grid-cols-4 gap-2 items-center">
-                  <div class="text-xs font-black text-slate-700 text-center">OE</div>
-                  <input v-model.number="form.UltimaOeEsferico" type="number" step="0.25" placeholder="0,00" @keydown.enter.prevent class="rounded-xl border-slate-200 text-center font-mono py-1" />
-                  <!-- PONTO 2.1: Cilíndrico negativo automático -->
-                  <input v-model.number="form.UltimaOeCilindrico" @blur="validarCilindricoFicha('UltimaOeCilindrico')" type="number" step="0.25" placeholder="-0,00" @keydown.enter.prevent class="rounded-xl border-slate-200 text-center font-mono py-1 text-amber-700 font-bold" />
-                  <!-- PONTO 2.2: Eixo 0 a 180 -->
-                  <input v-model.number="form.UltimaOeEixo" @input="validarEixoFicha('UltimaOeEixo')" type="number" min="0" max="180" placeholder="0" @keydown.enter.prevent class="rounded-xl border-slate-200 text-center font-mono py-1" />
-                </div>
-
-                <!-- Medidas Técnicas -->
-                <div class="grid grid-cols-4 gap-2 pt-2 border-t border-slate-100">
-                  <div>
-                    <label class="block font-bold text-slate-400 mb-1">Adição (AD)</label>
-                    <input v-model.number="form.UltimaAdicao" type="number" step="0.25" placeholder="0,00" @keydown.enter.prevent class="w-full rounded-xl border-slate-200 text-center font-mono py-1" />
-                  </div>
-                  <div>
-                    <label class="block font-bold text-slate-400 mb-1">DNP Direita</label>
-                    <input v-model.number="form.UltimaDnpOd" type="number" step="0.5" min="20" max="40" placeholder="mm" @keydown.enter.prevent class="w-full rounded-xl border-slate-200 text-center font-mono py-1" />
-                  </div>
-                  <div>
-                    <label class="block font-bold text-slate-400 mb-1">DNP Esquerda</label>
-                    <input v-model.number="form.UltimaDnpOe" type="number" step="0.5" min="20" max="40" placeholder="mm" @keydown.enter.prevent class="w-full rounded-xl border-slate-200 text-center font-mono py-1" />
-                  </div>
-                  <!-- PONTO 3: Altura Montagem por Olho na Ficha Antiga -->
-                  <div>
-                    <label class="block font-bold text-slate-400 mb-1">Altura Mont. OD</label>
-                    <input v-model.number="form.UltimaAlturaMontagemOd" type="number" step="0.5" min="0" max="33" placeholder="mm" @keydown.enter.prevent class="w-full rounded-xl border-slate-200 text-center font-mono py-1" />
-                  </div>
-                </div>
-
-                <div class="grid grid-cols-1 md:grid-cols-4 gap-2 pt-1">
-                  <div>
-                    <label class="block font-bold text-slate-400 mb-1">Altura Mont. OE</label>
-                    <input v-model.number="form.UltimaAlturaMontagemOe" type="number" step="0.5" min="0" max="33" placeholder="mm" @keydown.enter.prevent class="w-full rounded-xl border-slate-200 text-center font-mono py-1" />
-                  </div>
-                </div>
-
-                <!-- MEDIDAS DE MONTAGEM NA FICHA ANTIGA -->
-                <div class="pt-2 border-t border-slate-100">
-                  <span class="text-[10px] font-bold uppercase text-amber-900 block mb-2">Medidas da Armação (Ficha Legada)</span>
-                  <div class="grid grid-cols-2 md:grid-cols-6 gap-2">
-                    <div>
-                      <label class="block text-[9px] font-bold text-slate-400 uppercase">ARO (Máx 80)</label>
-                      <input v-model.number="form.aro" type="number" step="0.1" min="0" max="80" placeholder="52.0" @input="validarMontagem('aro', 80)" @keydown.enter.prevent class="w-full rounded-xl border-slate-200 text-center font-mono text-xs py-1" />
-                    </div>
-                    <div>
-                      <label class="block text-[9px] font-bold text-slate-400 uppercase">DM (Máx 80)</label>
-                      <input v-model.number="form.dm" type="number" step="0.1" min="0" max="80" placeholder="55.0" @input="validarMontagem('dm', 80)" @keydown.enter.prevent class="w-full rounded-xl border-slate-200 text-center font-mono text-xs py-1" />
-                    </div>
-                    <div>
-                      <label class="block text-[9px] font-bold text-slate-400 uppercase">VERT (Máx 80)</label>
-                      <input v-model.number="form.vert" type="number" step="0.1" min="0" max="80" placeholder="40.0" @input="validarMontagem('vert', 80)" @keydown.enter.prevent class="w-full rounded-xl border-slate-200 text-center font-mono text-xs py-1" />
-                    </div>
-                    <div>
-                      <label class="block text-[9px] font-bold text-slate-400 uppercase">PO (Máx 25)</label>
-                      <input v-model.number="form.po" type="number" step="0.1" min="0" max="25" placeholder="18.0" @input="validarMontagem('po', 25)" @keydown.enter.prevent class="w-full rounded-xl border-slate-200 text-center font-mono text-xs py-1" />
-                    </div>
-                    <div>
-                      <label class="block text-[9px] font-bold text-slate-400 uppercase">C.O OD (80)</label>
-                      <input v-model.number="form.coOd" type="number" step="0.1" min="0" max="80" placeholder="31.0" @input="validarMontagem('coOd', 80)" @keydown.enter.prevent class="w-full rounded-xl border-slate-200 text-center font-mono text-xs py-1" />
-                    </div>
-                    <div>
-                      <label class="block text-[9px] font-bold text-slate-400 uppercase">C.O OE (80)</label>
-                      <input v-model.number="form.coOe" type="number" step="0.1" min="0" max="80" placeholder="31.0" @input="validarMontagem('coOe', 80)" @keydown.enter.prevent class="w-full rounded-xl border-slate-200 text-center font-mono text-xs py-1" />
-                    </div>
-                  </div>
-                </div>
-
-              </div>
-
-              <div class="pt-1">
-                <label class="block font-bold text-amber-900 uppercase mb-1.5">Anexo da Receita Antiga (Foto/Scan)</label>
-                <div class="flex items-center gap-3">
-                  <input type="file" id="arquivoReceita" accept="image/*" @change="vincularArquivoUpload" class="hidden" />
-                  <label for="arquivoReceita" class="bg-amber-100 hover:bg-amber-200 text-amber-900 text-[10px] font-bold px-3 py-2 rounded-xl transition cursor-pointer select-none border border-amber-300 shadow-sm">
-                    {{ form.HistoricoFotoReceita ? 'Alterar Imagem' : '📸 Selecionar Arquivo Receita' }}
-                  </label>
-                  <span class="text-[10px] font-mono text-amber-700 truncate max-w-xs block">
-                    {{ form.HistoricoFotoReceita ? form.HistoricoFotoReceita.name : 'Nenhuma foto anexada' }}
-                  </span>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          <div class="flex justify-end gap-2 border-t border-slate-100 pt-4">
-            <button type="submit" :disabled="form.processing" class="bg-teal-600 hover:bg-teal-700 disabled:bg-slate-200 text-white font-bold py-2.5 px-6 rounded-xl text-xs uppercase tracking-wider transition shadow-sm">
-              <span v-if="form.processing">Processando...</span>
-              <span v-else>Salvar Cadastro</span>
+          <div class="md:col-span-2 relative">
+            <span class="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none text-slate-400">🔍</span>
+            <input 
+              v-model="termoBusca" 
+              @input="onInputBusca"
+              type="text" 
+              placeholder="Buscar cliente por Nome, CPF ou Telefone..." 
+              class="w-full pl-10 pr-10 py-2.5 rounded-2xl border border-slate-200 text-xs font-semibold text-slate-800 focus:border-teal-500 bg-slate-50"
+            />
+            <button 
+              v-if="termoBusca" 
+              @click="termoBusca = ''; aplicarFiltros()"
+              class="absolute inset-y-0 right-0 pr-3 text-slate-400 hover:text-slate-600 text-xs"
+            >
+              ✕
             </button>
           </div>
-        </form>
+
+          <div class="flex items-center justify-between text-xs font-mono text-slate-500 px-2">
+            <span>Total: <b>{{ listaClientes.length }}</b> pacientes</span>
+            <span class="text-teal-700 font-bold">● Base Ativa</span>
+          </div>
+
+        </div>
       </div>
 
-      <!-- Tabela de Clientes -->
-      <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
-        <h3 class="text-sm font-black text-slate-950 uppercase tracking-wider font-mono mb-4">Registros Encontrados</h3>
-
-        <div v-if="listaClientes.length === 0" class="text-center py-12 border-2 border-dashed border-slate-100 rounded-xl text-slate-400 text-sm">
-          Nenhum cliente atende aos critérios de busca ou ao período informado.
+      <!-- LISTAGEM DE CLIENTES EM TABELA MODERNA -->
+      <div class="bg-white rounded-3xl border border-slate-200 shadow-sm overflow-hidden">
+        
+        <div v-if="listaClientes.length === 0" class="text-center py-16 px-4 space-y-3">
+          <span class="text-4xl block">👤</span>
+          <h3 class="text-base font-bold text-slate-800 font-mono">Nenhum cliente encontrado</h3>
+          <p class="text-xs text-slate-400 max-w-sm mx-auto">
+            Não foram localizados clientes com o termo pesquisado.
+          </p>
         </div>
 
         <div v-else class="overflow-x-auto">
-          <table class="w-full text-left text-sm border-collapse">
+          <table class="w-full text-left text-xs border-collapse">
             <thead>
-              <tr class="border-b border-slate-100 text-slate-400 text-xs font-bold uppercase tracking-wider">
-                <th class="pb-3">Nome do Cliente</th>
-                <th class="pb-3 text-center">CPF</th>
-                <th class="pb-3 text-center">Status Entrega OS</th>
-                <th class="pb-3 text-center">Contato (WhatsApp)</th>
-                <th class="pb-3 text-center">Última OS</th>
-                <th class="pb-3 text-right">Total Gasto</th>
-                <th class="pb-3 text-center">Ações</th>
+              <tr class="border-b border-slate-100 bg-slate-50/70 text-slate-400 font-mono font-bold uppercase tracking-wider text-[11px]">
+                <th class="py-3.5 px-4">Paciente</th>
+                <th class="py-3.5 px-4">CPF / Documento</th>
+                <th class="py-3.5 px-4">Contato (WhatsApp)</th>
+                <th class="py-3.5 px-4 text-center">Última Compra</th>
+                <th class="py-3.5 px-4 text-right">Total Investido</th>
+                <th class="py-3.5 px-4 text-center">Ações Clínicas</th>
               </tr>
             </thead>
-            <tbody>
-              <tr v-for="c in listaClientes" :key="c.id" class="border-b border-slate-50 hover:bg-slate-50/50 transition">
-                <td class="py-4 font-bold text-slate-800">{{ c.nome }}</td>
-                <td class="py-4 text-center font-mono text-slate-600 text-xs">{{ c.cpf || '--' }}</td>
-                
-                <td class="py-4 text-center">
-                  <span :class="[
-                    'px-2.5 py-1 rounded-full text-[10px] font-black uppercase font-mono border',
-                    c.statusEntrega === 'Entregue' ? 'bg-emerald-50 text-emerald-700 border-emerald-200' :
-                    c.statusEntrega === 'Atrasado' ? 'bg-rose-50 text-rose-700 border-rose-200 animate-pulse' :
-                    c.statusEntrega === 'A entregar' ? 'bg-sky-50 text-sky-700 border-sky-200' :
-                    'bg-slate-50 text-slate-400 border-slate-200'
-                  ]">
-                    {{ c.statusEntrega || 'Nenhum' }}
-                  </span>
+            <tbody class="divide-y divide-slate-100 font-sans">
+              <tr 
+                v-for="c in listaClientes" 
+                :key="c.id" 
+                class="hover:bg-slate-50/80 transition"
+              >
+                <!-- Paciente -->
+                <td class="py-3.5 px-4">
+                  <div class="flex items-center gap-3">
+                    <div class="w-8 h-8 rounded-full bg-teal-50 border border-teal-200 text-teal-800 font-bold flex items-center justify-center font-mono text-xs uppercase shrink-0">
+                      {{ c.nome.substring(0, 2) }}
+                    </div>
+                    <div>
+                      <p class="font-bold text-slate-900 text-sm leading-tight">{{ c.nome }}</p>
+                      <span v-if="c.convenio" class="text-[10px] text-teal-700 bg-teal-50 px-1.5 py-0.2 rounded border border-teal-200 mt-0.5 inline-block">
+                        {{ c.convenio }}
+                      </span>
+                    </div>
+                  </div>
                 </td>
 
-                <td class="py-4 text-center font-mono text-xs">
+                <!-- CPF -->
+                <td class="py-3.5 px-4 font-mono text-slate-600 text-xs">
+                  {{ c.cpf || 'Não cadastrado' }}
+                </td>
+
+                <!-- WhatsApp -->
+                <td class="py-3.5 px-4 font-mono">
                   <a 
-                    v-if="c.telefone" 
-                    :href="generarLinkSampleWhatsapp(c.telefone)" 
+                    v-if="c.telefone"
+                    :href="gerarLinkWhatsApp(c.telefone, c.nome)"
                     target="_blank"
-                    class="text-teal-600 hover:text-teal-700 font-bold inline-flex items-center gap-1 bg-teal-50 px-2.5 py-1 rounded-lg border border-teal-100/80 transition"
+                    class="inline-flex items-center gap-1.5 text-emerald-700 bg-emerald-50 hover:bg-emerald-100 px-2.5 py-1 rounded-xl border border-emerald-200 transition text-[11px] font-bold"
                   >
                     <span>💬</span> {{ c.telefone }}
                   </a>
-                  <span v-else class="text-slate-400">--</span>
+                  <span v-else class="text-slate-400 text-xs">--</span>
                 </td>
 
-                <td class="py-4 text-center font-mono text-xs text-teal-600 font-bold">
-                  {{ c.ultimaOs }}
+                <!-- Última Compra -->
+                <td class="py-3.5 px-4 text-center font-mono text-xs text-slate-700">
+                  <span class="px-2 py-0.5 rounded-lg bg-slate-100 font-bold">
+                    {{ c.ultimaOs || 'Nenhuma OS' }}
+                  </span>
                 </td>
 
-                <!-- PONTO 4: Exibição monetária formatada em Reais -->
-                <td class="py-4 text-right font-black text-slate-950 font-mono text-xs">
-                  R$ {{ Number(c.totalGasto || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) }}
+                <!-- Total Gasto -->
+                <td class="py-3.5 px-4 text-right font-mono font-black text-slate-900 text-xs">
+                  R$ {{ formatarMoeda(c.totalGasto) }}
                 </td>
-                
-                <td class="py-4 text-center">
+
+                <!-- Ações Clínicas -->
+                <td class="py-3.5 px-4 text-center">
                   <div class="flex items-center justify-center gap-1.5">
+                    
+                    <!-- Ficha Clínica / Receitas -->
                     <Link 
-                      :href="`/clientes/${c.id}/historico`"
-                      class="bg-slate-950 hover:bg-slate-800 text-white text-[11px] font-bold px-2.5 py-1 rounded-lg transition shadow-sm font-mono"
-                      title="Prontuário e Histórico"
+                      :href="`/clientes/${c.id}/receitas`" 
+                      class="px-2.5 py-1.5 rounded-xl bg-teal-50 hover:bg-teal-100 text-teal-800 border border-teal-200 font-bold transition text-xs font-mono flex items-center gap-1"
+                      title="Ver Histórico de Receitas e Graus Clínicos"
                     >
-                      Ficha
+                      <span>📜</span> Ficha
                     </Link>
-                    <Link :href="`/clientes/${c.id}/receitas`" class="bg-teal-50 hover:bg-teal-100 text-teal-800 border border-teal-200 text-[11px] font-bold px-2 py-1 rounded-lg transition font-mono flex items-center gap-1" title="Ficha Clínica & Prescrições"><span>🩺</span> Receitas</Link>
+
+                    <!-- Histórico Completo de Compras -->
+                    <Link 
+                      :href="`/clientes/${c.id}/historico`" 
+                      class="p-1.5 rounded-xl bg-slate-100 hover:bg-slate-200 text-slate-700 transition text-xs"
+                      title="Histórico de Ordens e Compras"
+                    >
+                      👁️
+                    </Link>
+
+                    <!-- Editar Cadastro -->
                     <button 
                       @click="abrirEdicaoCliente(c)" 
-                      class="bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-bold px-2.5 py-1 rounded-lg transition font-mono border border-slate-200"
-                      title="Editar Dados"
+                      class="p-1.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 transition text-xs"
+                      title="Editar Dados Cadastrais"
                     >
-                      Editar
+                      ✏️
                     </button>
-                    <button 
-                      @click="excluirCliente(c)" 
-                      class="bg-rose-50 hover:bg-rose-100 text-rose-600 text-[11px] font-bold px-2.5 py-1 rounded-lg transition font-mono border border-rose-200"
-                      title="Excluir Cliente"
-                    >
-                      ✕
-                    </button>
+
                   </div>
                 </td>
               </tr>
             </tbody>
           </table>
         </div>
+
       </div>
 
-      <!-- Modal de Edição de Cliente -->
-      <div v-if="exibirModalEdicao" class="fixed inset-0 z-50 bg-slate-950/60 backdrop-blur-sm flex items-center justify-center p-4">
-        <div class="bg-white w-full max-w-2xl rounded-2xl p-6 shadow-2xl space-y-4 max-h-[90vh] overflow-y-auto border border-slate-200">
-          <div class="flex items-center justify-between border-b pb-3">
-            <div>
-              <h3 class="text-base font-black text-slate-950 uppercase font-mono">Editar Dados do Cliente</h3>
-              <p class="text-xs text-slate-500">Atualize informações de contato e endereço.</p>
-            </div>
-            <button @click="exibirModalEdicao = false" class="text-slate-400 hover:text-slate-600 font-bold text-lg">✕</button>
+      <!-- MODAL: CADASTRAR NOVO CLIENTE -->
+      <div v-if="exibirModalNovoCliente" class="fixed inset-0 bg-slate-950/70 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-xl w-full p-6 space-y-5">
+          <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+            <h3 class="text-base font-bold text-slate-950 font-mono flex items-center gap-2">
+              <span>👤</span> Cadastrar Novo Cliente
+            </h3>
+            <button @click="exibirModalNovoCliente = false" class="text-slate-400 hover:text-slate-800 font-bold">✕</button>
           </div>
 
-          <form @submit.prevent="salvarEdicaoCliente" class="space-y-4 text-xs">
-            <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
-              <div class="md:col-span-2">
-                <label class="block font-bold uppercase text-slate-400 text-[10px] mb-1">Nome Completo *</label>
-                <input v-model="formEdicao.Nome" type="text" class="w-full rounded-xl border-slate-200 text-xs focus:border-teal-500" required />
-              </div>
-              <div>
-                <label class="block font-bold uppercase text-slate-400 text-[10px] mb-1">Convênio</label>
-                <input v-model="formEdicao.Convenio" type="text" class="w-full rounded-xl border-slate-200 text-xs focus:border-teal-500" />
-              </div>
-            </div>
-
-            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div>
-                <label class="block font-bold uppercase text-slate-400 text-[10px] mb-1">CPF</label>
-                <input v-model="formEdicao.CPF" type="text" class="w-full rounded-xl border-slate-200 text-xs focus:border-teal-500" />
-              </div>
-              <div>
-                <label class="block font-bold uppercase text-slate-400 text-[10px] mb-1">Telefone / WhatsApp</label>
-                <input v-model="formEdicao.Telefone" type="text" class="w-full rounded-xl border-slate-200 text-xs focus:border-teal-500" />
-              </div>
-              <div>
-                <label class="block font-bold uppercase text-slate-400 text-[10px] mb-1">E-mail</label>
-                <input v-model="formEdicao.Email" type="email" class="w-full rounded-xl border-slate-200 text-xs focus:border-teal-500" />
-              </div>
-            </div>
-
-            <div class="border-t border-slate-100 pt-3 grid grid-cols-1 sm:grid-cols-4 gap-3">
-              <div>
-                <label class="block font-bold text-teal-600 uppercase text-[10px] mb-1">CEP</label>
-                <input v-model="formEdicao.Cep" type="text" class="w-full rounded-xl border-slate-200 text-xs focus:border-teal-500 font-mono" />
-              </div>
-              <div class="sm:col-span-2">
-                <label class="block font-bold uppercase text-slate-400 text-[10px] mb-1">Logradouro</label>
-                <input v-model="formEdicao.Logradouro" type="text" class="w-full rounded-xl border-slate-200 text-xs focus:border-teal-500" />
-              </div>
-              <div>
-                <label class="block font-bold uppercase text-slate-400 text-[10px] mb-1">Número</label>
-                <input v-model="formEdicao.Numero" type="text" class="w-full rounded-xl border-slate-200 text-xs focus:border-teal-500 font-mono text-center" />
-              </div>
-            </div>
-
-            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-              <div>
-                <label class="block font-bold uppercase text-slate-400 text-[10px] mb-1">Bairro</label>
-                <input v-model="formEdicao.Bairro" type="text" class="w-full rounded-xl border-slate-200 text-xs focus:border-teal-500" />
-              </div>
-              <div>
-                <label class="block font-bold uppercase text-slate-400 text-[10px] mb-1">Cidade</label>
-                <input v-model="formEdicao.Cidade" type="text" class="w-full rounded-xl border-slate-200 text-xs focus:border-teal-500" />
-              </div>
-              <div>
-                <label class="block font-bold uppercase text-slate-400 text-[10px] mb-1">UF</label>
-                <input v-model="formEdicao.Estado" type="text" maxlength="2" class="w-full rounded-xl border-slate-200 text-xs focus:border-teal-500 uppercase font-mono text-center" />
-              </div>
-            </div>
-
+          <form @submit.prevent="salvarNovoCliente" class="space-y-4 text-xs">
             <div>
-              <label class="block font-bold uppercase text-slate-400 text-[10px] mb-1">Observações</label>
-              <textarea v-model="formEdicao.Observacoes" rows="2" class="w-full rounded-xl border-slate-200 text-xs focus:border-teal-500"></textarea>
+              <label class="block font-bold uppercase text-slate-400 tracking-wider mb-1">Nome Completo *</label>
+              <input v-model="formNovo.Nome" type="text" placeholder="Ex: Roberto Carlos Silva" class="w-full rounded-2xl border-slate-200 text-xs font-bold bg-slate-50 focus:border-teal-500" required />
             </div>
 
-            <div class="flex justify-end gap-2 border-t pt-3">
-              <button type="button" @click="exibirModalEdicao = false" class="px-4 py-2 rounded-xl text-xs font-bold bg-slate-100 hover:bg-slate-200 text-slate-700">Cancelar</button>
-              <button type="submit" :disabled="formEdicao.processing" class="px-5 py-2 rounded-xl text-xs font-bold bg-teal-600 hover:bg-teal-700 text-white shadow-sm">
-                {{ formEdicao.processing ? 'Salvando...' : 'Salvar Alterações' }}
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label class="block font-bold uppercase text-slate-400 tracking-wider mb-1">CPF</label>
+                <input v-model="formNovo.CPF" type="text" placeholder="000.000.000-00" class="w-full rounded-2xl border-slate-200 text-xs font-mono bg-slate-50 focus:border-teal-500" />
+              </div>
+              <div>
+                <label class="block font-bold uppercase text-slate-400 tracking-wider mb-1">Telefone / WhatsApp *</label>
+                <input v-model="formNovo.Telefone" type="text" placeholder="(00) 00000-0000" class="w-full rounded-2xl border-slate-200 text-xs font-bold bg-slate-50 focus:border-teal-500" required />
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label class="block font-bold uppercase text-slate-400 tracking-wider mb-1">E-mail</label>
+                <input v-model="formNovo.Email" type="email" placeholder="cliente@email.com" class="w-full rounded-2xl border-slate-200 text-xs bg-slate-50 focus:border-teal-500" />
+              </div>
+              <div>
+                <label class="block font-bold uppercase text-slate-400 tracking-wider mb-1">Convênio / Parceria</label>
+                <input v-model="formNovo.Convenio" type="text" placeholder="Ex: Unimed, Aposentados" class="w-full rounded-2xl border-slate-200 text-xs bg-slate-50 focus:border-teal-500" />
+              </div>
+            </div>
+
+            <div class="flex justify-end gap-2 pt-3 border-t border-slate-100">
+              <button type="button" @click="exibirModalNovoCliente = false" class="px-4 py-2 rounded-xl text-slate-600 font-bold hover:bg-slate-100">
+                Cancelar
+              </button>
+              <button type="submit" :disabled="salvando" class="px-5 py-2 rounded-xl bg-teal-600 hover:bg-teal-700 text-white font-bold transition shadow-sm">
+                {{ salvando ? 'Gravando...' : 'Gravar Cliente' }}
               </button>
             </div>
           </form>
@@ -475,30 +231,25 @@
 </template>
 
 <script setup>
-import { ref, reactive, computed } from 'vue'
-import { useForm, Link, router } from '@inertiajs/vue3'
+import { ref, computed } from 'vue'
+import { router, Link } from '@inertiajs/vue3'
 import AuthenticatedLayout from '../../Shared/AuthenticatedLayout.vue'
 
 const props = defineProps({
-  Clientes: Array,
-  clientes: Array,
-  FiltroBusca: String,
-  filtroBusca: String,
-  MesFiltro: Number,
-  mesFiltro: Number,
-  AnoFiltro: Number,
-  anoFiltro: Number,
-  AñoFiltro: Number,
-  añoFiltro: Number
+  Clientes: Array, clientes: Array,
+  FiltroBusca: String, filtroBusca: String
 })
 
 const termoBusca = ref(props.FiltroBusca ?? props.filtroBusca ?? '')
-const exibirFormNovoCliente = ref(false) 
-const modoCadastro = ref('rapido')
+const exibirModalNovoCliente = ref(false)
+const salvando = ref(false)
 
-const filtroPeriodo = reactive({
-  mes: props.MesFiltro ?? props.mesFiltro ?? null,
-  ano: props.AnoFiltro ?? props.anoFiltro ?? props.AñoFiltro ?? props.añoFiltro ?? null
+const formNovo = ref({
+  Nome: '',
+  CPF: '',
+  Telefone: '',
+  Email: '',
+  Convenio: ''
 })
 
 const listaClientes = computed(() => {
@@ -510,210 +261,50 @@ const listaClientes = computed(() => {
     telefone: c.Telefone ?? c.telefone ?? '',
     email: c.Email ?? c.email ?? '',
     convenio: c.Convenio ?? c.convenio ?? '',
-    cep: c.Cep ?? c.cep ?? '',
-    logradouro: c.Logradouro ?? c.logradouro ?? '',
-    numero: c.Numero ?? c.numero ?? '',
-    bairro: c.Bairro ?? c.bairro ?? '',
-    cidade: c.Cidade ?? c.cidade ?? '',
-    estado: c.Estado ?? c.estado ?? '',
-    observacoes: c.Observacoes ?? c.observacoes ?? '',
-    statusEntrega: c.StatusEntrega ?? c.statusEntrega ?? 'Nenhum',
-    ultimaOs: c.UltimaOs ?? c.ultimaOs ?? 'Nenhuma',
+    ultimaOs: c.UltimaOs ?? c.ultimaOs ?? '',
     totalGasto: c.TotalGasto ?? c.totalGasto ?? 0
   }))
 })
 
-const clienteEditando = ref(null)
-const exibirModalEdicao = ref(false)
-
-const formEdicao = useForm({
-  Nome: '',
-  CPF: '',
-  Telefone: '',
-  Email: '',
-  Convenio: '',
-  Cep: '',
-  Logradouro: '',
-  Numero: '',
-  Bairro: '',
-  Cidade: '',
-  Estado: '',
-  Observacoes: ''
-})
-
-const abrirEdicaoCliente = (c) => {
-  clienteEditando.value = c
-  formEdicao.Nome = c.nome
-  formEdicao.CPF = c.cpf
-  formEdicao.Telefone = c.telefone
-  formEdicao.Email = c.email
-  formEdicao.Convenio = c.convenio
-  formEdicao.Cep = c.cep
-  formEdicao.Logradouro = c.logradouro
-  formEdicao.Numero = c.numero
-  formEdicao.Bairro = c.bairro
-  formEdicao.Cidade = c.cidade
-  formEdicao.Estado = c.estado
-  formEdicao.Observacoes = c.observacoes
-  exibirModalEdicao.value = true
-}
-
-const salvarEdicaoCliente = () => {
-  if (!clienteEditando.value) return
-  formEdicao.post(`/clientes/editar/${clienteEditando.value.id}`, {
-    forceFormData: true,
-    preserveScroll: true,
-    onSuccess: () => {
-      exibirModalEdicao.value = false
-      clienteEditando.value = null
-    }
-  })
-}
-
-const excluirCliente = (c) => {
-  if (!confirm(`Tem certeza que deseja excluir o cliente ${c.nome}?`)) return
-  router.post(`/clientes/excluir/${c.id}`, {}, {
-    preserveScroll: true
-  })
-}
-
-const meses = [
-  'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
-  'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
-]
-
-const anos = [2024, 2025, 2026, 2027, 2028]
-
-const form = useForm({
-  Nome: '',
-  CPF: '',
-  Telefone: '', 
-  Cep: '',      
-  Logradouro: '',
-  Numero: '',
-  Bairro: '',
-  Cidade: '',
-  Estado: '',
-  Convenio: '',
-  Email: '',
-  
-  RegistrarHistorico: false,
-  HistoricoNumeroOs: '',
-  HistoricoData: '',
-  HistoricoValor: 0,
-  HistoricoLente: '',
-  HistoricoFotoReceita: null,
-
-  UltimaOdEsferico: 0,
-  UltimaOdCilindrico: 0,
-  UltimaOdEixo: 0,
-  UltimaOeEsferico: 0,
-  UltimaOeCilindrico: 0,
-  UltimaOeEixo: 0,
-  UltimaAdicao: null,
-  UltimaDnpOd: 0,
-  UltimaDnpOe: 0,
-  UltimaAlturaMontagem: null,
-  UltimaAlturaMontagemOd: null,
-  UltimaAlturaMontagemOe: null,
-
-  aro: null,
-  dm: null,
-  vert: null,
-  po: null,
-  coOd: null,
-  coOe: null
-})
-
-// PONTO 4: Formatação de Moeda na Ficha Antiga
-const historicoValorFormatado = computed(() => {
-  return Number(form.HistoricoValor || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })
-})
-
-const tratarInputHistoricoValor = (e) => {
-  const digitos = e.target.value.replace(/\D/g, '')
-  form.HistoricoValor = digitos ? parseFloat(digitos) / 100 : 0
-}
-
-// PONTO 2.1: Conversão automática de cilíndrico para negativo
-const validarCilindricoFicha = (campo) => {
-  let val = form[campo]
-  if (val > 0) form[campo] = -Math.abs(val)
-}
-
-// PONTO 2.2: Trava de Eixo entre 0 e 180
-const validarEixoFicha = (campo) => {
-  let val = form[campo]
-  if (val !== null && val !== undefined) {
-    val = Math.floor(val)
-    if (val < 0) form[campo] = 0
-    if (val > 180) form[campo] = 180
-  }
-}
-
-const validarMontagem = (campo, maximo) => {
-  let val = form[campo]
-  if (val !== null && val !== undefined && val !== '') {
-    if (val < 0) form[campo] = 0
-    if (val > maximo) form[campo] = maximo
-  }
-}
-
-const registrarTimeout = ref(null)
-const executarFiltroCombinado = () => {
-  clearTimeout(registrarTimeout.value)
-  registrarTimeout.value = setTimeout(() => {
-    router.get('/clientes', { 
-      busca: termoBusca.value,
-      mes: filtroPeriodo.mes,
-      ano: filtroPeriodo.ano
-    }, { preserveState: true, replace: true })
+let timerBusca = null
+const onInputBusca = () => {
+  if (timerBusca) clearTimeout(timerBusca)
+  timerBusca = setTimeout(() => {
+    aplicarFiltros()
   }, 300)
 }
 
-const buscarCepAutomático = async () => {
-  if (!form.Cep) return
-  const cepLimpo = form.Cep.replace(/\D/g, '')
-  if (cepLimpo.length !== 8) return
+const aplicarFiltros = () => {
+  router.get('/clientes', { busca: termoBusca.value }, { preserveState: true, replace: true })
+}
 
-  try {
-    const resposta = await fetch(`https://viacep.com.br/ws/${cepLimpo}/json/`)
-    if (resposta.ok) {
-      const dados = await resposta.json()
-      if (!dados.erro) {
-        form.Logradouro = dados.logradouro || ''
-        form.Bairro = dados.bairro || ''
-        form.Cidade = dados.localidade || ''
-        form.Estado = dados.uf || ''
-      }
-    }
-  } catch (err) {
-    console.error(err)
+const salvarNovoCliente = () => {
+  if (!formNovo.value.Nome || !formNovo.value.Telefone) {
+    alert('Preencha Nome e Telefone.')
+    return
   }
-}
-
-const vincularArquivoUpload = (event) => {
-  const arquivos = event.target.files
-  if (arquivos.length > 0) {
-    form.HistoricoFotoReceita = arquivos[0]
-  }
-}
-
-const generarLinkSampleWhatsapp = (telefoneRaw) => {
-  if (!telefoneRaw) return '#'
-  const numeroLimpo = telefoneRaw.replace(/\D/g, '')
-  return `https://wa.me/55${numeroLimpo}?text=Olá!%20Aqui%20é%20da%20óptica%20RETSYS.`
-}
-
-const cadastrarCliente = () => {
-  form.post('/clientes', {
-    forceFormData: true,
+  salvando.value = true
+  router.post('/clientes', formNovo.value, {
     preserveScroll: true,
     onSuccess: () => {
-      form.reset()
-      exibirFormNovoCliente.value = false
-      alert('Cadastro realizado com sucesso!')
+      exibirModalNovoCliente.value = false
+      salvando.value = false
+      formNovo.value = { Nome: '', CPF: '', Telefone: '', Email: '', Convenio: '' }
+    },
+    onError: () => {
+      salvando.value = false
     }
   })
+}
+
+const formatarMoeda = (val) => {
+  return Number(val || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
+}
+
+const gerarLinkWhatsApp = (tel, nome) => {
+  const clean = (tel || '').replace(/\D/g, '')
+  const primeiroNome = (nome || '').split(' ')[0]
+  const msg = `Olá ${primeiroNome}, tudo bem? Aqui é da Ótica Retina. Como estão seus óculos? Estamos à disposição se precisar de qualquer ajuste gratuito!`
+  return `https://api.whatsapp.com/send?phone=55${clean}&text=${encodeURIComponent(msg)}`
 }
 </script>

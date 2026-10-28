@@ -264,3 +264,33 @@ Este documento atua como o registro de **Memória Incremental** do projeto RETSY
 - **Frontend Build**: `npm run build` executado com êxito (144 módulos transformados, 0 erros).
 - **Backend Build**: `dotnet build` executado com 0 avisos e 0 erros.
 - **Git**: Código pronto para commit e push na branch `main`.
+
+## [LOG-006] - 2026-10-28: Remodelação Completa e Definitiva de Todas as Telas e Criação do Manual do Usuário em PDF
+- **Autor/Agente**: Arquiteto de Software & Assistente de IA Avançado (Antigravity)
+- **Módulos Afetados**: `RETSYS.Web/Frontend/Pages/` (`OrdensServico/Index.vue`, `OrdensServico/Create.vue`, `Dashboard/Index.vue`, `Clientes/Index.vue`, `Crm/Index.vue`, `Vendas/PdvBalcao.vue`), `MANUAL_DO_USUARIO_RETSYS.html`, `MANUAL_DO_USUARIO_RETSYS.pdf`
+- **Contexto & Solicitante**: Atendimento à exigência enfática do usuário de remodelar o sistema por completo, substituindo integralmente os layouts legados e desorganizados por novas interfaces de alto padrão óptico (ssÓtica e PWI Vixen), com esteira de laboratório integrada, emissão em 4 etapas, CRM ágil, PDV de balcão reativo e manual do usuário não-técnico gerado em formato PDF.
+
+### 1. Resumo das Telas Completamente Remodeladas
+1. **`OrdensServico/Index.vue`**:
+   - Reconstruído do zero: Cards de status no topo (Todas, Aguardando Lente, Em Montagem, Prontas, Entregues), busca inteligente em tempo real por Nº OS, Cliente ou CPF, segregação estrita por loja no cabeçalho e tabela com prancheta técnica rápida, carnê e entrega.
+2. **`OrdensServico/Create.vue`**:
+   - Reconstruído em Stepper visual de 4 etapas:
+     - Etapa 1: Cliente & Atendente (busca por CPF e dados de contato).
+     - Etapa 2: Refração Clínica (Grade médica OD/OE, cálculo automático de Adição, DNP, alturas de montagem e médico).
+     - Etapa 3: Produtos (Armação do catálogo ou própria, tabela de lentes e laboratório parceiro Essilor/Hoya/Zeiss).
+     - Etapa 4: Fechamento Financeiro (Totalizadores, desconto, entrada, formas de pagamento e crediário/carnê).
+3. **`Dashboard/Index.vue`**:
+   - Command Center óptico completo: KPIs do dia (OS Hoje, Faturado, Lentes Pendentes, Prontos no Balcão, Atrasados, Comissões), curva de faturamento diário dos últimos 30 dias, ações rápidas e alertas de laboratório.
+4. **`Clientes/Index.vue`**:
+   - Ficha e carteira de clientes com prontuário visual, acesso direto à ficha clínica de receitas e botão de WhatsApp em 1 clique.
+5. **`Crm/Index.vue`**:
+   - Central de Recall segmentada: Retorno de 1 ano com WhatsApp automático, pós-venda multifocal e aniversariantes do mês.
+6. **`Vendas/PdvBalcao.vue`**:
+   - Frente de caixa óptica ágil: catálogo visual de pronta-entrega (óculos de sol, armações avulsas, lentes de contato e acessórios), carrinho em tempo real e comprovante térmico.
+
+### 2. Manual Operacional Não-Técnico em PDF
+- Desenvolvido e compilado `MANUAL_DO_USUARIO_RETSYS.pdf` (1.4 MB) e sua versão web `MANUAL_DO_USUARIO_RETSYS.html`, com guia ilustrado passo a passo para atendentes, gerentes e proprietários de ótica.
+
+### 3. Validação de Build
+- **Frontend**: `npm run build` executado com êxito (143 módulos, 0 erros).
+- **Backend**: `dotnet build` executado com êxito (0 erros, 0 avisos).

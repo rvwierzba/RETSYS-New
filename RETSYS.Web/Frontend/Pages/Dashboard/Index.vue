@@ -2,345 +2,341 @@
   <AuthenticatedLayout>
     <div class="p-4 md:p-8 space-y-6 max-w-7xl mx-auto">
       
-      <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 bg-white p-6 rounded-2xl border border-slate-200 shadow-sm">
+      <!-- CABEÇALHO DO DASHBOARD (ESTILO SSÓTICA / PWI) -->
+      <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-4 bg-white p-6 rounded-3xl border border-slate-200 shadow-sm">
         <div>
-          <h1 class="text-2xl font-black text-slate-950 font-mono tracking-tight flex items-center gap-2">
-            <span class="w-2.5 h-2.5 rounded-full" :class="[eAdmin ? 'bg-indigo-600' : 'bg-teal-500']"></span>
-            {{ eAdmin ? 'Painel de Performance Administrativo' : 'Meu Painel de Performance' }}
-          </h1>
-          <p class="text-xs text-slate-500 mt-1">
-            {{ eAdmin ? 'Acompanhamento integrado de metas de filiais, faturamentos, estoque, lentes pendentes e desempenho.' : 'Acompanhe seus atendimentos, faturamentos diários, lentes pendentes e estimativa de comissões.' }}
-          </p>
+          <div class="flex items-center gap-3">
+            <span class="w-10 h-10 rounded-2xl bg-teal-500/10 text-teal-600 flex items-center justify-center text-xl font-black border border-teal-500/20">
+              📊
+            </span>
+            <div>
+              <h1 class="text-2xl font-black text-slate-950 font-mono tracking-tight flex items-center gap-2">
+                Painel de Gestão &amp; Performance Óptica
+              </h1>
+              <p class="text-xs text-slate-500 mt-0.5">
+                Visão consolidada da loja ativa: vendas diárias, faturamento, produção laboratorial e metas.
+              </p>
+            </div>
+          </div>
         </div>
         
-        <div class="flex flex-wrap items-center gap-2">
-          <select v-model="filtros.mes" @change="atualizarDashboard" class="rounded-xl border-slate-200 text-xs font-bold text-slate-700 focus:border-teal-500 focus:ring-teal-500 bg-slate-50">
+        <div class="flex flex-wrap items-center gap-2 font-mono text-xs">
+          <select 
+            v-model="filtros.mes" 
+            @change="atualizarDashboard" 
+            class="rounded-2xl border-slate-200 text-xs font-bold text-slate-700 focus:border-teal-500 bg-slate-50 py-2 px-3"
+          >
             <option v-for="(nome, index) in meses" :key="index + 1" :value="index + 1">{{ nome }}</option>
           </select>
-          <select v-model="filtros.ano" @change="atualizarDashboard" class="rounded-xl border-slate-200 text-xs font-bold text-slate-700 focus:border-teal-500 focus:ring-teal-500" required>
+          <select 
+            v-model="filtros.ano" 
+            @change="atualizarDashboard" 
+            class="rounded-2xl border-slate-200 text-xs font-bold text-slate-700 focus:border-teal-500 bg-slate-50 py-2 px-3"
+          >
             <option v-for="a in [2024, 2025, 2026, 2027, 2028]" :key="a" :value="a">{{ a }}</option>
           </select>
         </div>
       </div>
 
-      <!-- CARDS DE RESUMO DO TOPO (PADRÃO CLICÁVEL & UNIFICADO) -->
-      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-4">
+      <!-- CARDS DE RESUMO DO DIA (KPIS DA ÓTICA) -->
+      <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6 gap-3.5">
         
         <!-- 1. OS Emitidas Hoje -->
-        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
+        <Link 
+          href="/ordens" 
+          class="bg-white p-4.5 rounded-3xl border border-slate-200 shadow-xs hover:border-slate-300 transition flex items-center justify-between group"
+        >
           <div>
-            <span class="text-[10px] font-bold uppercase text-slate-400 tracking-wider">OS Emitidas Hoje</span>
-            <p class="text-2xl font-black text-slate-950 mt-1 font-mono">
+            <span class="text-[10px] font-mono font-bold uppercase text-slate-400">OS Emitidas Hoje</span>
+            <p class="text-2xl font-black text-slate-950 mt-1 font-mono group-hover:text-teal-600 transition">
               {{ kpisHoje.osHoje }}
             </p>
+            <span class="text-[9px] text-teal-700 font-bold block mt-0.5">Hoje no Balcão</span>
           </div>
-          <div class="w-10 h-10 rounded-xl bg-teal-50 text-teal-600 flex items-center justify-center text-sm font-bold">✓</div>
-        </div>
+          <div class="w-10 h-10 rounded-2xl bg-teal-50 text-teal-600 flex items-center justify-center text-sm font-bold border border-teal-100">
+            ✓
+          </div>
+        </Link>
 
         <!-- 2. Faturado Hoje -->
-        <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
+        <div class="bg-white p-4.5 rounded-3xl border border-slate-200 shadow-xs flex items-center justify-between">
           <div>
-            <span class="text-[10px] font-bold uppercase text-slate-400 tracking-wider">Faturado Hoje</span>
-            <p class="text-2xl font-black text-teal-600 mt-1 font-mono">
+            <span class="text-[10px] font-mono font-bold uppercase text-slate-400">Faturado Hoje</span>
+            <p class="text-xl font-black text-teal-600 mt-1 font-mono">
               R$ {{ formatMoeda(kpisHoje.faturadoHoje) }}
             </p>
+            <span class="text-[9px] text-slate-400 font-mono block mt-0.5">Entradas &amp; Vendas</span>
           </div>
-          <div class="w-10 h-10 rounded-xl bg-teal-50 text-teal-600 flex items-center justify-center text-sm font-bold">$</div>
+          <div class="w-10 h-10 rounded-2xl bg-emerald-50 text-emerald-600 flex items-center justify-center text-sm font-bold border border-emerald-100">
+            $
+          </div>
         </div>
 
-        <!-- 3. SEÇÃO 3.3: CARD LENTES NÃO PEDIDAS (NOVO) -->
-        <!-- 3. LENTES NÃO PEDIDAS (CLICÁVEL) -->
-        <div 
-          @click="irParaLentesNaoPedidas"
-          :class="[
-            kpisHoje.lentesNaoPedidas > 0 
-              ? 'bg-rose-50/70 border-rose-300 ring-2 ring-rose-100 cursor-pointer hover:bg-rose-100/80' 
-              : 'bg-white border-slate-200 hover:border-slate-300 cursor-pointer'
-          ]"
-          class="p-5 rounded-2xl border shadow-sm flex items-center justify-between transition duration-200"
-          title="Clique para ver Ordens de Serviço com lentes pendentes de pedido ao laboratório"
+        <!-- 3. Lentes Não Pedidas ao Lab -->
+        <Link 
+          href="/laboratorio"
+          :class="kpisHoje.lentesNaoPedidas > 0 ? 'bg-rose-50/80 border-rose-300 ring-2 ring-rose-100' : 'bg-white border-slate-200'"
+          class="p-4.5 rounded-3xl border shadow-xs hover:shadow-sm transition flex items-center justify-between"
+          title="Clique para ver lentes aguardando pedido ao laboratório"
         >
           <div>
             <div class="flex items-center gap-1.5">
-              <span class="text-[10px] font-bold uppercase tracking-wider" :class="kpisHoje.lentesNaoPedidas > 0 ? 'text-rose-900' : 'text-slate-400'">Lentes Não Pedidas</span>
+              <span class="text-[10px] font-mono font-bold uppercase" :class="kpisHoje.lentesNaoPedidas > 0 ? 'text-rose-900' : 'text-slate-400'">
+                Lentes Não Pedidas
+              </span>
               <span v-if="kpisHoje.lentesNaoPedidas > 0" class="w-2 h-2 rounded-full bg-rose-600 animate-ping"></span>
             </div>
-            <p class="text-2xl font-black mt-1 font-mono" :class="kpisHoje.lentesNaoPedidas > 0 ? 'text-rose-700 font-black' : 'text-slate-900'">
+            <p class="text-2xl font-black mt-1 font-mono" :class="kpisHoje.lentesNaoPedidas > 0 ? 'text-rose-700' : 'text-slate-900'">
               {{ kpisHoje.lentesNaoPedidas }}
             </p>
-            <span class="text-[9px] block mt-0.5 font-bold" :class="kpisHoje.lentesNaoPedidasCriticas > 0 ? 'text-rose-800 font-black underline' : 'text-slate-400'">
-              {{ kpisHoje.lentesNaoPedidasCriticas > 0 ? `⚠️ ${kpisHoje.lentesNaoPedidasCriticas} há +1 dia` : 'Pendentes ao laboratório' }}
+            <span class="text-[9px] block mt-0.5 font-bold" :class="kpisHoje.lentesNaoPedidasCriticas > 0 ? 'text-rose-800 underline' : 'text-slate-400'">
+              {{ kpisHoje.lentesNaoPedidasCriticas > 0 ? `⚠️ ${kpisHoje.lentesNaoPedidasCriticas} há +1 dia` : 'Pendentes ao Lab' }}
             </span>
           </div>
-          <div class="w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold" :class="kpisHoje.lentesNaoPedidas > 0 ? 'bg-rose-100 text-rose-800' : 'bg-slate-100 text-slate-700'">
+          <div class="w-10 h-10 rounded-2xl flex items-center justify-center text-sm font-bold" :class="kpisHoje.lentesNaoPedidas > 0 ? 'bg-rose-100 text-rose-800' : 'bg-slate-100 text-slate-600'">
             📦
           </div>
-        </div>
+        </Link>
 
-        <!-- 4. SERVIÇOS ATRASADOS (UNIFICADO E CLICÁVEL) -->
-        <div 
-          @click="irParaServicosAtrasados"
-          :class="[
-            (kpisHoje.servicosAtrasados ?? kpisHoje.osVencidas) > 0 
-              ? 'bg-amber-50/70 border-amber-300 ring-2 ring-amber-100 cursor-pointer hover:bg-amber-100/80' 
-              : 'bg-white border-slate-200 hover:border-slate-300 cursor-pointer'
-          ]"
-          class="p-5 rounded-2xl border shadow-sm flex items-center justify-between transition duration-200"
-          title="Clique para abrir a lista de Ordens de Serviço com data prevista de entrega estourada"
+        <!-- 4. Serviços Atrasados -->
+        <Link 
+          href="/ordens?filtroAtraso=true"
+          :class="(kpisHoje.servicosAtrasados ?? kpisHoje.osVencidas) > 0 ? 'bg-amber-50/80 border-amber-300 ring-2 ring-amber-100' : 'bg-white border-slate-200'"
+          class="p-4.5 rounded-3xl border shadow-xs hover:shadow-sm transition flex items-center justify-between"
+          title="Clique para ver serviços com prazo vencido"
         >
           <div>
             <div class="flex items-center gap-1.5">
-              <span class="text-[10px] font-bold uppercase tracking-wider" :class="(kpisHoje.servicosAtrasados ?? kpisHoje.osVencidas) > 0 ? 'text-amber-900' : 'text-slate-400'">Serviços Atrasados</span>
+              <span class="text-[10px] font-mono font-bold uppercase" :class="(kpisHoje.servicosAtrasados ?? kpisHoje.osVencidas) > 0 ? 'text-amber-900' : 'text-slate-400'">
+                Atrasados
+              </span>
               <span v-if="(kpisHoje.servicosAtrasados ?? kpisHoje.osVencidas) > 0" class="w-2 h-2 rounded-full bg-amber-600 animate-ping"></span>
             </div>
-            <p class="text-2xl font-black mt-1 font-mono" :class="(kpisHoje.servicosAtrasados ?? kpisHoje.osVencidas) > 0 ? 'text-amber-800 font-black' : 'text-slate-900'">
+            <p class="text-2xl font-black mt-1 font-mono" :class="(kpisHoje.servicosAtrasados ?? kpisHoje.osVencidas) > 0 ? 'text-amber-800' : 'text-slate-900'">
               {{ kpisHoje.servicosAtrasados ?? kpisHoje.osVencidas }}
             </p>
-            <span class="text-[9px] text-slate-400 block mt-0.5 leading-none">Prazo de entrega estourado</span>
+            <span class="text-[9px] text-slate-400 block mt-0.5">Prazo Estourado</span>
           </div>
-          <div class="w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold" :class="(kpisHoje.servicosAtrasados ?? kpisHoje.osVencidas) > 0 ? 'bg-amber-100 text-amber-800' : 'bg-slate-100 text-slate-700'">
+          <div class="w-10 h-10 rounded-2xl flex items-center justify-center text-sm font-bold" :class="(kpisHoje.servicosAtrasados ?? kpisHoje.osVencidas) > 0 ? 'bg-amber-100 text-amber-800' : 'bg-slate-100 text-slate-600'">
             ⏰
           </div>
-        </div>
+        </Link>
 
-        <!-- 5. COMISSÃO (CLICÁVEL) -->
-        <div 
-          @click="irParaComissoes"
-          class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between ring-2 ring-offset-0 cursor-pointer hover:bg-slate-50 transition" 
-          :class="[eAdmin ? 'ring-indigo-100 border-indigo-200' : 'ring-teal-100 border-teal-200']"
-          :title="eAdmin ? 'Clique para abrir o painel de fechamento de comissões por vendedora' : 'Clique para consultar seu extrato de comissões'"
+        <!-- 5. Óculos Prontos / Aguardando Retirada -->
+        <Link 
+          href="/ordens?filtroStatus=PRONTA"
+          class="bg-white p-4.5 rounded-3xl border border-slate-200 shadow-xs hover:border-slate-300 transition flex items-center justify-between"
+          title="Clique para ver óculos prontos no balcão"
         >
           <div>
-            <span class="text-[10px] font-bold uppercase text-slate-400 tracking-wider">
-              {{ eAdmin ? 'Comissão das vendedoras' : 'Minha Comissão' }}
+            <span class="text-[10px] font-mono font-bold uppercase text-slate-400">Prontos no Balcão</span>
+            <p class="text-2xl font-black text-slate-900 mt-1 font-mono">
+              {{ kpisHoje.osProntas }}
+            </p>
+            <span class="text-[9px] text-emerald-600 font-bold block mt-0.5">Aguardando Retirada</span>
+          </div>
+          <div class="w-10 h-10 rounded-2xl bg-blue-50 text-blue-600 flex items-center justify-center text-sm font-bold border border-blue-100">
+            👓
+          </div>
+        </Link>
+
+        <!-- 6. Comissões do Mês -->
+        <Link 
+          :href="eAdmin ? '/admin/comissoes' : '/minhas-comissoes'"
+          class="bg-white p-4.5 rounded-3xl border border-slate-200 shadow-xs hover:border-slate-300 transition flex items-center justify-between"
+        >
+          <div>
+            <span class="text-[10px] font-mono font-bold uppercase text-slate-400">
+              {{ eAdmin ? 'Comissões Equipe' : 'Minha Comissão' }}
             </span>
-            <p class="text-2xl font-black mt-1 font-mono" :class="[eAdmin ? 'text-indigo-600' : 'text-teal-600']">
+            <p class="text-xl font-black mt-1 font-mono" :class="eAdmin ? 'text-indigo-600' : 'text-teal-600'">
               R$ {{ formatMoeda(comissaoMes) }}
             </p>
-            <span class="text-[9px] text-slate-400 block mt-0.5 leading-none">
-              {{ eAdmin ? 'Total consolidado do mês' : 'Sua comissão acumulada' }}
-            </span>
+            <span class="text-[9px] text-slate-400 block mt-0.5">Acumulado do Mês</span>
           </div>
-          <div class="w-10 h-10 rounded-xl flex items-center justify-center text-sm font-bold" :class="[eAdmin ? 'bg-indigo-50 text-indigo-600' : 'bg-teal-50 text-teal-600']">💰</div>
-        </div>
-
-        <!-- 6. AGUARDANDO RETIRADA (CLICÁVEL) -->
-        <div 
-          @click="irParaProntas"
-          class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between cursor-pointer hover:bg-slate-50 transition"
-          title="Clique para ver Ordens de Serviço prontas aguardando retirada"
-        >
-          <div>
-            <span class="text-[10px] font-bold uppercase text-slate-400 tracking-wider">Aguardando Retirada</span>
-            <p class="text-2xl font-black text-slate-800 mt-1 font-mono">
-              {{ kpisHoje.osProntas }} <span class="text-xs text-slate-400 font-normal">OS</span>
-            </p>
-            <span class="text-[9px] text-slate-400 block mt-0.5 leading-none">Óculos prontos no balcão</span>
+          <div class="w-10 h-10 rounded-2xl flex items-center justify-center text-sm font-bold" :class="eAdmin ? 'bg-indigo-50 text-indigo-600' : 'bg-teal-50 text-teal-600'">
+            💰
           </div>
-          <div class="w-10 h-10 rounded-xl bg-slate-50 text-slate-600 flex items-center justify-center text-sm font-bold">👓</div>
-        </div>
+        </Link>
 
       </div>
 
+      <!-- PAINEL CENTRAL: GRÁFICO E LISTA DAS ÚLTIMAS ORDENS -->
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
+        <!-- Coluna Esquerda: Gráfico & Últimas OSs (2 Colunas) -->
         <div class="lg:col-span-2 space-y-6">
           
-          <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
-            <div>
-              <h3 class="text-sm font-black text-slate-950 uppercase tracking-wider font-mono">Curva de Faturamento (Últimos 30 Dias)</h3>
-              <p class="text-xs text-slate-400">Evolução diária dos recebimentos em reais de faturamentos de balcão.</p>
+          <!-- Curva de Faturamento dos Últimos 30 Dias -->
+          <div class="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-4">
+            <div class="flex items-center justify-between">
+              <div>
+                <h3 class="text-sm font-black text-slate-950 uppercase tracking-wider font-mono">Curva de Faturamento Diário</h3>
+                <p class="text-xs text-slate-400">Evolução dos recebimentos da loja nos últimos 30 dias.</p>
+              </div>
+              <span class="text-xs font-mono font-bold bg-teal-50 text-teal-800 px-3 py-1 rounded-xl border border-teal-200">
+                Total Mês: R$ {{ formatMoeda(TotalFaturadoMensal ?? totalFaturadoMensal ?? 0) }}
+              </span>
             </div>
 
-            <div class="relative w-full h-52 pt-4 bg-slate-50/50 rounded-xl border border-slate-100 overflow-hidden">
+            <div class="relative w-full h-48 pt-4 bg-slate-50/50 rounded-2xl border border-slate-100 overflow-hidden flex items-end px-4 gap-1.5">
               <div v-if="graficoDados.length === 0" class="absolute inset-0 flex items-center justify-center text-slate-400 text-xs">
-                Nenhum faturamento registrado no intervalo dos últimos 30 dias.
+                Nenhum faturamento registrado no intervalo.
               </div>
-              <svg v-else class="w-full h-full" viewBox="0 0 500 200" preserveAspectRatio="none">
-                <defs>
-                  <linearGradient id="chart-grad" x1="0" y1="0" x2="0" y2="1">
-                    <stop offset="0%" stop-color="#0d9488" stop-opacity="0.25" />
-                    <stop offset="100%" stop-color="#0d9488" stop-opacity="0.0" />
-                  </linearGradient>
-                </defs>
-
-                <line x1="20" y1="30" x2="480" y2="30" stroke="#f1f5f9" stroke-width="1" />
-                <line x1="20" y1="100" x2="480" y2="100" stroke="#f1f5f9" stroke-width="1" />
-                <line x1="20" y1="170" x2="480" y2="170" stroke="#e2e8f0" stroke-width="1.5" />
-
-                <path :d="chartAreaPath" fill="url(#chart-grad)" />
-
-                <path :d="chartPath" fill="none" stroke="#0d9488" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" />
-
-                <circle 
-                  v-for="(p, idx) in chartPoints" 
-                  :key="idx" 
-                  :cx="p.x" 
-                  :cy="p.y" 
-                  r="4" 
-                  fill="#ffffff" 
-                  stroke="#0d9488" 
-                  stroke-width="2" 
-                />
-              </svg>
+              <div 
+                v-else
+                v-for="(dia, idx) in graficoDados" 
+                :key="idx" 
+                class="flex-1 flex flex-col items-center group relative h-full justify-end"
+              >
+                <!-- Barra com tooltip -->
+                <div 
+                  class="w-full bg-teal-500/80 hover:bg-teal-600 rounded-t-md transition-all duration-200"
+                  :style="{ height: `${Math.max(8, (dia.Valor / valorMaximoGrafico) * 100)}%` }"
+                ></div>
+                <div class="opacity-0 group-hover:opacity-100 absolute bottom-full mb-2 bg-slate-950 text-white text-[10px] font-mono px-2 py-1 rounded-lg pointer-events-none transition z-10 whitespace-nowrap shadow-lg">
+                  {{ dia.Data }}: R$ {{ formatMoeda(dia.Valor) }}
+                </div>
+              </div>
             </div>
           </div>
 
-          <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
-            <h3 class="text-sm font-black text-slate-950 uppercase tracking-wider font-mono">Últimos Atendimentos Registrados</h3>
-            
-            <div v-if="ultimasOrdens.length === 0" class="text-center py-8 text-slate-400 text-xs border border-dashed border-slate-100 rounded-xl">
-              Nenhuma OS em circulação cadastrada no sistema.
+          <!-- Tabela de Últimas OSs Emitidas -->
+          <div class="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-4">
+            <div class="flex items-center justify-between">
+              <h3 class="text-sm font-black text-slate-950 uppercase tracking-wider font-mono">
+                Últimas Ordens de Serviço Emitidas
+              </h3>
+              <Link href="/ordens" class="text-xs font-bold text-teal-600 hover:text-teal-700 font-mono">
+                Ver Todas ({{ TotalOSMensal ?? totalOSMensal ?? 0 }}) ➔
+              </Link>
+            </div>
+
+            <div v-if="ultimasOrdens.length === 0" class="text-center py-8 text-slate-400 text-xs">
+              Nenhuma ordem de serviço emitida no período selecionado.
             </div>
 
             <div v-else class="overflow-x-auto">
               <table class="w-full text-left text-xs border-collapse">
                 <thead>
-                  <tr class="border-b border-slate-100 text-slate-400 font-bold uppercase tracking-wider">
-                    <th class="pb-3">Número OS</th>
-                    <th class="pb-3">Cliente</th>
-                    <th class="pb-3 text-center">Status de Esteira</th>
-                    <th class="pb-3 text-center">Data Entrada</th>
-                    <th class="pb-3 text-right">Valor Líquido</th>
+                  <tr class="border-b border-slate-100 text-slate-400 font-mono font-bold uppercase text-[10px]">
+                    <th class="pb-2.5">Nº OS</th>
+                    <th class="pb-2.5">Cliente</th>
+                    <th class="pb-2.5 text-center">Status</th>
+                    <th class="pb-2.5 text-center">Data</th>
+                    <th class="pb-2.5 text-right">Valor Líquido</th>
                   </tr>
                 </thead>
-                <tbody>
-                  <tr v-for="os in ultimasOrdens" :key="os.NumeroOS" class="border-b border-slate-50 hover:bg-slate-50/50 transition">
-                    <td class="py-3 font-mono font-bold text-slate-800">{{ os.NumeroOS }}</td>
-                    <td class="py-3 font-semibold text-slate-700 truncate max-w-[150px]">{{ os.ClienteNome }}</td>
+                <tbody class="divide-y divide-slate-100">
+                  <tr v-for="os in ultimasOrdens" :key="os.NumeroOS" class="hover:bg-slate-50/60 transition">
+                    <td class="py-3 font-mono font-bold text-slate-900">#{{ os.NumeroOS }}</td>
+                    <td class="py-3 font-semibold text-slate-800 truncate max-w-[150px]">{{ os.ClienteNome }}</td>
                     <td class="py-3 text-center">
                       <span 
-                        :class="[
-                          os.Status === 'ENTREGUE' ? 'bg-emerald-50 text-emerald-700 border-emerald-100' :
-                          os.Status === 'CANCELADA' || os.Status === 'CANCELADO' ? 'bg-red-50 text-red-700 border-red-100' :
-                          os.Status === 'PRONTO' ? 'bg-indigo-50 text-indigo-700 border-indigo-100' :
-                          'bg-amber-50 text-amber-700 border-amber-100'
-                        ]"
-                        class="px-2 py-0.5 rounded-full font-bold text-[10px] border"
+                        :class="obterCorStatus(os.Status)"
+                        class="px-2 py-0.5 rounded-full font-bold text-[9px] font-mono border"
                       >
                         {{ os.Status }}
                       </span>
                     </td>
                     <td class="py-3 text-center text-slate-400 font-mono">{{ os.DataEntrada }}</td>
-                    <td class="py-3 text-right font-black text-slate-950 font-mono">R$ {{ formatMoeda(os.Valor) }}</td>
+                    <td class="py-3 text-right font-black text-slate-950 font-mono">
+                      R$ {{ formatMoeda(os.Valor) }}
+                    </td>
                   </tr>
                 </tbody>
               </table>
             </div>
           </div>
+
         </div>
 
+        <!-- Coluna Direita: Alertas Rápidos & Ações da Loja (1 Coluna) -->
         <div class="space-y-6">
           
-          <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
-            <h3 class="text-sm font-black text-slate-950 uppercase tracking-wider font-mono flex items-center gap-1.5 text-red-700">
-              <span class="w-2.5 h-2.5 rounded-full bg-red-600 animate-pulse"></span>
-              Ordens de Entrega Vencidas
+          <!-- Ações Rápidas de Balcão -->
+          <div class="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-3">
+            <h3 class="text-sm font-black text-slate-950 uppercase tracking-wider font-mono">Ações Rápidas de Balcão</h3>
+            <div class="grid grid-cols-1 gap-2 text-xs font-mono font-bold">
+              <Link 
+                href="/ordens/nova" 
+                class="w-full p-3 rounded-2xl bg-teal-600 hover:bg-teal-700 text-white flex items-center justify-between transition shadow-sm"
+              >
+                <span>+ Emitir Nova O.S.</span>
+                <span>➔</span>
+              </Link>
+              <Link 
+                href="/vendas/pdv" 
+                class="w-full p-3 rounded-2xl bg-amber-500 hover:bg-amber-600 text-white flex items-center justify-between transition shadow-sm"
+              >
+                <span>🛒 Abrir PDV Balcão</span>
+                <span>➔</span>
+              </Link>
+              <Link 
+                href="/crm" 
+                class="w-full p-3 rounded-2xl bg-slate-900 hover:bg-slate-800 text-white flex items-center justify-between transition shadow-sm"
+              >
+                <span>📢 Central de Recall (1 Ano)</span>
+                <span>➔</span>
+              </Link>
+            </div>
+          </div>
+
+          <!-- Alerta de Entregas Atrasadas -->
+          <div class="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-3">
+            <h3 class="text-sm font-black text-rose-700 uppercase tracking-wider font-mono flex items-center gap-2">
+              <span class="w-2 h-2 rounded-full bg-rose-600 animate-pulse"></span>
+              Entregas Atrasadas
             </h3>
-            
-            <div v-if="entregasAtrasadas.length === 0" class="p-4 bg-emerald-50 text-emerald-800 rounded-xl text-xs font-bold flex items-center gap-2 border border-emerald-100">
-              <span>✓ Todas as ordens em laboratório estão dentro do prazo de entrega!</span>
+
+            <div v-if="entregasAtrasadas.length === 0" class="p-4 bg-emerald-50 text-emerald-800 rounded-2xl text-xs font-bold border border-emerald-100 flex items-center gap-2">
+              <span>✓ Todas as ordens da loja estão dentro do prazo previsto!</span>
             </div>
 
-            <div class="space-y-3" v-else>
-              <div v-for="alerta in entregasAtrasadas" :key="alerta.NumeroOS" class="p-3.5 bg-red-50/60 rounded-xl border border-red-100/60 flex items-center justify-between text-xs transition hover:bg-red-50">
+            <div v-else class="space-y-2 max-h-56 overflow-y-auto pr-1">
+              <div 
+                v-for="alerta in entregasAtrasadas" 
+                :key="alerta.NumeroOS" 
+                class="p-3 bg-rose-50/70 rounded-2xl border border-rose-200/80 flex items-center justify-between text-xs"
+              >
                 <div>
-                  <p class="font-bold text-slate-900 font-mono">{{ alerta.NumeroOS }}</p>
-                  <p class="text-[10px] text-slate-500 truncate max-w-[120px]">{{ alerta.ClienteNome }}</p>
+                  <p class="font-mono font-bold text-slate-900">#{{ alerta.NumeroOS }}</p>
+                  <p class="text-[11px] text-slate-500 truncate max-w-[130px]">{{ alerta.ClienteNome }}</p>
                 </div>
-                <span class="font-black text-red-700 bg-red-100/60 px-2 py-1 rounded text-[10px] font-mono">
-                  +{{ alerta.DiasAtraso }} dias
+                <span class="font-mono font-black text-rose-700 bg-rose-100 px-2 py-0.5 rounded-lg text-[10px]">
+                  +{{ alerta.DiasAtraso }}d
                 </span>
               </div>
             </div>
           </div>
 
-          <div v-if="eAdmin" class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
-            <h3 class="text-sm font-black text-slate-950 uppercase tracking-wider font-mono flex items-center gap-1.5 text-amber-700">
-              <span class="w-2.5 h-2.5 rounded-full bg-amber-500"></span>
-              Alerta de Reposição (Armações)
+          <!-- Alerta de Estoque Baixo de Armações -->
+          <div v-if="eAdmin" class="bg-white p-6 rounded-3xl border border-slate-200 shadow-sm space-y-3">
+            <h3 class="text-sm font-black text-amber-700 uppercase tracking-wider font-mono flex items-center gap-2">
+              <span>👓</span> Estoque Baixo (Armações)
             </h3>
 
-            <div v-if="estoqueVencendo.length === 0" class="p-4 bg-emerald-50 text-emerald-800 rounded-xl text-xs font-bold flex items-center gap-2 border border-emerald-100">
-              <span>✓ Todo o estoque de armações do inventário está seguro.</span>
+            <div v-if="estoqueVencendo.length === 0" class="p-4 bg-emerald-50 text-emerald-800 rounded-2xl text-xs font-bold border border-emerald-100">
+              <span>✓ Estoque de armações devidamente abastecido.</span>
             </div>
 
-            <div class="space-y-3" v-else>
-              <div v-for="produto in estoqueVencendo" :key="produto.ModeloReferencia" class="p-3 bg-amber-50/60 rounded-xl border border-amber-100/60 flex items-center justify-between text-xs">
+            <div v-else class="space-y-2 max-h-56 overflow-y-auto pr-1">
+              <div 
+                v-for="prod in estoqueVencendo" 
+                :key="prod.ModeloReferencia" 
+                class="p-3 bg-amber-50/70 rounded-2xl border border-amber-200/80 flex items-center justify-between text-xs"
+              >
                 <div>
-                  <p class="font-black text-slate-900">{{ produto.ModeloReferencia }}</p>
-                  <p class="text-[10px] text-slate-400">Modelo Armação</p>
+                  <p class="font-bold text-slate-900">{{ prod.ModeloReferencia }}</p>
+                  <p class="text-[10px] text-slate-400">Armação</p>
                 </div>
-                <span class="font-bold text-amber-800 bg-amber-100 px-2.5 py-0.5 rounded-full font-mono text-[10px]">
-                  {{ produto.QuantidadeEstoque }} un
+                <span class="font-mono font-bold text-amber-800 bg-amber-100 px-2 py-0.5 rounded-lg text-[10px]">
+                  {{ prod.QuantidadeEstoque }} un
                 </span>
               </div>
             </div>
           </div>
-        </div>
-      </div>
 
-      <div v-if="eAdmin" class="grid grid-cols-1 md:grid-cols-3 gap-6 pt-2 border-t border-slate-200/60">
-        
-        <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
-          <div>
-            <span class="text-[10px] font-bold uppercase text-slate-400 tracking-wider">Faturamento do Mês</span>
-            <p class="text-2xl font-black text-teal-600 mt-1 font-mono">
-              R$ {{ formatMoeda(TotalFaturadoMensal ?? totalFaturadoMensal ?? 0) }}
-            </p>
-          </div>
-          <div class="w-10 h-10 rounded-xl bg-teal-50 text-teal-600 flex items-center justify-center text-sm font-bold">$</div>
-        </div>
-
-        <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm flex items-center justify-between">
-          <div>
-            <span class="text-[10px] font-bold uppercase text-slate-400 tracking-wider">OS Emitidas no Mês</span>
-            <p class="text-2xl font-black text-slate-950 mt-1 font-mono">
-              {{ TotalOSMensal ?? totalOSMensal ?? 0 }} <span class="text-xs text-slate-400 font-normal">OS</span>
-            </p>
-          </div>
-          <div class="w-10 h-10 rounded-xl bg-slate-50 text-slate-700 flex items-center justify-center text-sm font-bold">OS</div>
-        </div>
-
-        <div class="bg-slate-950 p-6 rounded-2xl text-white flex flex-col justify-between">
-          <div>
-            <span class="text-[10px] font-bold uppercase text-slate-400 tracking-wider">Status Corporativo</span>
-            <p class="text-sm font-bold text-teal-400 mt-0.5">Visão Integrada Ativa</p>
-          </div>
-          <div class="flex items-center justify-between text-[10px] text-slate-400 pt-2 border-t border-slate-800 mt-2">
-            <span>Sincronização Ativa</span>
-            <span class="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-          </div>
-        </div>
-      </div>
-
-      <div v-if="eAdmin" class="grid grid-cols-1 gap-6 pt-4">
-        
-        <div class="bg-white p-6 rounded-2xl border border-slate-200 shadow-sm space-y-4">
-          <h3 class="text-sm font-black text-slate-950 uppercase tracking-wider font-mono">Ranking de Desempenho dos Vendedores</h3>
-          
-          <div v-if="ranking.length === 0" class="text-center py-8 text-slate-400 text-xs">
-            Nenhuma venda faturada cadastrada por colaboradores neste período.
-          </div>
-
-          <div v-else class="overflow-x-auto">
-            <table class="w-full text-left text-xs">
-              <thead>
-                <tr class="border-b border-slate-100 text-slate-400 font-bold uppercase tracking-wider">
-                  <th class="pb-3">Vendedor</th>
-                  <th class="pb-3 text-center">Atendimentos (OS)</th>
-                  <th class="pb-3 text-right">Total Gerado</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr v-for="vendedor in ranking" :key="vendedor.VendedorNome" class="border-b border-slate-50 hover:bg-slate-50/50 transition">
-                  <td class="py-3 font-semibold text-slate-800">{{ vendedor.VendedorNome }}</td>
-                  <td class="py-3 text-center text-slate-600 font-bold">{{ vendedor.QuantidadeOS }} un</td>
-                  <td class="py-3 text-right font-black text-slate-950 font-mono">R$ {{ formatMoeda(vendedor.TotalVendas) }}</td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
         </div>
 
       </div>
@@ -350,25 +346,19 @@
 </template>
 
 <script setup>
-import { reactive, computed, watch } from 'vue'
-import { router, usePage } from '@inertiajs/vue3'
+import { ref, computed } from 'vue'
+import { router, Link, usePage } from '@inertiajs/vue3'
 import AuthenticatedLayout from '../../Shared/AuthenticatedLayout.vue'
-
-const page = usePage()
 
 const props = defineProps({
   PerfilUsuario: String, perfilUsuario: String,
   IsAdmin: Boolean, isAdmin: Boolean,
-  
   ResumoHoje: Object, resumoHoje: Object,
   MinhaComissaoMes: Number, minhaComissaoMes: Number,
-  
   FaturamentoGrafico: Array, faturamentoGrafico: Array,
   UltimasOS: Array, ultimasOS: Array,
-
   AlertasEstoque: Array, alertasEstoque: Array,
   AlertasEntregasVencidas: Array, alertasEntregasVencidas: Array,
-
   MesFiltro: Number, mesFiltro: Number,
   AnoFiltro: Number, anoFiltro: Number,
   TotalFaturadoMensal: Number, totalFaturadoMensal: Number,
@@ -376,85 +366,66 @@ const props = defineProps({
   RankingVendedores: Array, rankingVendedores: Array
 })
 
-const filtros = reactive({
-  mes: props.MesFiltro ?? props.mesFiltro ?? new Date().getMonth() + 1,
-  ano: props.AnoFiltro ?? props.anoFiltro ?? new Date().getFullYear()
+const page = usePage()
+const eAdmin = computed(() => {
+  const p = (props.PerfilUsuario || props.perfilUsuario || page.props.auth?.usuarioPerfil || '').toLowerCase()
+  return ['admin', 'sistema', 'gerente', 'dono'].includes(p)
 })
-
-watch(() => [props.MesFiltro, props.mesFiltro, props.AnoFiltro, props.anoFiltro], () => {
-  if ((props.MesFiltro ?? props.mesFiltro) !== undefined) {
-    filtros.mes = props.MesFiltro ?? props.mesFiltro
-  }
-  if ((props.AnoFiltro ?? props.anoFiltro) !== undefined) {
-    filtros.ano = props.AnoFiltro ?? props.anoFiltro
-  }
-})
-
-const eAdmin = computed(() => props.IsAdmin ?? props.isAdmin ?? ['admin', 'sistema', 'gerente'].includes((props.PerfilUsuario ?? props.perfilUsuario ?? page.props.auth?.usuarioPerfil ?? '').toLowerCase()))
-const kpisHoje = computed(() => props.ResumoHoje ?? props.resumoHoje ?? { osHoje: 0, faturadoHoje: 0, osProntas: 0, osVencidas: 0, servicosAtrasados: 0, lentesNaoPedidas: 0, lentesNaoPedidasCriticas: 0 })
-const comissaoMes = computed(() => props.MinhaComissaoMes ?? props.minhaComissaoMes ?? 0)
-
-const graficoDados = computed(() => props.FaturamentoGrafico ?? props.faturamentoGrafico ?? [])
-const ultimasOrdens = computed(() => props.UltimasOS ?? props.ultimasOS ?? [])
-const estoqueVencendo = computed(() => props.AlertasEstoque ?? props.alertasEstoque ?? [])
-const entregasAtrasadas = computed(() => props.AlertasEntregasVencidas ?? props.alertasEntregasVencidas ?? [])
-const ranking = computed(() => props.RankingVendedores ?? props.rankingVendedores ?? [])
 
 const meses = [
   'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
   'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'
 ]
 
+const filtros = ref({
+  mes: props.MesFiltro ?? props.mesFiltro ?? new Date().getMonth() + 1,
+  ano: props.AnoFiltro ?? props.anoFiltro ?? new Date().getFullYear()
+})
+
+const kpisHoje = computed(() => {
+  const r = props.ResumoHoje || props.resumoHoje || {}
+  return {
+    osHoje: r.osHoje ?? r.OsHoje ?? 0,
+    faturadoHoje: r.faturadoHoje ?? r.FaturadoHoje ?? 0,
+    osProntas: r.osProntas ?? r.OsProntas ?? 0,
+    servicosAtrasados: r.servicosAtrasados ?? r.ServicosAtrasados ?? 0,
+    osVencidas: r.osVencidas ?? r.OsVencidas ?? 0,
+    lentesNaoPedidas: r.lentesNaoPedidas ?? r.LentesNaoPedidas ?? 0,
+    lentesNaoPedidasCriticas: r.lentesNaoPedidasCriticas ?? r.LentesNaoPedidasCriticas ?? 0
+  }
+})
+
+const comissaoMes = computed(() => {
+  return props.MinhaComissaoMes ?? props.minhaComissaoMes ?? (props.ResumoHoje?.comissaoMesTotal ?? 0)
+})
+
+const graficoDados = computed(() => props.FaturamentoGrafico ?? props.faturamentoGrafico ?? [])
+const valorMaximoGrafico = computed(() => {
+  const valores = graficoDados.value.map(d => d.Valor || 0)
+  return Math.max(...valores, 100)
+})
+
+const ultimasOrdens = computed(() => props.UltimasOS ?? props.ultimasOS ?? [])
+const entregasAtrasadas = computed(() => props.AlertasEntregasVencidas ?? props.alertasEntregasVencidas ?? [])
+const estoqueVencendo = computed(() => props.AlertasEstoque ?? props.alertasEstoque ?? [])
+
 const atualizarDashboard = () => {
-  router.get('/dashboard', { mes: filtros.mes, ano: filtros.ano })
+  router.get('/dashboard', { mes: filtros.value.mes, ano: filtros.value.ano }, { preserveState: true })
 }
 
-const irParaLentesNaoPedidas = () => {
-  router.get('/ordens', { filtroComposicao: 'pendente' })
+const formatMoeda = (val) => {
+  return Number(val || 0).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
 }
 
-const irParaServicosAtrasados = () => {
-  router.get('/ordens', { filtroAtraso: 'atrasados' })
+const obterCorStatus = (st) => {
+  switch (st) {
+    case 'ENTREGUE': return 'bg-emerald-50 text-emerald-800 border-emerald-200'
+    case 'PRONTA':
+    case 'PRONTO': return 'bg-blue-50 text-blue-800 border-blue-200'
+    case 'EM_MONTAGEM':
+    case 'EM_LABORATORIO': return 'bg-indigo-50 text-indigo-800 border-indigo-200'
+    case 'AGUARDANDO_LENTE': return 'bg-amber-50 text-amber-800 border-amber-200'
+    default: return 'bg-slate-100 text-slate-800 border-slate-200'
+  }
 }
-
-const irParaComissoes = () => {
-  router.get(eAdmin.value ? '/admin/comissoes' : '/minhas-comissoes')
-}
-
-const irParaProntas = () => {
-  router.get('/ordens', { filtroStatus: 'PRONTO' })
-}
-
-const formatMoeda = (valor) => {
-  if (valor === undefined || valor === null) return '0,00'
-  return Number(valor).toLocaleString('pt-BR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })
-}
-
-const chartPoints = computed(() => {
-  const dados = graficoDados.value
-  if (dados.length === 0) return []
-  
-  const maxVal = Math.max(...dados.map(d => d.Valor ?? d.valor ?? 0), 100)
-  
-  return dados.map((d, index) => {
-    const x = dados.length > 1 ? (index / (dados.length - 1)) * 460 + 20 : 250
-    const val = d.Valor ?? d.valor ?? 0
-    const y = 170 - (val / maxVal) * 140
-    return { x, y, val }
-  })
-})
-
-const chartPath = computed(() => {
-  const pts = chartPoints.value
-  if (pts.length === 0) return ''
-  return pts.map((p, i) => `${i === 0 ? 'M' : 'L'} ${p.x} ${p.y}`).join(' ')
-})
-
-const chartAreaPath = computed(() => {
-  const pts = chartPoints.value
-  if (pts.length === 0) return ''
-  const first = pts[0]
-  const last = pts[pts.length - 1]
-  return `${chartPath.value} L ${last.x} 170 L ${first.x} 170 Z`
-})
 </script>
