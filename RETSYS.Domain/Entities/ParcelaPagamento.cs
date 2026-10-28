@@ -5,29 +5,39 @@ namespace RETSYS.Domain.Entities
 {
     public class ParcelaPagamento
     {
-        public Guid Id { get; set; } = Guid.NewGuid(); // pgar_id [cite: 552]
+        public Guid Id { get; set; } = Guid.NewGuid();
         
-        // Vínculo com a Ordem de Serviço [cite: 552]
-        public Guid OrdemServicoId { get; set; } // fkos_id [cite: 552]
+        // Vínculo com a Ordem de Serviço
+        public Guid OrdemServicoId { get; set; }
         public OrdemServico OrdemServico { get; set; } = null!;
         
-        public int NumeroParcela { get; set; } // pgar_num_parcelas [cite: 552]
+        public int NumeroParcela { get; set; }
+        public string DescricaoParcela { get; set; } = string.Empty;
         
-        public string DescricaoParcela { get; set; } = string.Empty; // pgar_parcela_nome [cite: 552]
-        
-        public decimal Valor { get; set; } // pgar_valor_parcela [cite: 552]
+        public decimal Valor { get; set; }
         
         public DateTime DataVencimento { get; set; }
+        public DateTime? DataPagamento { get; set; }
         
-        public DateTime? DataPagamento { get; set; } // pgar_data_pagamento [cite: 552]
+        public MetodoPagamento? Metodo { get; set; }
         
-        public MetodoPagamento? Metodo { get; set; } // pgar_forma_pagamento [cite: 552]
-        
+        // --- Crediário Próprio / Carnê da Ótica ---
+        public string? NumeroCarne { get; set; }
+        public decimal? JurosAtraso { get; set; } = 0m;
+        public decimal? MultaAtraso { get; set; } = 0m;
+        public decimal? ValorPago { get; set; }
+        public string? ObservacaoPagamento { get; set; }
+
         // --- Campos Modernos para o Ecossistema PIX ---
-        public string? PixQrCodePayload { get; set; } // String do Pix Copia e Cola
-        public string? PixTxId { get; set; }          // Identificador da transação para Webhook
+        public string? PixQrCodePayload { get; set; }
+        public string? PixTxId { get; set; }
         
-        // Propriedade calculada baseada na existência da data de pagamento [cite: 552]
+        // Propriedade calculada baseada na existência da data de pagamento
         public bool Paga => DataPagamento.HasValue;
+
+        // Regra de Negócio: Dias em atraso
+        public int DiasAtraso => (!Paga && DateTime.UtcNow.Date > DataVencimento.Date) 
+            ? (DateTime.UtcNow.Date - DataVencimento.Date).Days 
+            : 0;
     }
 }

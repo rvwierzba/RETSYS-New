@@ -15,7 +15,11 @@ namespace RETSYS.Domain.Entities
         public Guid ClienteId { get; set; }
         public Cliente Cliente { get; set; } = null!;
 
-        // Torna-se Nullable para aceitar importações históricas do CRM sem vendedor ativo
+        // Vínculo opcional com a receita/ficha clínica histórica
+        public Guid? ReceitaClienteId { get; set; }
+        public ReceitaCliente? ReceitaCliente { get; set; }
+
+        // Vendedor responsável pelo atendimento
         public Guid? VendedorId { get; set; }
         public Usuario? Vendedor { get; set; }
 
@@ -23,23 +27,39 @@ namespace RETSYS.Domain.Entities
         public DateTime DataPrevistaEntrega { get; set; }
         public DateTime? DataEntregaReal { get; set; }
 
-        public string Status { get; set; } = "EM_ABERTO"; // EM_ABERTO, EM_LABORATORIO, PRONTO, ENTREGUE, CANCELADO
+        public string Status { get; set; } = "EM_ABERTO"; // EM_ABERTO, AGUARDANDO_LENTE, EM_MONTAGEM, PRONTA, ENTREGUE, CANCELADO
+
+        // =========================================================================
+        // 🔬 ESTEIRA ESPECIALISTA DE LABORATÓRIO ÓPTICO & QUALIDADE
+        // =========================================================================
+        public string EtapaLaboratorio { get; set; } = "BALCAO"; 
+        // BALCAO, AGUARDANDO_INSUMOS, LABORATORIO_EXTERNO, EM_MONTAGEM, LENSOMETRIA_QUALIDADE, PRONTO_RETIRADA, ENTREGUE
+
+        public string? LaboratorioParceiro { get; set; } // Essilor, Hoya, Zeiss, Lab Proprio, etc.
+        public string? NumeroPedidoLaboratorio { get; set; } // Número do pedido no lab externo
+        public DateTime? DataEnvioLaboratorio { get; set; }
+        public DateTime? DataRetornoLaboratorio { get; set; }
+
+        public bool ConferidoLensometro { get; set; } = false;
+        public Guid? ConferidoLensometroPorId { get; set; }
+        public Usuario? ConferidoLensometroPor { get; set; }
+        public DateTime? ConferidoLensometroEm { get; set; }
 
         public string? MedicoNome { get; set; }
         public string? MedicoCrm { get; set; }
+        public string MedicoTipo { get; set; } = "NAO_ESPECIFICADO"; // OFTALMOLOGISTA, OPTOMETRISTA, NAO_ESPECIFICADO
         public string? Observacoes { get; set; }
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 
-        // Relacionamentos 1:1 Obrigatórios (Tabelas do TCC)
+        // Relacionamentos 1:1 Obrigatórios
         public OsReceita Receita { get; set; } = null!;
         public OsFinanceiro Financeiro { get; set; } = null!;
-        public string MedicoTipo { get; set; } = "NAO_ESPECIFICADO"; // OFTALMOLOGISTA, OPTOMETRISTA, NAO_ESPECIFICADO
 
         // Relacionamento 1:Muitos com as parcelas financeiras
         public ICollection<ParcelaPagamento> Parcelas { get; set; } = new List<ParcelaPagamento>();
 
         // =========================================================================
-        // CONTROLE DE LENTES PEDIDAS (SEÇÃO 3.2 DO PDF)
+        // CONTROLE DE LENTES PEDIDAS
         // =========================================================================
         public bool LentePedida { get; set; } = false;
         public DateTime? DataPedidoLente { get; set; }
@@ -47,33 +67,19 @@ namespace RETSYS.Domain.Entities
         public virtual Usuario? PedidoLentePor { get; set; }
 
         // =========================================================================
-        // NOVOS CAMPOS PARA SUPORTE A ORDENS RETROATIVAS / HISTÓRICAS
+        // SUPORTE A ORDENS RETROATIVAS / HISTÓRICAS
         // =========================================================================
-
-        // Identifica se a OS é um registro do passado (ignora baixa de estoque ativo e caixa de hoje)
         public bool IsRetroativa { get; set; } = false;
-
-        // Armazena a descrição da armação antiga caso ela não exista no inventário de hoje
         public string? ArmacaoModeloManual { get; set; }
-
-        // Armazena a descrição textual da lente comprada no passado
         public string? LenteDescricaoManual { get; set; }
-
-        // Controle de exclusão lógica para integridade histórica do banco de dados
         public bool Ativo { get; set; } = true;
-
-        // Loja/Unidade onde a venda foi efetuada (Matriz, Travessa Itália, Parque)
         public string LojaVenda { get; set; } = "Matriz";
-
-        // Auditoria e log de ajuste de data (Ex: "data ajustada em 05/09 por Admin")
         public string? DataAjustadaLog { get; set; }
         public DateTime? DataEntradaOriginal { get; set; }
-
-        // Indicação discreta da última edição administrativa (Ex: "editada em 12/10/2026 14:30 por Admin")
         public string? UltimaEdicaoLog { get; set; }
 
         // =========================================================================
-        // NOVO FLUXO DE ACOMPANHAMENTO DE OS E INTEGRAÇÃO WHATSAPP
+        // FLUXO DE ACOMPANHAMENTO DE OS E INTEGRAÇÃO WHATSAPP
         // =========================================================================
         public DateTime? DataPrevisaoLente { get; set; }
         public bool LenteChegou { get; set; } = false;

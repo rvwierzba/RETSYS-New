@@ -244,6 +244,16 @@
                     <span>💬</span>
                   </button>
 
+                  <!-- IMPRIMIR CARNÊ / BOLETOS -->
+                  <a 
+                    :href="`/ordens/${os.id || os.Id}/carne`" 
+                    target="_blank"
+                    class="bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-200 text-xs font-bold px-2 py-1.5 rounded-lg transition shadow-sm font-mono flex items-center gap-1"
+                    title="Imprimir Carnê de Pagamento / Parcelas"
+                  >
+                    <span>📜</span>
+                  </a>
+
                   <!-- EDIÇÃO ADMIN DA DATA DE EMISSÃO -->
                   <button 
                     v-if="eAdmin && os.status !== 'CANCELADO' && os.status !== 'CANCELADA'"
@@ -541,6 +551,7 @@
             >
               Fechar Prancheta
             </button>
+            <a :href="`/ordens/${osSelecionada.id || osSelecionada.Id}/carne`" target="_blank" class="bg-amber-600 hover:bg-amber-700 text-white font-bold py-2.5 px-5 rounded-xl text-xs uppercase transition shadow-sm font-mono flex items-center gap-1.5">📜 Imprimir Carnê</a>
           </div>
 
         </div>

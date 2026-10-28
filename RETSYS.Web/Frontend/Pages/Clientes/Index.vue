@@ -364,6 +364,7 @@
                     >
                       Ficha
                     </Link>
+                    <Link :href="`/clientes/${c.id}/receitas`" class="bg-teal-50 hover:bg-teal-100 text-teal-800 border border-teal-200 text-[11px] font-bold px-2 py-1 rounded-lg transition font-mono flex items-center gap-1" title="Ficha Clínica & Prescrições"><span>🩺</span> Receitas</Link>
                     <button 
                       @click="abrirEdicaoCliente(c)" 
                       class="bg-slate-100 hover:bg-slate-200 text-slate-700 text-[11px] font-bold px-2.5 py-1 rounded-lg transition font-mono border border-slate-200"

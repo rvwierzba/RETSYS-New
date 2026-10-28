@@ -34,7 +34,7 @@ namespace RETSYS.Domain.Entities
         public string? ProdutoAdquirido { get; set; }
         public DateTime? DataUltimaCompra { get; set; }
 
-        // --- Última receita conhecida (migração de histórico / última OS) ---
+        // --- Última receita conhecida (retrocompatibilidade) ---
         public DateTime? DataReceita { get; set; }
 
         public decimal? UltimaOdEsferico { get; set; }
@@ -53,8 +53,10 @@ namespace RETSYS.Domain.Entities
         public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
         public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 
-        // Propriedade de Navegação
+        // Propriedades de Navegação
         public ICollection<OrdemServico> OrdensServico { get; set; } = new List<OrdemServico>();
+        public ICollection<ReceitaCliente> Receitas { get; set; } = new List<ReceitaCliente>();
+        public ICollection<VendaBalcao> VendasBalcao { get; set; } = new List<VendaBalcao>();
 
         // Regra de negócio: verifica se o cliente faz aniversário numa data específica.
         public bool FazAniversarioEm(DateTime data)
@@ -64,6 +66,16 @@ namespace RETSYS.Domain.Entities
 
             return DataNascimento.Value.Day == data.Day
                 && DataNascimento.Value.Month == data.Month;
+        }
+
+        // Regra de negócio: Retorna true se a última receita conhecida completou 11 meses (pronta para recall)
+        public bool PrecisaRecallAnual(DateTime referencia)
+        {
+            if (DataReceita is null)
+                return false;
+
+            var dias = (referencia.Date - DataReceita.Value.Date).TotalDays;
+            return dias >= 330 && dias <= 420;
         }
     }
 }

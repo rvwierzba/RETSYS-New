@@ -3,7 +3,7 @@
 ## 1. Convenções Globais de Mapeamento
 
 - **ORM**: Entity Framework Core 10 operando em banco de dados PostgreSQL via driver `Npgsql`.
-- **Nomenclatura de Tabelas**: Nomes em minúsculo, no plural, utilizando o padrão `snake_case` (ex: `ordens_servico`, `lentes_tabela_precos`).
+- **Nomenclatura de Tabelas**: Nomes em minúsculo, no plural, utilizando o padrão `snake_case` (ex: `ordens_servico`, `lentes_tabela_precos`, `receitas_cliente`, `vendas_balcao`).
 - **Chaves Primárias (PK)**: Mapeadas prioritariamente como `Guid` (`uuid` no PostgreSQL) gerados via `Guid.NewGuid()`, com exceção de tabelas de configuração global com registro único (`ConfiguracaoComissao`, PK `int`).
 - **Multi-Tenancy (Isolamento por Ótica)**: Todas as entidades principais contêm a FK `OticaId` referenciando a tabela `oticas`, acompanhada de índices únicos compostos por tenant quando aplicável.
 - **Tipos e Precisão Numérica**:
@@ -11,7 +11,7 @@
   - Percentuais de Desconto e Comissão: `decimal(5,2)`.
   - Índice de Refração Óptica: `decimal(4,2)`.
   - Graus Ópticos (Dioptrias): `decimal(5,2)` (esférico/cilíndrico) e `decimal(4,2)` (adição).
-  - Medidas de Centragem e Montagem: `decimal(4,1)` (DNP, altura, aro, DM, vertical, ponte, CO).
+  - Medidas de Centragem e Montagem: `decimal(4,1)` (DNP, altura, aro, DM, vertical, ponte, CO, haste).
 
 ---
 
@@ -48,8 +48,8 @@
 - `Id`: `Guid` (PK)
 - `OticaId`: `Guid` (FK `oticas`, Restrict)
 - `Nome`: `string` (max 150, Obrigatório)
-- `CPF`: `string` (max 14, Obrigatório, **Índice Único Composto: `(OticaId, CPF)`**)
-- `Telefone`: `string` (max 20, Obrigatório)
+- `CPF`: `string?` (max 14, **Opcional**, Índice Único Composto: `(OticaId, CPF)`)
+- `Telefone`: `string` (max 20, Obrigatório - WhatsApp preferencial)
 - `DataNascimento`: `DateTime?`
 - `Logradouro`: `string` (max 150, Obrigatório)
 - `Numero`: `string` (max 10, Obrigatório)
@@ -72,6 +72,10 @@
   - `UltimaAdicao`: `decimal(4,2)?`
   - `UltimaDnpOd`, `UltimaDnpOe`, `UltimaAlturaMontagem`: `decimal(4,1)?`
 - `CreatedAt`, `UpdatedAt`: `DateTime`
+- **Navegações**:
+  - `OrdensServico`: Coleção `ICollection<OrdemServico>`
+  - `Receitas`: Coleção `ICollection<ReceitaCliente>`
+  - `VendasBalcao`: Coleção `ICollection<VendaBalcao>`
 - **Métodos de Domínio**: `FazAniversarioEm(DateTime data)`
 
 ### 2.4 `Marca` (Tabela: `marcas`)
@@ -91,11 +95,18 @@
 - `Cor`: `string` (max 50)
 - `Tamanho`: `string` (max 50)
 - `Material`: `string` (max 100)
+- **Atributos Especialistas de Ótica (RETSYS 2.0)**:
+  - `Formato`: `string` (max 50, Default `Retangular` - Redondo, Quadrado, Aviador, Gatinho, Retangular, Oval, Hexagonal, Esportivo)
+  - `Genero`: `string` (max 30, Default `Unissex` - Unissex, Masculino, Feminino, Infantil)
+  - `Aro`: `decimal(4,1)?` (Largura da lente em mm, ex: 52 mm)
+  - `Ponte`: `decimal(4,1)?` (Distância entre lentes em mm, ex: 18 mm)
+  - `Haste`: `decimal(4,1)?` (Comprimento da haste em mm, ex: 140 mm)
 - `Fornecedor`: `string` (max 100)
 - `PrecoCusto`: `decimal(18,2)` (Visível apenas para Admin/Gerente)
 - `PrecoVenda`: `decimal(18,2)`
 - `QuantidadeEstoque`: `int` (Default `0`)
 - `QuantidadeMinima`: `int`
+- `LojaUnidade`: `string` (max 100, Default `Matriz`)
 - `Ativo`: `bool` (Default `true`)
 - `CriadoEm`: `DateTime`
 
@@ -127,23 +138,31 @@
 - `OticaId`: `Guid` (FK `oticas`, Restrict)
 - `NumeroOS`: `string` (max 50, Obrigatório, **Índice Único Composto: `(OticaId, NumeroOS)`**)
 - `ClienteId`: `Guid` (FK `clientes`, Restrict)
-- `VendedorId`: `Guid?` (FK `usuarios`, Restrict - Opcional para OS legadas)
+- `ReceitaClienteId`: `Guid?` (FK `receitas_cliente`, Restrict - Vínculo opcional com a ficha clínica histórica)
+- `VendedorId`: `Guid?` (FK `usuarios`, Restrict)
 - `DataEntrada`: `DateTime` (Default `UtcNow`)
 - `DataPrevistaEntrega`: `DateTime`
 - `DataEntregaReal`: `DateTime?`
-- `Status`: `string` (max 50, Valores: `EM_ABERTO`, `EM_LABORATORIO`, `PRONTO`, `ENTREGUE`, `CANCELADO`)
+- `Status`: `string` (max 50, Valores: `EM_ABERTO`, `CONFIRMADA`, `AGUARDANDO_LENTE`, `EM_MONTAGEM`, `PRONTA`, `ENTREGUE`, `CANCELADO`)
+- **Esteira de Laboratório & Qualidade (RETSYS 2.0)**:
+  - `EtapaLaboratorio`: `string` (max 50, Default `BALCAO` - Valores: `BALCAO`, `AGUARDANDO_INSUMOS`, `LABORATORIO_EXTERNO`, `EM_MONTAGEM`, `LENSOMETRIA_QUALIDADE`, `PRONTO_RETIRADA`, `ENTREGUE`)
+  - `LaboratorioParceiro`: `string?` (max 100 - ex: Essilor, Hoya, Zeiss)
+  - `NumeroPedidoLaboratorio`: `string?` (max 50 - Número de rastreio no laboratório externo)
+  - `DataEnvioLaboratorio`: `DateTime?`
+  - `DataRetornoLaboratorio`: `DateTime?`
+  - `ConferidoLensometro`: `bool` (Default `false`)
+  - `ConferidoLensometroEm`: `DateTime?`
+  - `ConferidoLensometroPorId`: `Guid?` (FK `usuarios`, Restrict)
 - `MedicoNome`: `string?` (max 100)
 - `MedicoCrm`: `string?` (max 20)
-- `MedicoTipo`: `string` (max 30, Default `NAO_ESPECIFICADO` - Valores: `OFTALMOLOGISTA`, `OPTOMETRISTA`, `NAO_ESPECIFICADO`)
+- `MedicoTipo`: `string` (max 30, Default `NAO_ESPECIFICADO`)
 - `Observacoes`: `text?`
 - `CreatedAt`: `DateTime`
 - **Controle de Pedido de Lentes**:
   - `LentePedida`: `bool` (Default `false`)
   - `DataPedidoLente`: `DateTime?`
   - `PedidoLentePorId`: `Guid?` (FK `usuarios`, Restrict)
-  - `DataPrevisaoLente`: `DateTime?`
   - `LenteChegou`: `bool` (Default `false`)
-  - `DataChegadaLente`: `DateTime?`
 - **Campos para Suporte Retroativo/Histórico**:
   - `IsRetroativa`: `bool` (Default `false`)
   - `ArmacaoModeloManual`: `string?` (max 150)
@@ -153,12 +172,11 @@
   - `LojaVenda`: `string` (max 100, Default `Matriz`)
   - `DataAjustadaLog`: `string?` (max 255)
   - `DataEntradaOriginal`: `DateTime?`
-  - `UltimaEdicaoLog`: `string?` (max 255, Carimbo auditável: `"editada em dd/MM/yyyy HH:mm por [usuário]"`)
-  - `WhatsAppNotificadoCriacao`: `bool` (Default `false`)
-  - `WhatsAppNotificadoPronto`: `bool` (Default `false`)
+  - `UltimaEdicaoLog`: `string?` (max 255)
+  - `WhatsAppNotificadoCriacao`, `WhatsAppNotificadoPronto`: `bool`
 
 ### 2.9 `OsReceita` (Tabela: `os_receita`)
-- `OsId`: `Guid` (PK e FK `ordens_servico`, Delete Cascade - **Garante Relacionamento 1:1**)
+- `OsId`: `Guid` (PK e FK `ordens_servico`, Delete Cascade - **Relacionamento 1:1**)
 - `OdEsferico`, `OdCilindrico`, `OeEsferico`, `OeCilindrico`: `decimal(5,2)`
 - `OdEixo`, `OeEixo`: `int`
 - `Adicao`: `decimal(4,2)?`
@@ -166,10 +184,9 @@
 - `AlturaMontagemOd`, `AlturaMontagemOe`: `decimal(4,1)?`
 - `Aro`, `Dm`, `Vert`, `Po`, `CoOd`, `CoOe`: `decimal(4,1)?`
 - `ObsReceita`: `text?`
-- **Propriedades Computadas (Ignoradas no Banco via `b.Ignore(...)`)**:
+- **Propriedades Computadas**:
   - `OdEsfericoPerto => OdEsferico + (Adicao ?? 0)`
   - `OeEsfericoPerto => OeEsferico + (Adicao ?? 0)`
-  - `OdCilindricoPerto`, `OeCilindricoPerto`, `OdEixoPerto`, `OeEixoPerto`
 
 ### 2.10 `OsFinanceiro` (Tabela: `os_financeiro`)
 - `OsId`: `Guid` (PK e FK `ordens_servico`, Delete Cascade - **Relacionamento 1:1**)
@@ -179,10 +196,10 @@
 - `DescontoReais`: `decimal(10,2)`
 - `DescontoPercentual`: `decimal(5,2)`
 - `ValorTotalLiquido`: `decimal(10,2)`
-- `FormaPagamento`: `string` (max 50, Obrigatório - Valores: `DINHEIRO`, `PIX`, `CARTAO_CREDITO`, `CARTAO_DEBITO`, `BOLETO`)
+- `FormaPagamento`: `string` (max 50, Obrigatório)
 - `Parcelas`: `int?` (Default `1`)
-- `ValorArmacao`: `decimal(10,2)` (Obrigatório)
-- `ValorLente`: `decimal(10,2)` (Obrigatório)
+- `ValorArmacao`: `decimal(10,2)`
+- `ValorLente`: `decimal(10,2)`
 - `ValorEntrada`: `decimal(10,2)?`
 - `ValorRestante`: `decimal(10,2)`
 - `PagamentoConferido`: `bool` (Default `false`)
@@ -203,81 +220,108 @@
 - `DataVencimento`: `DateTime`
 - `DataPagamento`: `DateTime?`
 - `Metodo`: Enum `MetodoPagamento` (Mapeado como `string`, max 50)
+- **Crediário Próprio / Carnê (RETSYS 2.0)**:
+  - `NumeroCarne`: `string?` (max 50)
+  - `JurosAtraso`: `decimal(10,2)?` (Default `0.00`)
+  - `MultaAtraso`: `decimal(10,2)?` (Default `0.00`)
+  - `ValorPago`: `decimal(10,2)?`
+  - `ObservacaoPagamento`: `string?` (max 250)
 - `PixQrCodePayload`: `string?` (Payload Copia e Cola)
 - `PixTxId`: `string?` (CorrelationID OpenPix)
-- **Propriedade Computada**: `Paga => DataPagamento.HasValue`
+- **Propriedades Computadas**:
+  - `Paga => DataPagamento.HasValue`
+  - `DiasAtraso => (!Paga && DateTime.UtcNow.Date > DataVencimento.Date) ? (DateTime.UtcNow.Date - DataVencimento.Date).Days : 0`
 
-### 2.12 `ConfiguracaoLoja` (Tabela: `configuracoes_loja`)
+### 2.12 `ReceitaCliente` (Tabela: `receitas_cliente`) - NOVO RETSYS 2.0
 - `Id`: `Guid` (PK)
-- `OticaId`: `Guid` (FK `oticas`, Restrict, **Índice Único: 1 Configuração por Ótica**)
+- `OticaId`: `Guid` (FK `oticas`, Restrict)
+- `ClienteId`: `Guid` (FK `clientes`, Delete Cascade)
+- `DataExame`: `DateTime` (Default `UtcNow`)
+- `DataValidade`: `DateTime?`
+- `MedicoNome`: `string` (max 100, Obrigatório)
+- `MedicoCrm`: `string?` (max 30)
+- `MedicoTipo`: `string` (max 30, Default `OFTALMOLOGISTA`)
+- `Clinica`: `string?` (max 100)
+- **Grau de Longe**:
+  - `OdEsferico`, `OdCilindrico`, `OeEsferico`, `OeCilindrico`: `decimal(5,2)`
+  - `OdEixo`, `OeEixo`: `int`
+  - `OdDnp`, `OeDnp`: `decimal(4,1)?`
+  - `OdAltura`, `OeAltura`: `decimal(4,1)?`
+  - `OdPrisma`, `OePrisma`: `decimal(4,2)?`
+  - `OdBasePrisma`, `OeBasePrisma`: `string?` (max 20)
+- **Grau de Perto & Medidas**:
+  - `Adicao`: `decimal(4,2)?`
+  - `Aro`, `Ponte`, `MaiorDiagonal`, `AlturaVertical`: `decimal(4,1)?`
+- `Observacoes`: `text?`
+- `FotoReceitaUrl`: `string?` (max 500)
+- `Ativo`: `bool` (Default `true`)
+- `CriadoEm`: `DateTime` (Default `UtcNow`)
+- **Propriedades Computadas**:
+  - `OdEsfericoPerto => OdEsferico + (Adicao ?? 0)`
+  - `OeEsfericoPerto => OeEsferico + (Adicao ?? 0)`
+  - `EstaVencida => DataValidade.HasValue ? DataValidade.Value < DateTime.UtcNow.Date : DataExame.AddYears(1) < DateTime.UtcNow.Date`
+  - `PrecisaRetornoAnual => DataExame.AddDays(330) <= DateTime.UtcNow.Date`
+
+### 2.13 `VendaBalcao` (Tabela: `vendas_balcao`) - NOVO RETSYS 2.0
+- `Id`: `Guid` (PK)
+- `OticaId`: `Guid` (FK `oticas`, Restrict)
+- `NumeroVenda`: `string` (max 30, Obrigatório, ex: `VB-00001`)
+- `ClienteId`: `Guid?` (FK `clientes`, Restrict - Opcional para Consumidor Final)
+- `VendedorId`: `Guid?` (FK `usuarios`, Restrict)
+- `DataVenda`: `DateTime` (Default `UtcNow`)
+- `ValorTotalBruto`: `decimal(10,2)`
+- `DescontoReais`: `decimal(10,2)`
+- `ValorTotalLiquido`: `decimal(10,2)`
+- `FormaPagamento`: `string` (max 50, Default `DINHEIRO`)
+- `Parcelas`: `int?` (Default `1`)
+- `Status`: `string` (max 30, Default `CONCLUIDA`)
+- `Observacoes`: `string?` (max 500)
+- `LojaUnidade`: `string` (max 100, Default `Matriz`)
+- `CriadoEm`: `DateTime`
+- **Navegação**: `Itens` (1:N `ItemVendaBalcao`, Delete Cascade)
+
+### 2.14 `ItemVendaBalcao` (Tabela: `itens_venda_balcao`) - NOVO RETSYS 2.0
+- `Id`: `Guid` (PK)
+- `VendaBalcaoId`: `Guid` (FK `vendas_balcao`, Delete Cascade)
+- `TipoItem`: `string` (max 50, Default `ARMACAO` - ARMACAO, LENTE_CONTATO, ACESSORIO, LIMPEZA, OUTRO)
+- `ArmacaoId`: `Guid?` (FK `armacoes`, Restrict - Opcional se for acessório livre)
+- `Descricao`: `string` (max 200, Obrigatório)
+- `Quantidade`: `int` (Default `1`)
+- `PrecoUnitario`: `decimal(10,2)`
+- **Propriedade Computada**: `Subtotal => Quantidade * PrecoUnitario`
+
+### 2.15 `ConfiguracaoLoja` (Tabela: `configuracoes_loja`)
+- `Id`: `Guid` (PK)
+- `OticaId`: `Guid` (FK `oticas`, Restrict)
 - `NomeLoja`: `string` (max 100, Default `Matriz`)
 - `Cnpj`: `string?` (max 20)
 - `PixApiKey`: `string?` (max 500)
-- **Propriedade Computada**: `PixAtivo => !string.IsNullOrWhiteSpace(PixApiKey)`
-
-### 2.13 `ConfiguracaoComissao` (Tabela: `configuracao_comissao`)
-- `Id`: `int` (PK)
-- `PercentualComissao`: `decimal(5,2)`
-- `BaseCalculo`: `string` (max 50, Default `VALOR_BRUTO_OS`)
-- `MomentoGeracao`: `string` (max 50, Default `EMISSAO_OS`)
-- `Ativo`: `bool` (Default `true`)
-- `UpdatedAt`: `DateTime`
-- `UpdatedById`: `Guid` (FK `usuarios`, Restrict)
-
-### 2.14 `Comissao` (Tabela: `comissoes`)
-- `Id`: `Guid` (PK)
-- `OrdemServicoId`: `Guid` (FK `ordens_servico`, Restrict)
-- `VendedorId`: `Guid` (FK `usuarios`, Restrict)
-- `ValorBase`: `decimal(18,2)`
-- `PercentualAplicado`: `decimal(5,2)`
-- `ValorComissao`: `decimal(18,2)`
-- `Status`: `string` (max 30, Valores: `PENDENTE`, `FECHADO`, `PAGO`, `CANCELADO`)
-- `DataGeracao`: `DateTime`
-- `DataPagamento`: `DateTime?`
-- `PeriodoReferencia`: `string` (max 7, Formato `AAAA-MM`)
-- `Observacoes`: `string?` (max 250)
-
-### 2.15 `FechamentoComissao` (Tabela: `fechamentos_comissao`)
-- `Id`: `Guid` (PK)
-- `VendedorId`: `Guid` (FK `usuarios`, Restrict)
-- `PeriodoReferencia`: `string` (max 7, Formato `AAAA-MM`)
-- `TotalVendasBrutas`: `decimal(18,2)`
-- `TotalComissao`: `decimal(18,2)`
-- `QtdOs`: `int`
-- `Status`: `string` (max 30, Valores: `ABERTO`, `FECHADO`, `PAGO`)
-- `DataFechamento`: `DateTime?`
-- `DataPagamento`: `DateTime?`
-- `FechadoPorId`: `Guid?` (FK `usuarios`, Restrict)
+- `WhatsappNumero`: `string?` (max 30)
 
 ### 2.16 `OsAuditoriaLog` (Tabela: `os_auditoria_logs`)
 - `Id`: `Guid` (PK)
 - `OticaId`: `Guid` (FK `oticas`, Restrict)
 - `OrdemServicoId`: `Guid` (FK `ordens_servico`, Delete Cascade)
 - `UsuarioId`: `Guid` (FK `usuarios`, Restrict)
-- `DataAlteracao`: `DateTime` (Default `UtcNow`)
-- `CampoAlterado`: `string` (max 100, Obrigatório - Ex: `DataEntrada`, `ValorTotalLiquido`, `DescontoReais`, `OdEsferico`, `ArmacaoId`, etc.)
-- `ValorAntigo`: `string?` (max 500)
-- `ValorNovo`: `string?` (max 500)
-- `Descricao`: `string` (max 500, Justificativa ou detalhe do campo alterado)
+- `DataAlteracao`: `DateTime`
+- `CampoAlterado`: `string` (max 100)
+- `ValorAntigo`, `ValorNovo`: `string?` (max 500)
+- `Descricao`: `string` (max 500)
 
 ---
 
 ## 3. Mapeamento Detalhado dos Enums
 
 ### 3.1 `PerfilUsuario` (`RETSYS.Domain.Enums.PerfilUsuario`)
-- **Tipo de Armazenamento**: Inteiro (`int`).
-- **Valores**:
-  - `1`: `Admin` (Acesso irrestrito a configurações, comissões globais, edição de OS, relatórios e cancelamentos).
-  - `2`: `Vendedor` (Acesso a vendas próprias, balcão e consulta de extrato individual).
-  - `3`: `Sistema` ("Deus"/homologação: acesso irrestrito e chaveamento dinâmico entre quaisquer óticas).
-  - `4`: `Dono` (Gestão multi-loja de toda a rede: visualização consolidada e alternância entre Matriz e Filiais).
+- `1`: `Admin` (Acesso irrestrito a configurações, comissões globais, edição de OS, relatórios e cancelamentos).
+- `2`: `Vendedor` (Acesso a vendas próprias, balcão e consulta de extrato individual).
+- `3`: `Sistema` ("Deus"/homologação: acesso irrestrito e chaveamento dinâmico entre quaisquer óticas).
+- `4`: `Dono` (Gestão multi-loja de toda a rede: visualização consolidada e alternância entre Matriz e Filiais).
 
 ### 3.2 `MetodoPagamento` (`RETSYS.Domain.Enums.MetodoPagamento`)
-- **Tipo de Armazenamento**: String (`string`).
-- **Valores**:
-  - `DINHEIRO`
-  - `PIX`
-  - `CARTAO_CREDITO`
-  - `CARTAO_DEBITO`
-  - `BOLETO`
-
+- `DINHEIRO`
+- `PIX`
+- `CARTAO_CREDITO`
+- `CARTAO_DEBITO`
+- `BOLETO`
+- `CARNE_LOJA` (Crediário Próprio da Ótica)

@@ -28,6 +28,10 @@ namespace RETSYS.Infrastructure.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("uuid");
 
+                    b.Property<decimal?>("Aro")
+                        .HasPrecision(4, 1)
+                        .HasColumnType("numeric(4,1)");
+
                     b.Property<bool>("Ativo")
                         .HasColumnType("boolean");
 
@@ -44,10 +48,28 @@ namespace RETSYS.Infrastructure.Migrations
                     b.Property<DateTime>("CriadoEm")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<string>("Formato")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasDefaultValue("Retangular");
+
                     b.Property<string>("Fornecedor")
                         .IsRequired()
                         .HasMaxLength(100)
                         .HasColumnType("character varying(100)");
+
+                    b.Property<string>("Genero")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasDefaultValue("Unissex");
+
+                    b.Property<decimal?>("Haste")
+                        .HasPrecision(4, 1)
+                        .HasColumnType("numeric(4,1)");
 
                     b.Property<string>("LojaUnidade")
                         .IsRequired()
@@ -68,6 +90,10 @@ namespace RETSYS.Infrastructure.Migrations
 
                     b.Property<Guid>("OticaId")
                         .HasColumnType("uuid");
+
+                    b.Property<decimal?>("Ponte")
+                        .HasPrecision(4, 1)
+                        .HasColumnType("numeric(4,1)");
 
                     b.Property<decimal>("PrecoCusto")
                         .HasPrecision(18, 2)
@@ -411,6 +437,44 @@ namespace RETSYS.Infrastructure.Migrations
                     b.ToTable("fechamentos_comissao", (string)null);
                 });
 
+            modelBuilder.Entity("RETSYS.Domain.Entities.ItemVendaBalcao", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("ArmacaoId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Descricao")
+                        .IsRequired()
+                        .HasMaxLength(200)
+                        .HasColumnType("character varying(200)");
+
+                    b.Property<decimal>("PrecoUnitario")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("numeric(10,2)");
+
+                    b.Property<int>("Quantidade")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("TipoItem")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<Guid>("VendaBalcaoId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ArmacaoId");
+
+                    b.HasIndex("VendaBalcaoId");
+
+                    b.ToTable("itens_venda_balcao", (string)null);
+                });
+
             modelBuilder.Entity("RETSYS.Domain.Entities.Lente", b =>
                 {
                     b.Property<Guid>("Id")
@@ -554,6 +618,15 @@ namespace RETSYS.Infrastructure.Migrations
                     b.Property<Guid>("ClienteId")
                         .HasColumnType("uuid");
 
+                    b.Property<bool>("ConferidoLensometro")
+                        .HasColumnType("boolean");
+
+                    b.Property<DateTime?>("ConferidoLensometroEm")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<Guid?>("ConferidoLensometroPorId")
+                        .HasColumnType("uuid");
+
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("timestamp with time zone");
 
@@ -572,6 +645,9 @@ namespace RETSYS.Infrastructure.Migrations
                     b.Property<DateTime?>("DataEntregaReal")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<DateTime?>("DataEnvioLaboratorio")
+                        .HasColumnType("timestamp with time zone");
+
                     b.Property<DateTime?>("DataPedidoLente")
                         .HasColumnType("timestamp with time zone");
 
@@ -581,8 +657,22 @@ namespace RETSYS.Infrastructure.Migrations
                     b.Property<DateTime>("DataPrevistaEntrega")
                         .HasColumnType("timestamp with time zone");
 
+                    b.Property<DateTime?>("DataRetornoLaboratorio")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("EtapaLaboratorio")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)")
+                        .HasDefaultValue("BALCAO");
+
                     b.Property<bool>("IsRetroativa")
                         .HasColumnType("boolean");
+
+                    b.Property<string>("LaboratorioParceiro")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
 
                     b.Property<bool>("LenteChegou")
                         .HasColumnType("boolean");
@@ -618,6 +708,10 @@ namespace RETSYS.Infrastructure.Migrations
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)");
 
+                    b.Property<string>("NumeroPedidoLaboratorio")
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)");
+
                     b.Property<string>("Observacoes")
                         .HasColumnType("text");
 
@@ -625,6 +719,9 @@ namespace RETSYS.Infrastructure.Migrations
                         .HasColumnType("uuid");
 
                     b.Property<Guid?>("PedidoLentePorId")
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("ReceitaClienteId")
                         .HasColumnType("uuid");
 
                     b.Property<string>("Status")
@@ -649,7 +746,11 @@ namespace RETSYS.Infrastructure.Migrations
 
                     b.HasIndex("ClienteId");
 
+                    b.HasIndex("ConferidoLensometroPorId");
+
                     b.HasIndex("PedidoLentePorId");
+
+                    b.HasIndex("ReceitaClienteId");
 
                     b.HasIndex("VendedorId");
 
@@ -914,12 +1015,28 @@ namespace RETSYS.Infrastructure.Migrations
                         .HasMaxLength(150)
                         .HasColumnType("character varying(150)");
 
+                    b.Property<decimal?>("JurosAtraso")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("numeric(10,2)");
+
                     b.Property<string>("Metodo")
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<decimal?>("MultaAtraso")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("numeric(10,2)");
+
+                    b.Property<string>("NumeroCarne")
                         .HasMaxLength(50)
                         .HasColumnType("character varying(50)");
 
                     b.Property<int>("NumeroParcela")
                         .HasColumnType("integer");
+
+                    b.Property<string>("ObservacaoPagamento")
+                        .HasMaxLength(250)
+                        .HasColumnType("character varying(250)");
 
                     b.Property<Guid>("OrdemServicoId")
                         .HasColumnType("uuid");
@@ -934,11 +1051,149 @@ namespace RETSYS.Infrastructure.Migrations
                         .HasPrecision(18, 2)
                         .HasColumnType("numeric(18,2)");
 
+                    b.Property<decimal?>("ValorPago")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("numeric(10,2)");
+
                     b.HasKey("Id");
 
                     b.HasIndex("OrdemServicoId");
 
                     b.ToTable("parcelas_pagamento", (string)null);
+                });
+
+            modelBuilder.Entity("RETSYS.Domain.Entities.ReceitaCliente", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal?>("Adicao")
+                        .HasPrecision(4, 2)
+                        .HasColumnType("numeric(4,2)");
+
+                    b.Property<decimal?>("AlturaVertical")
+                        .HasPrecision(4, 1)
+                        .HasColumnType("numeric(4,1)");
+
+                    b.Property<decimal?>("Aro")
+                        .HasPrecision(4, 1)
+                        .HasColumnType("numeric(4,1)");
+
+                    b.Property<bool>("Ativo")
+                        .HasColumnType("boolean");
+
+                    b.Property<Guid>("ClienteId")
+                        .HasColumnType("uuid");
+
+                    b.Property<string>("Clinica")
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)");
+
+                    b.Property<DateTime>("CriadoEm")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("DataExame")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime?>("DataValidade")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<string>("FotoReceitaUrl")
+                        .HasMaxLength(500)
+                        .HasColumnType("character varying(500)");
+
+                    b.Property<decimal?>("MaiorDiagonal")
+                        .HasPrecision(4, 1)
+                        .HasColumnType("numeric(4,1)");
+
+                    b.Property<string>("MedicoCrm")
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)");
+
+                    b.Property<string>("MedicoNome")
+                        .IsRequired()
+                        .HasMaxLength(150)
+                        .HasColumnType("character varying(150)");
+
+                    b.Property<string>("MedicoTipo")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasDefaultValue("OFTALMOLOGISTA");
+
+                    b.Property<string>("Observacoes")
+                        .HasColumnType("text");
+
+                    b.Property<decimal?>("OdAltura")
+                        .HasPrecision(4, 1)
+                        .HasColumnType("numeric(4,1)");
+
+                    b.Property<string>("OdBasePrisma")
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)");
+
+                    b.Property<decimal>("OdCilindrico")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("numeric(5,2)");
+
+                    b.Property<decimal?>("OdDnp")
+                        .HasPrecision(4, 1)
+                        .HasColumnType("numeric(4,1)");
+
+                    b.Property<int>("OdEixo")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal>("OdEsferico")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("numeric(5,2)");
+
+                    b.Property<decimal?>("OdPrisma")
+                        .HasPrecision(4, 2)
+                        .HasColumnType("numeric(4,2)");
+
+                    b.Property<decimal?>("OeAltura")
+                        .HasPrecision(4, 1)
+                        .HasColumnType("numeric(4,1)");
+
+                    b.Property<string>("OeBasePrisma")
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)");
+
+                    b.Property<decimal>("OeCilindrico")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("numeric(5,2)");
+
+                    b.Property<decimal?>("OeDnp")
+                        .HasPrecision(4, 1)
+                        .HasColumnType("numeric(4,1)");
+
+                    b.Property<int>("OeEixo")
+                        .HasColumnType("integer");
+
+                    b.Property<decimal>("OeEsferico")
+                        .HasPrecision(5, 2)
+                        .HasColumnType("numeric(5,2)");
+
+                    b.Property<decimal?>("OePrisma")
+                        .HasPrecision(4, 2)
+                        .HasColumnType("numeric(4,2)");
+
+                    b.Property<Guid>("OticaId")
+                        .HasColumnType("uuid");
+
+                    b.Property<decimal?>("Ponte")
+                        .HasPrecision(4, 1)
+                        .HasColumnType("numeric(4,1)");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ClienteId");
+
+                    b.HasIndex("OticaId");
+
+                    b.ToTable("receitas_cliente", (string)null);
                 });
 
             modelBuilder.Entity("RETSYS.Domain.Entities.Usuario", b =>
@@ -1007,6 +1262,81 @@ namespace RETSYS.Infrastructure.Migrations
                     b.HasIndex("OticaId");
 
                     b.ToTable("usuarios", (string)null);
+                });
+
+            modelBuilder.Entity("RETSYS.Domain.Entities.VendaBalcao", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("uuid");
+
+                    b.Property<Guid?>("ClienteId")
+                        .HasColumnType("uuid");
+
+                    b.Property<DateTime>("CriadoEm")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<DateTime>("DataVenda")
+                        .HasColumnType("timestamp with time zone");
+
+                    b.Property<decimal>("DescontoReais")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("numeric(10,2)");
+
+                    b.Property<string>("FormaPagamento")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<string>("LojaUnidade")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(100)
+                        .HasColumnType("character varying(100)")
+                        .HasDefaultValue("Matriz");
+
+                    b.Property<string>("NumeroVenda")
+                        .IsRequired()
+                        .HasMaxLength(50)
+                        .HasColumnType("character varying(50)");
+
+                    b.Property<string>("Observacoes")
+                        .HasColumnType("text");
+
+                    b.Property<Guid>("OticaId")
+                        .HasColumnType("uuid");
+
+                    b.Property<int?>("Parcelas")
+                        .HasColumnType("integer");
+
+                    b.Property<string>("Status")
+                        .IsRequired()
+                        .ValueGeneratedOnAdd()
+                        .HasMaxLength(30)
+                        .HasColumnType("character varying(30)")
+                        .HasDefaultValue("CONCLUIDA");
+
+                    b.Property<decimal>("ValorTotalBruto")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("numeric(10,2)");
+
+                    b.Property<decimal>("ValorTotalLiquido")
+                        .HasPrecision(10, 2)
+                        .HasColumnType("numeric(10,2)");
+
+                    b.Property<Guid?>("VendedorId")
+                        .HasColumnType("uuid");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("ClienteId");
+
+                    b.HasIndex("VendedorId");
+
+                    b.HasIndex("OticaId", "NumeroVenda")
+                        .IsUnique();
+
+                    b.ToTable("vendas_balcao", (string)null);
                 });
 
             modelBuilder.Entity("RETSYS.Domain.Entities.Armacao", b =>
@@ -1098,6 +1428,24 @@ namespace RETSYS.Infrastructure.Migrations
                     b.Navigation("Vendedor");
                 });
 
+            modelBuilder.Entity("RETSYS.Domain.Entities.ItemVendaBalcao", b =>
+                {
+                    b.HasOne("RETSYS.Domain.Entities.Armacao", "Armacao")
+                        .WithMany()
+                        .HasForeignKey("ArmacaoId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("RETSYS.Domain.Entities.VendaBalcao", "VendaBalcao")
+                        .WithMany("Itens")
+                        .HasForeignKey("VendaBalcaoId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Armacao");
+
+                    b.Navigation("VendaBalcao");
+                });
+
             modelBuilder.Entity("RETSYS.Domain.Entities.Lente", b =>
                 {
                     b.HasOne("RETSYS.Domain.Entities.Otica", "Otica")
@@ -1139,6 +1487,11 @@ namespace RETSYS.Infrastructure.Migrations
                         .OnDelete(DeleteBehavior.Restrict)
                         .IsRequired();
 
+                    b.HasOne("RETSYS.Domain.Entities.Usuario", "ConferidoLensometroPor")
+                        .WithMany()
+                        .HasForeignKey("ConferidoLensometroPorId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
                     b.HasOne("RETSYS.Domain.Entities.Otica", "Otica")
                         .WithMany()
                         .HasForeignKey("OticaId")
@@ -1150,6 +1503,11 @@ namespace RETSYS.Infrastructure.Migrations
                         .HasForeignKey("PedidoLentePorId")
                         .OnDelete(DeleteBehavior.Restrict);
 
+                    b.HasOne("RETSYS.Domain.Entities.ReceitaCliente", "ReceitaCliente")
+                        .WithMany()
+                        .HasForeignKey("ReceitaClienteId")
+                        .OnDelete(DeleteBehavior.SetNull);
+
                     b.HasOne("RETSYS.Domain.Entities.Usuario", "Vendedor")
                         .WithMany()
                         .HasForeignKey("VendedorId")
@@ -1157,9 +1515,13 @@ namespace RETSYS.Infrastructure.Migrations
 
                     b.Navigation("Cliente");
 
+                    b.Navigation("ConferidoLensometroPor");
+
                     b.Navigation("Otica");
 
                     b.Navigation("PedidoLentePor");
+
+                    b.Navigation("ReceitaCliente");
 
                     b.Navigation("Vendedor");
                 });
@@ -1262,6 +1624,25 @@ namespace RETSYS.Infrastructure.Migrations
                     b.Navigation("OrdemServico");
                 });
 
+            modelBuilder.Entity("RETSYS.Domain.Entities.ReceitaCliente", b =>
+                {
+                    b.HasOne("RETSYS.Domain.Entities.Cliente", "Cliente")
+                        .WithMany("Receitas")
+                        .HasForeignKey("ClienteId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("RETSYS.Domain.Entities.Otica", "Otica")
+                        .WithMany()
+                        .HasForeignKey("OticaId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Cliente");
+
+                    b.Navigation("Otica");
+                });
+
             modelBuilder.Entity("RETSYS.Domain.Entities.Usuario", b =>
                 {
                     b.HasOne("RETSYS.Domain.Entities.Otica", "Otica")
@@ -1273,9 +1654,38 @@ namespace RETSYS.Infrastructure.Migrations
                     b.Navigation("Otica");
                 });
 
+            modelBuilder.Entity("RETSYS.Domain.Entities.VendaBalcao", b =>
+                {
+                    b.HasOne("RETSYS.Domain.Entities.Cliente", "Cliente")
+                        .WithMany("VendasBalcao")
+                        .HasForeignKey("ClienteId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.HasOne("RETSYS.Domain.Entities.Otica", "Otica")
+                        .WithMany()
+                        .HasForeignKey("OticaId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.HasOne("RETSYS.Domain.Entities.Usuario", "Vendedor")
+                        .WithMany()
+                        .HasForeignKey("VendedorId")
+                        .OnDelete(DeleteBehavior.Restrict);
+
+                    b.Navigation("Cliente");
+
+                    b.Navigation("Otica");
+
+                    b.Navigation("Vendedor");
+                });
+
             modelBuilder.Entity("RETSYS.Domain.Entities.Cliente", b =>
                 {
                     b.Navigation("OrdensServico");
+
+                    b.Navigation("Receitas");
+
+                    b.Navigation("VendasBalcao");
                 });
 
             modelBuilder.Entity("RETSYS.Domain.Entities.Lente", b =>
@@ -1304,6 +1714,11 @@ namespace RETSYS.Infrastructure.Migrations
                     b.Navigation("Filiais");
 
                     b.Navigation("Usuarios");
+                });
+
+            modelBuilder.Entity("RETSYS.Domain.Entities.VendaBalcao", b =>
+                {
+                    b.Navigation("Itens");
                 });
 #pragma warning restore 612, 618
         }

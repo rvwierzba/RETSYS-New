@@ -18,7 +18,8 @@
           <p class="text-xl font-black text-teal-700 font-mono mt-0.5">
             R$ {{ formatarMoeda(props.TotalGasto) }}
           </p>
-          <span class="text-[9px] text-teal-600 block mt-0.5 leading-none">Saldo Legado + Ordens do Sistema</span>
+          <span class="text-[9px] text-teal-600 block mt-0.5 leading-none mb-2">Saldo Legado + Ordens do Sistema</span>
+          <Link :href="`/clientes/${infoCliente.id}/receitas`" class="bg-teal-600 hover:bg-teal-700 text-white font-bold text-xs px-3 py-1.5 rounded-xl transition inline-flex items-center gap-1 shadow-sm font-mono"><span>🩺</span> Ficha Clínica</Link>
         </div>
       </div>
 

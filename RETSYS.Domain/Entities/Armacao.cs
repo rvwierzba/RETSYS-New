@@ -12,7 +12,7 @@ namespace RETSYS.Domain.Entities
         // Mapeado como código único de barras/etiqueta (SKU)
         public string CodigoSku { get; set; } = string.Empty;
 
-        // Preservada a sua arquitetura relacional com a entidade Marca
+        // Preservada a arquitetura relacional com a entidade Marca
         public Guid MarcaId { get; set; }
         public Marca Marca { get; set; } = null!;
 
@@ -20,13 +20,20 @@ namespace RETSYS.Domain.Entities
 
         public string Cor { get; set; } = string.Empty;
 
-        // Mantidos os seus campos originais de especificação física
+        // Especificações físicas e ópticas
         public string Tamanho { get; set; } = string.Empty;
         public string Material { get; set; } = string.Empty;
 
+        // --- Atributos Especialistas de Ótica ---
+        public string Formato { get; set; } = "Retangular"; // Redondo, Quadrado, Aviador, Gatinho, Retangular, Oval, Hexagonal, Esportivo
+        public string Genero { get; set; } = "Unissex";     // Unissex, Masculino, Feminino, Infantil
+        public decimal? Aro { get; set; }                   // Largura da lente (ex: 52 mm)
+        public decimal? Ponte { get; set; }                 // Distância entre lentes (ex: 18 mm)
+        public decimal? Haste { get; set; }                 // Comprimento da haste (ex: 140 mm)
+
         public string Fornecedor { get; set; } = string.Empty;
 
-        // Controles financeiros (Preço de custo visível apenas para ADMIN)
+        // Controles financeiros (Preço de custo visível apenas para ADMIN/GERENTE)
         public decimal PrecoCusto { get; set; }
         public decimal PrecoVenda { get; set; }
 
@@ -36,7 +43,7 @@ namespace RETSYS.Domain.Entities
 
         public bool Ativo { get; set; } = true;
 
-        // Loja/Unidade onde a armação está estocada (Matriz, Travessa Itália, Parque)
+        // Loja/Unidade onde a armação está estocada
         public string LojaUnidade { get; set; } = "Matriz";
 
         public DateTime CriadoEm { get; set; } = DateTime.UtcNow;

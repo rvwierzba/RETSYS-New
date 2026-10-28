@@ -184,3 +184,58 @@ Este documento atua como o registro de **Memória Incremental** do projeto RETSY
 
 
 
+---
+
+## [LOG-004] - 2026-10-28: RETSYS 2.0 - Arquitetura Especialista de Ótica & Paridade de Mercado
+
+- **Autor/Agente**: Arquiteto de Software & Assistente de IA Avançado (Antigravity)
+- **Módulos Afetados**: `RETSYS.Domain`, `RETSYS.Infrastructure`, `RETSYS.Web` (Controllers & Frontend), `.Agents/`, `docker-compose.yml`, `nginx`
+- **Contexto & Solicitante**: Evolução estratégica do RETSYS baseada nos líderes de mercado de óticas (SSÓtica e PWI), com preservação integral da base restaurada da VPS (143 clientes, 139 OSs, 239 parcelas, 117 marcas). Atendimento à solicitação de verificação de firewall UFW da VPS, documentação completa e preparação para deploy.
+
+### 1. Resumo das Alterações
+1. **Central de CRM Óptico & Recall Anual (`/crm`)**:
+   - Criação do `CrmController` e da página `Frontend/Pages/Crm/Index.vue`.
+   - Monitoramento de receitas com mais de 330 dias (11 meses) a 480 dias para retorno oftalmológico.
+   - Disparo de mensagens personalizadas no WhatsApp em 1 clique com primeiro nome e nome do médico.
+   - Pós-venda para clientes com óculos entregues entre 7 e 45 dias para suporte de adaptação multifocal.
+   - Acompanhamento de aniversariantes do mês com destaque para quem faz aniversário no dia.
+2. **Prescrições Clínicas & Histórico Diópico (`ReceitaCliente`)**:
+   - Criação da entidade `ReceitaCliente` e do `ReceitasController` (`/clientes/{id}/receitas`).
+   - Interface `Frontend/Pages/Clientes/FichaClinica.vue` para consulta da evolução temporal de graus de longe, perto, adição, DNP, alturas e medidas de armação ao longo dos anos.
+   - Botões de acesso direto adicionados em `Clientes/Index.vue` e `Clientes/Historico.vue`.
+3. **PDV de Balcão & Venda Rápida de Produtos (`/vendas/pdv` e `/vendas`)**:
+   - Criação das entidades `VendaBalcao` e `ItemVendaBalcao`.
+   - Criação do `VendasBalcaoController` e telas `Vendas/PdvBalcao.vue` e `Vendas/Index.vue`.
+   - Faturamento ágil de armações solares, lentes de contato e acessórios com baixa em estoque e emissão de comprovante térmico não-fiscal 80mm (`Vendas/ComprovanteTermico.vue`).
+4. **Crediário Próprio & Impressão de Carnê (`/ordens/{id}/carne`)**:
+   - Criação do `CarneController` e da página `Frontend/Pages/Carne/ImpressaoCarne.vue`.
+   - Layout de carnê com canhoto destacável da ótica (via da loja) + corpo de cobrança (via do cliente), dados cadastrais, número da parcela, cálculo de atraso e vencimento.
+   - Endpoint de quitação de parcelas com juros e multa (`/parcelas/{parcelaId}/quitar`).
+   - Botão de impressão de Carnê adicionado diretamente na listagem de OS e no modal de detalhes da prancheta.
+5. **Esteira Especialista de Laboratório & Lensometria (`/laboratorio`)**:
+   - Reformulação da página `Laboratory/Index.vue` para exibição reativa de ordens laboratoriais (`Ordens` e `FilaMontagem`).
+   - Filtros por etapas: Balcão/Aguardando, Lab Externo, Em Montagem, Pronto Retirada.
+   - Modal de envio para laboratórios parceiros (Essilor, Hoya, Zeiss, Lab Local) com número de pedido/rastreio.
+   - Botão e indicador de conferência técnica no lensômetro com data/hora e operador responsável.
+6. **Catálogo Óptico Avançado**:
+   - Armações enriquecidas com `Formato`, `Genero`, `Aro`, `Ponte`, `Haste`.
+   - Lentes com índices de refração, tratamentos e faixas de dioptrias.
+
+### 2. Impacto no Banco de Dados / Entidades
+- Migration EF Core gerada: `20261028150507_EvolucaoEspecialistaOtica`.
+- Novas Tabelas: `receitas_cliente`, `vendas_balcao`, `itens_venda_balcao`.
+- Novas Colunas:
+  - `armacoes`: `Formato`, `Genero`, `Aro`, `Ponte`, `Haste`.
+  - `ordens_servico`: `ReceitaClienteId`, `EtapaLaboratorio`, `LaboratorioParceiro`, `NumeroPedidoLaboratorio`, `DataEnvioLaboratorio`, `DataRetornoLaboratorio`, `ConferidoLensometro`, `ConferidoLensometroEm`, `ConferidoLensometroPorId`.
+  - `parcelas_pagamento`: `NumeroCarne`, `JurosAtraso`, `MultaAtraso`, `ValorPago`, `ObservacaoPagamento`.
+
+### 3. Validação e Verificação
+- **Compilação Backend (.NET 10)**: `dotnet build RETSYS.Web/RETSYS.Web.csproj --no-restore -nodereuse:false -maxcpucount:1` -> **Compilação com êxito: 0 Avisos, 0 Erros**.
+- **Compilação Frontend (Vite v8)**: `npm run build` -> **Sucesso absoluto em 7.7s**, gerando bundles otimizados em `wwwroot/assets/`.
+- **Integridade da Base**: Todos os 143 clientes e 139 OSs restaurados do backup preservados.
+
+### 4. Segurança de Rede e Firewall UFW (VPS)
+- Avaliação detalhada do `docker-compose.yml` e `nginx/wo-retsys.tech`:
+  - Todos os containers Docker (`retsys_db`, `ollama`, `retsys_app`) estão restritos à interface de loopback `127.0.0.1`.
+  - O UFW na VPS precisa manter liberadas **somente as portas 22 (SSH), 80 (HTTP) e 443 (HTTPS)**.
+  - As portas 5000, 5432 e 11434 NÃO devem ser abertas no firewall, garantindo isolamento total contra invasões.

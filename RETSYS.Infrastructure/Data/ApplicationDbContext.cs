@@ -16,6 +16,9 @@ namespace RETSYS.Infrastructure.Data
         public DbSet<Lente> Lentes => Set<Lente>();
         public DbSet<LentePreco> LentesTabelaPrecos => Set<LentePreco>();
         public DbSet<Cliente> Clientes => Set<Cliente>();
+        public DbSet<ReceitaCliente> ReceitasCliente => Set<ReceitaCliente>();
+        public DbSet<VendaBalcao> VendasBalcao => Set<VendaBalcao>();
+        public DbSet<ItemVendaBalcao> ItensVendaBalcao => Set<ItemVendaBalcao>();
         public DbSet<OrdemServico> OrdensServico => Set<OrdemServico>();
         public DbSet<OsReceita> OsReceitas => Set<OsReceita>();
         public DbSet<OsFinanceiro> OsFinanceiros => Set<OsFinanceiro>();
@@ -90,6 +93,11 @@ namespace RETSYS.Infrastructure.Data
                 b.Property(a => a.Cor).HasMaxLength(50);
                 b.Property(a => a.Tamanho).HasMaxLength(50);
                 b.Property(a => a.Material).HasMaxLength(100);
+                b.Property(a => a.Formato).HasMaxLength(50).HasDefaultValue("Retangular");
+                b.Property(a => a.Genero).HasMaxLength(30).HasDefaultValue("Unissex");
+                b.Property(a => a.Aro).HasPrecision(4, 1);
+                b.Property(a => a.Ponte).HasPrecision(4, 1);
+                b.Property(a => a.Haste).HasPrecision(4, 1);
                 b.Property(a => a.Fornecedor).HasMaxLength(100);
                 b.Property(a => a.PrecoCusto).HasPrecision(18, 2);
                 b.Property(a => a.PrecoVenda).HasPrecision(18, 2);
@@ -105,7 +113,7 @@ namespace RETSYS.Infrastructure.Data
                  .OnDelete(DeleteBehavior.Restrict);
             });
 
-            // LENTES (catálogo base, sem preço/estoque)
+            // LENTES
             modelBuilder.Entity<Lente>(b =>
             {
                 b.ToTable("lentes");
@@ -127,7 +135,7 @@ namespace RETSYS.Infrastructure.Data
                  .OnDelete(DeleteBehavior.Restrict);
             });
 
-            // LENTE_PRECO (variações: índice + tratamento (texto livre) + preço)
+            // LENTE_PRECO
             modelBuilder.Entity<LentePreco>(b =>
             {
                 b.ToTable("lentes_tabela_precos");
@@ -138,7 +146,7 @@ namespace RETSYS.Infrastructure.Data
                 b.Property(lp => lp.Tratamento).HasMaxLength(100);
             });
 
-            // CLIENTES (com campos de migração e histórico de receitas)
+            // CLIENTES
             modelBuilder.Entity<Cliente>(b =>
             {
                 b.ToTable("clientes");
@@ -157,7 +165,7 @@ namespace RETSYS.Infrastructure.Data
                 b.Property(c => c.Email).HasMaxLength(150);
                 b.Property(c => c.Observacoes).HasColumnType("text");
 
-                // Campos de migração (legado, opcionais)
+                // Campos de migração
                 b.Property(c => c.NumeroOsAntiga).HasMaxLength(50);
                 b.Property(c => c.ValorGasto).HasPrecision(10, 2);
                 b.Property(c => c.ProdutoAdquirido).HasMaxLength(150);
@@ -177,8 +185,111 @@ namespace RETSYS.Infrastructure.Data
                  .HasForeignKey(c => c.OticaId)
                  .OnDelete(DeleteBehavior.Restrict);
 
-                // CPF único POR ÓTICA (não mais globalmente único)
                 b.HasIndex(c => new { c.OticaId, c.CPF }).IsUnique();
+            });
+
+            // RECEITAS_CLIENTE (Histórico Clínico Especialista)
+            modelBuilder.Entity<ReceitaCliente>(b =>
+            {
+                b.ToTable("receitas_cliente");
+                b.HasKey(r => r.Id);
+                b.Property(r => r.MedicoNome).IsRequired().HasMaxLength(150);
+                b.Property(r => r.MedicoCrm).HasMaxLength(30);
+                b.Property(r => r.MedicoTipo).HasMaxLength(30).IsRequired().HasDefaultValue("OFTALMOLOGISTA");
+                b.Property(r => r.Clinica).HasMaxLength(150);
+                b.Property(r => r.FotoReceitaUrl).HasMaxLength(500);
+                b.Property(r => r.Observacoes).HasColumnType("text");
+
+                b.Property(r => r.OdEsferico).HasPrecision(5, 2);
+                b.Property(r => r.OdCilindrico).HasPrecision(5, 2);
+                b.Property(r => r.OdDnp).HasPrecision(4, 1);
+                b.Property(r => r.OdAltura).HasPrecision(4, 1);
+                b.Property(r => r.OdPrisma).HasPrecision(4, 2);
+                b.Property(r => r.OdBasePrisma).HasMaxLength(30);
+
+                b.Property(r => r.OeEsferico).HasPrecision(5, 2);
+                b.Property(r => r.OeCilindrico).HasPrecision(5, 2);
+                b.Property(r => r.OeDnp).HasPrecision(4, 1);
+                b.Property(r => r.OeAltura).HasPrecision(4, 1);
+                b.Property(r => r.OePrisma).HasPrecision(4, 2);
+                b.Property(r => r.OeBasePrisma).HasMaxLength(30);
+
+                b.Property(r => r.Adicao).HasPrecision(4, 2);
+                b.Property(r => r.Aro).HasPrecision(4, 1);
+                b.Property(r => r.Ponte).HasPrecision(4, 1);
+                b.Property(r => r.MaiorDiagonal).HasPrecision(4, 1);
+                b.Property(r => r.AlturaVertical).HasPrecision(4, 1);
+
+                b.Ignore(r => r.OdEsfericoPerto);
+                b.Ignore(r => r.OeEsfericoPerto);
+                b.Ignore(r => r.EstaVencida);
+                b.Ignore(r => r.PrecisaRetornoAnual);
+
+                b.HasOne(r => r.Cliente)
+                 .WithMany(c => c.Receitas)
+                 .HasForeignKey(r => r.ClienteId)
+                 .OnDelete(DeleteBehavior.Cascade);
+
+                b.HasOne(r => r.Otica)
+                 .WithMany()
+                 .HasForeignKey(r => r.OticaId)
+                 .OnDelete(DeleteBehavior.Restrict);
+            });
+
+            // VENDAS_BALCAO (PDV Rápido)
+            modelBuilder.Entity<VendaBalcao>(b =>
+            {
+                b.ToTable("vendas_balcao");
+                b.HasKey(v => v.Id);
+                b.Property(v => v.NumeroVenda).IsRequired().HasMaxLength(50);
+                b.Property(v => v.ValorTotalBruto).HasPrecision(10, 2);
+                b.Property(v => v.DescontoReais).HasPrecision(10, 2);
+                b.Property(v => v.ValorTotalLiquido).HasPrecision(10, 2);
+                b.Property(v => v.FormaPagamento).HasMaxLength(50).IsRequired();
+                b.Property(v => v.Status).HasMaxLength(30).IsRequired().HasDefaultValue("CONCLUIDA");
+                b.Property(v => v.LojaUnidade).HasMaxLength(100).IsRequired().HasDefaultValue("Matriz");
+                b.Property(v => v.Observacoes).HasColumnType("text");
+
+                b.HasOne(v => v.Otica)
+                 .WithMany()
+                 .HasForeignKey(v => v.OticaId)
+                 .OnDelete(DeleteBehavior.Restrict);
+
+                b.HasOne(v => v.Cliente)
+                 .WithMany(c => c.VendasBalcao)
+                 .HasForeignKey(v => v.ClienteId)
+                 .IsRequired(false)
+                 .OnDelete(DeleteBehavior.Restrict);
+
+                b.HasOne(v => v.Vendedor)
+                 .WithMany()
+                 .HasForeignKey(v => v.VendedorId)
+                 .IsRequired(false)
+                 .OnDelete(DeleteBehavior.Restrict);
+
+                b.HasIndex(v => new { v.OticaId, v.NumeroVenda }).IsUnique();
+            });
+
+            // ITENS_VENDA_BALCAO
+            modelBuilder.Entity<ItemVendaBalcao>(b =>
+            {
+                b.ToTable("itens_venda_balcao");
+                b.HasKey(i => i.Id);
+                b.Property(i => i.TipoItem).HasMaxLength(50).IsRequired();
+                b.Property(i => i.Descricao).HasMaxLength(200).IsRequired();
+                b.Property(i => i.PrecoUnitario).HasPrecision(10, 2);
+                b.Ignore(i => i.Subtotal);
+
+                b.HasOne(i => i.VendaBalcao)
+                 .WithMany(v => v.Itens)
+                 .HasForeignKey(i => i.VendaBalcaoId)
+                 .OnDelete(DeleteBehavior.Cascade);
+
+                b.HasOne(i => i.Armacao)
+                 .WithMany()
+                 .HasForeignKey(i => i.ArmacaoId)
+                 .IsRequired(false)
+                 .OnDelete(DeleteBehavior.Restrict);
             });
 
             // ORDENS_SERVICO
@@ -190,6 +301,9 @@ namespace RETSYS.Infrastructure.Data
                 b.Property(os => os.MedicoNome).HasMaxLength(100);
                 b.Property(os => os.MedicoCrm).HasMaxLength(20);
                 b.Property(os => os.Status).HasMaxLength(50).IsRequired();
+                b.Property(os => os.EtapaLaboratorio).HasMaxLength(50).IsRequired().HasDefaultValue("BALCAO");
+                b.Property(os => os.LaboratorioParceiro).HasMaxLength(100);
+                b.Property(os => os.NumeroPedidoLaboratorio).HasMaxLength(100);
                 b.Property(os => os.Observacoes).HasColumnType("text");
                 b.Property(os => os.MedicoTipo).HasMaxLength(30).IsRequired().HasDefaultValue("NAO_ESPECIFICADO");
 
@@ -206,21 +320,31 @@ namespace RETSYS.Infrastructure.Data
                  .HasForeignKey(os => os.ClienteId)
                  .OnDelete(DeleteBehavior.Restrict);
 
+                b.HasOne(os => os.ReceitaCliente)
+                 .WithMany()
+                 .HasForeignKey(os => os.ReceitaClienteId)
+                 .IsRequired(false)
+                 .OnDelete(DeleteBehavior.SetNull);
+
                 b.HasOne(os => os.Vendedor)
                  .WithMany()
                  .HasForeignKey(os => os.VendedorId)
                  .OnDelete(DeleteBehavior.Restrict);
 
-                // FK Mapeamento LentePedida (Seção 3.2 do PDF)
                 b.HasOne(os => os.PedidoLentePor)
                  .WithMany()
                  .HasForeignKey(os => os.PedidoLentePorId)
                  .IsRequired(false)
                  .OnDelete(DeleteBehavior.Restrict);
 
+                b.HasOne(os => os.ConferidoLensometroPor)
+                 .WithMany()
+                 .HasForeignKey(os => os.ConferidoLensometroPorId)
+                 .IsRequired(false)
+                 .OnDelete(DeleteBehavior.Restrict);
+
                 b.Property(os => os.UltimaEdicaoLog).HasMaxLength(250);
 
-                // NumeroOS único POR ÓTICA (trava de duplicidade no balcão)
                 b.HasIndex(os => new { os.OticaId, os.NumeroOS }).IsUnique();
             });
 
@@ -241,7 +365,6 @@ namespace RETSYS.Infrastructure.Data
                 b.Property(r => r.AlturaMontagemOd).HasPrecision(4, 1);
                 b.Property(r => r.AlturaMontagemOe).HasPrecision(4, 1);
 
-                // 📐 Medidas de montagem da armação
                 b.Property(r => r.Aro).HasPrecision(4, 1);
                 b.Property(r => r.Dm).HasPrecision(4, 1);
                 b.Property(r => r.Vert).HasPrecision(4, 1);
@@ -251,7 +374,6 @@ namespace RETSYS.Infrastructure.Data
 
                 b.Property(r => r.ObsReceita).HasColumnType("text");
 
-                // Propriedades computadas ignoradas no banco
                 b.Ignore(r => r.OdEsfericoPerto);
                 b.Ignore(r => r.OeEsfericoPerto);
                 b.Ignore(r => r.OdCilindricoPerto);
@@ -265,7 +387,7 @@ namespace RETSYS.Infrastructure.Data
                  .OnDelete(DeleteBehavior.Cascade);
             });
 
-            // OS_FINANCEIRO (1:1) — ArmacaoId e LentePrecoId opcionais
+            // OS_FINANCEIRO (1:1)
             modelBuilder.Entity<OsFinanceiro>(b =>
             {
                 b.ToTable("os_financeiro");
@@ -282,7 +404,6 @@ namespace RETSYS.Infrastructure.Data
                 b.Property(f => f.ValorLente).HasPrecision(10, 2).IsRequired();
                 b.Property(f => f.Parcelas).IsRequired(false);
 
-                // Quitação e Conferência do Gerente
                 b.Property(f => f.ValorRecebidoRetirada).HasPrecision(10, 2);
                 b.Property(f => f.FormaPagamentoRetirada).HasMaxLength(50);
 
@@ -324,6 +445,12 @@ namespace RETSYS.Infrastructure.Data
                 b.Property(p => p.DescricaoParcela).IsRequired().HasMaxLength(150);
                 b.Property(p => p.Valor).HasPrecision(18, 2);
                 b.Property(p => p.Metodo).HasConversion<string>().HasMaxLength(50);
+                b.Property(p => p.NumeroCarne).HasMaxLength(50);
+                b.Property(p => p.JurosAtraso).HasPrecision(10, 2);
+                b.Property(p => p.MultaAtraso).HasPrecision(10, 2);
+                b.Property(p => p.ValorPago).HasPrecision(10, 2);
+                b.Property(p => p.ObservacaoPagamento).HasMaxLength(250);
+                b.Ignore(p => p.DiasAtraso);
 
                 b.HasOne(p => p.OrdemServico)
                  .WithMany(os => os.Parcelas)
@@ -366,6 +493,7 @@ namespace RETSYS.Infrastructure.Data
                  .OnDelete(DeleteBehavior.Restrict);
             });
 
+            // COMISSOES
             modelBuilder.Entity<Comissao>(b =>
             {
                 b.ToTable("comissoes");
@@ -388,6 +516,7 @@ namespace RETSYS.Infrastructure.Data
                  .OnDelete(DeleteBehavior.Restrict);
             });
 
+            // FECHAMENTOS_COMISSAO
             modelBuilder.Entity<FechamentoComissao>(b =>
             {
                 b.ToTable("fechamentos_comissao");
