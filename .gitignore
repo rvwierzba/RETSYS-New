@@ -34,3 +34,6 @@ appsettings.Development.json
 *.sql
 *.log
 web_build_err.txt
+
+# === SCRATCH / TEMPORÁRIOS ===
+scratch/

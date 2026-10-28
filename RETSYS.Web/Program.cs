@@ -177,7 +177,7 @@ app.Use(async (context, next) =>
                 .Select(o => new { id = o.Id.ToString(), nome = o.Nome })
                 .ToList();
         }
-        else if (ehDono && db != null)
+        else if ((ehDono || ehAdmin || ehAdminOuGerente) && db != null)
         {
             // Dono tem acesso à Matriz e todas as Filiais da sua rede
             var matrizId = oticaUsuarioId;

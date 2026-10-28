@@ -88,7 +88,7 @@ namespace RETSYS.Web.Controllers
             }
 
             // 2. Perfil DONO (Proprietário da Rede): Seletor restrito às lojas da sua rede
-            if (EhDono() && context != null)
+            if ((EhDono() || EhAdministrador()) && context != null)
             {
                 var sessaoOticaId = HttpContext.Session.GetString("OticaAtivaId");
                 if (Guid.TryParse(sessaoOticaId, out var oticaSessao) && oticaSessao != Guid.Empty)

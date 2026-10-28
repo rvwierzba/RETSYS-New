@@ -27,7 +27,7 @@ namespace RETSYS.Web.Controllers
         [HttpPost("/sistema/trocar-otica")]
         public async Task<IActionResult> TrocarOtica([FromBody] DtoTrocarOtica requisicao)
         {
-            if (!EhSistema() && !EhDono())
+            if (!EhSistema() && !EhDono() && !EhAdministrador())
             {
                 return Forbid();
             }
@@ -46,7 +46,7 @@ namespace RETSYS.Web.Controllers
             }
 
             // Se for Dono, valida se a ótica selecionada pertence à rede do Dono
-            if (EhDono() && !EhSistema())
+            if ((EhDono() || EhAdministrador()) && !EhSistema())
             {
                 var oticaUsuarioId = ObterOticaUsuarioLogado(_context);
                 var matrizId = ObterMatrizIdEfetivo(oticaUsuarioId, _context);

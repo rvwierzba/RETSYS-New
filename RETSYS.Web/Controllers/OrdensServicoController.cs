@@ -47,7 +47,7 @@ namespace RETSYS.Web.Controllers
 
             Guid? lojaAlvoId = (lojaId.HasValue && lojaId.Value != Guid.Empty) 
                 ? lojaId.Value 
-                : (oticaId != Guid.Empty && !EhSistema() && !EhDono() ? oticaId : null);
+                : oticaId;
 
             IQueryable<OrdemServico> query = _context.OrdensServico
                 .Include(os => os.Otica)

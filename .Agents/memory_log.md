@@ -239,3 +239,28 @@ Este documento atua como o registro de **Memória Incremental** do projeto RETSY
   - Todos os containers Docker (`retsys_db`, `ollama`, `retsys_app`) estão restritos à interface de loopback `127.0.0.1`.
   - O UFW na VPS precisa manter liberadas **somente as portas 22 (SSH), 80 (HTTP) e 443 (HTTPS)**.
   - As portas 5000, 5432 e 11434 NÃO devem ser abertas no firewall, garantindo isolamento total contra invasões.
+
+## [LOG-005] - 2026-10-28: Remodelação Visual Completa & Segregação Estrita Multi-Loja (PWI / ssOtica)
+- **Autor/Agente**: Arquiteto de Software & Assistente de IA Avançado (Antigravity)
+- **Módulos Afetados**: `RETSYS.Web` (Program.cs, Controllers, Frontend/Shared/AuthenticatedLayout.vue, Pages/OrdensServico)
+- **Contexto & Solicitante**: Atendimento à exigência do usuário de remodelar por completo a interface do sistema, eliminando a bagunça visual e desorganização, inspirando-se diretamente nas interfaces líderes de mercado (ssOtica e PWI), com garantia absoluta de separação de dados por ótica ativa (Matriz e Filiais) e seletor rápido no topo.
+
+### 1. Resumo das Alterações
+1. **Segregação Estrita Multi-Loja no Backend**:
+   - `OrdensServicoController.cs`: Ajustado `lojaAlvoId` para padronizar estritamente pelo `oticaId` da sessão ativa, impedindo mistura involuntária de OSs de filiais na mesma listagem.
+   - `TenantController.cs` & `SistemaController.cs`: Permitido que perfis `Admin`, `Gerente` e `Dono` possam alternar a ótica ativa via `POST /sistema/trocar-otica`.
+   - `Program.cs`: Compartilhamento da lista de lojas (`oticasDisponiveis`) estendido para `Admin` e `Gerente`, permitindo alternância instantânea.
+2. **Remodelação do Shell Global (`AuthenticatedLayout.vue`)**:
+   - Cabeçalho superior (Top Navbar) modernizado com **Seletor de Ótica Ativa** em destaque com dropdown elegante para alternar entre as 3 lojas cadastradas (Ótica Retina Matriz, Retina Travessa Itália, Retina Parque).
+   - Botões de ação rápida no header: `[ + Nova OS ]` e `[ 🛒 PDV Balcão ]`.
+   - Sidebar reorganizada em 6 grupos lógicos limpos (Painel Geral, Atendimento & Vendas, CRM & Prescrições, Financeiro & Carnês, Estoque & Catálogo, Gestão da Rede), removendo poluição visual e inconsistências de badges.
+3. **Visão Integrada de OSs (`OrdensServico/Index.vue`)**:
+   - Controle segmentado de visualização no topo: `[ 📋 Lista de OSs ]` | `[ 🔬 Laboratório ]` | `[ 📊 Quadro Kanban ]` + `+ Emitir Nova OS`.
+   - Ações de linha simplificadas e objetivas: 👁️ OS, 💬 WhatsApp, 📜 Carnê, 🚚 Entregar, ✏️ Editar.
+4. **Otimização do Quadro Kanban (`OrdensServico/Kanban.vue`)**:
+   - Removido banner redundante que consumia espaço vertical, aproveitando o seletor global do header.
+
+### 2. Validação e Verificação
+- **Frontend Build**: `npm run build` executado com êxito (144 módulos transformados, 0 erros).
+- **Backend Build**: `dotnet build` executado com 0 avisos e 0 erros.
+- **Git**: Código pronto para commit e push na branch `main`.

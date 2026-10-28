@@ -8,18 +8,31 @@
           <h1 class="text-2xl font-black text-slate-950 font-mono tracking-tight">Painel de Ordens de Serviço</h1>
           <p class="text-xs text-slate-500 mt-1">Consulte receitas, acompanhe o pedido de lentes, entregue produtos com quitação de saldo e gerencie a esteira comercial.</p>
         </div>
-        <div class="flex items-center gap-3">
-          <Link 
-            href="/ordens/kanban" 
-            class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-2.5 px-5 rounded-xl text-xs transition shadow-sm uppercase tracking-wider flex items-center gap-1.5"
-          >
-            <span>📊</span> Quadro Kanban
-          </Link>
+        <div class="flex flex-wrap items-center gap-2">
+          <div class="flex items-center bg-slate-100 p-1 rounded-xl border border-slate-200 text-xs font-semibold">
+            <span class="bg-white text-slate-900 px-3 py-1.5 rounded-lg shadow-xs font-bold flex items-center gap-1.5">
+              <span>📋</span> Lista
+            </span>
+            <Link 
+              href="/laboratorio" 
+              class="text-slate-600 hover:text-slate-900 px-3 py-1.5 rounded-lg transition flex items-center gap-1.5 font-bold"
+              title="Ir para Esteira Especialista de Laboratório"
+            >
+              <span>🔬</span> Laboratório
+            </Link>
+            <Link 
+              href="/ordens/kanban" 
+              class="text-slate-600 hover:text-slate-900 px-3 py-1.5 rounded-lg transition flex items-center gap-1.5 font-bold"
+              title="Ir para Quadro Kanban Interativo"
+            >
+              <span>📊</span> Kanban
+            </Link>
+          </div>
           <button 
             @click="irParaNovaOrdem"
-            class="bg-teal-600 hover:bg-teal-700 text-white font-bold py-2.5 px-6 rounded-xl text-xs transition shadow-sm uppercase tracking-wider h-fit"
+            class="bg-teal-600 hover:bg-teal-700 text-white font-bold py-2 px-4 rounded-xl text-xs transition shadow-sm uppercase tracking-wider flex items-center gap-1.5"
           >
-            + Emitir Nova OS
+            <span>+</span> Emitir Nova OS
           </button>
         </div>
       </div>
