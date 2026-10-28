@@ -70,11 +70,13 @@ namespace RETSYS.Web.Controllers
 
         // GET /vendas
         [HttpGet("/vendas")]
-        public async Task<IActionResult> Index([FromQuery] string? busca)
+        public async Task<IActionResult> Index([FromQuery] string? busca, [FromQuery] string? filtro = "todas")
         {
             var oticaId = ObterOticaId();
 
-            var query = _context.VendasBalcao
+            // 1. Vendas Balcão
+            var queryBalcao = _context.VendasBalcao
+                .AsNoTracking()
                 .Include(v => v.Cliente)
                 .Include(v => v.Vendedor)
                 .Include(v => v.Itens)
@@ -85,32 +87,113 @@ namespace RETSYS.Web.Controllers
             if (!string.IsNullOrWhiteSpace(busca))
             {
                 var termo = busca.Trim().ToLower();
-                query = query.Where(v => v.NumeroVenda.ToLower().Contains(termo)
+                queryBalcao = queryBalcao.Where(v => v.NumeroVenda.ToLower().Contains(termo)
                     || (v.Cliente != null && v.Cliente.Nome.ToLower().Contains(termo)));
             }
 
-            var vendas = await query
+            var vendasBalcaoRaw = await queryBalcao
                 .Take(100)
                 .Select(v => new
                 {
                     v.Id,
                     v.NumeroVenda,
-                    ClienteNome = v.Cliente != null ? v.Cliente.Nome : "Cliente Balcão",
-                    VendedorNome = v.Vendedor != null ? v.Vendedor.Nome : "Vendedor Balcão",
-                    DataVenda = v.DataVenda.ToString("dd/MM/yyyy HH:mm"),
+                    ClienteNome = v.Cliente != null ? v.Cliente.Nome : "Consumidor Final",
+                    VendedorNome = v.Vendedor != null ? v.Vendedor.Nome : "Balcão",
+                    v.DataVenda,
                     v.ValorTotalBruto,
                     v.DescontoReais,
                     v.ValorTotalLiquido,
                     v.FormaPagamento,
                     v.Status,
-                    TotalItens = v.Itens.Count
+                    TotalItens = v.Itens.Count,
+                    Tipo = "BALCAO"
                 })
                 .ToListAsync();
 
+            // 2. Vendas de Ordens de Serviço (OSs da ótica)
+            var queryOs = _context.OrdensServico
+                .AsNoTracking()
+                .Include(o => o.Cliente)
+                .Include(o => o.Vendedor)
+                .Include(o => o.Financeiro)
+                .Where(o => o.OticaId == oticaId)
+                .OrderByDescending(o => o.DataEntrada)
+                .AsQueryable();
+
+            if (!string.IsNullOrWhiteSpace(busca))
+            {
+                var termo = busca.Trim().ToLower();
+                queryOs = queryOs.Where(o => o.NumeroOS.ToLower().Contains(termo)
+                    || (o.Cliente != null && o.Cliente.Nome.ToLower().Contains(termo)));
+            }
+
+            var vendasOsRaw = await queryOs
+                .Take(100)
+                .Select(o => new
+                {
+                    o.Id,
+                    NumeroVenda = "OS-" + o.NumeroOS,
+                    ClienteNome = o.Cliente != null ? o.Cliente.Nome : "Cliente",
+                    VendedorNome = o.Vendedor != null ? o.Vendedor.Nome : "Atendente",
+                    DataVenda = o.DataEntrada,
+                    ValorTotalBruto = o.Financeiro != null ? o.Financeiro.ValorTotalBruto : 0m,
+                    DescontoReais = o.Financeiro != null ? o.Financeiro.DescontoReais : 0m,
+                    ValorTotalLiquido = o.Financeiro != null ? o.Financeiro.ValorTotalLiquido : 0m,
+                    FormaPagamento = o.Financeiro != null ? o.Financeiro.FormaPagamento : "CARNE",
+                    o.Status,
+                    TotalItens = 1,
+                    Tipo = "ORDEM_SERVICO"
+                })
+                .ToListAsync();
+
+            // Formatação segura em memória (evita falha de tradução LINQ do Npgsql)
+            var listaBalcao = vendasBalcaoRaw.Select(v => new
+            {
+                v.Id,
+                v.NumeroVenda,
+                v.ClienteNome,
+                v.VendedorNome,
+                DataVenda = v.DataVenda.ToString("dd/MM/yyyy HH:mm"),
+                v.ValorTotalBruto,
+                v.DescontoReais,
+                v.ValorTotalLiquido,
+                v.FormaPagamento,
+                v.Status,
+                v.TotalItens,
+                v.Tipo
+            }).ToList();
+
+            var listaOs = vendasOsRaw.Select(v => new
+            {
+                v.Id,
+                v.NumeroVenda,
+                v.ClienteNome,
+                v.VendedorNome,
+                DataVenda = v.DataVenda.ToString("dd/MM/yyyy HH:mm"),
+                v.ValorTotalBruto,
+                v.DescontoReais,
+                v.ValorTotalLiquido,
+                v.FormaPagamento,
+                v.Status,
+                v.TotalItens,
+                v.Tipo
+            }).ToList();
+
+            var todasVendas = listaBalcao
+                .Concat(listaOs)
+                .OrderByDescending(v => v.NumeroVenda)
+                .ToList();
+
+            var totalFaturamento = todasVendas.Sum(v => v.ValorTotalLiquido);
+
             return Inertia.Render("Vendas/Index", new
             {
-                Vendas = vendas,
-                Busca = busca ?? ""
+                Vendas = todasVendas,
+                TotalFaturamento = totalFaturamento,
+                TotalVendasBalcao = listaBalcao.Count,
+                TotalVendasOs = listaOs.Count,
+                Busca = busca ?? "",
+                Filtro = filtro ?? "todas"
             });
         }
 
@@ -183,38 +266,38 @@ namespace RETSYS.Web.Controllers
         {
             var oticaId = ObterOticaId();
 
-            var venda = await _context.VendasBalcao
+            var vendaDb = await _context.VendasBalcao
                 .Include(v => v.Cliente)
                 .Include(v => v.Vendedor)
                 .Include(v => v.Itens)
-                .Where(v => v.Id == id && v.OticaId == oticaId)
-                .Select(v => new
-                {
-                    v.Id,
-                    v.NumeroVenda,
-                    ClienteNome = v.Cliente != null ? v.Cliente.Nome : "Consumidor Final",
-                    ClienteCpf = v.Cliente != null ? v.Cliente.CPF : null,
-                    ClienteTelefone = v.Cliente != null ? v.Cliente.Telefone : null,
-                    VendedorNome = v.Vendedor != null ? v.Vendedor.Nome : "Balcão",
-                    DataVenda = v.DataVenda.ToString("dd/MM/yyyy HH:mm"),
-                    v.ValorTotalBruto,
-                    v.DescontoReais,
-                    v.ValorTotalLiquido,
-                    v.FormaPagamento,
-                    v.Parcelas,
-                    v.Observacoes,
-                    Itens = v.Itens.Select(i => new
-                    {
-                        i.Descricao,
-                        i.Quantidade,
-                        i.PrecoUnitario,
-                        Subtotal = i.Quantidade * i.PrecoUnitario
-                    }).ToList()
-                })
-                .FirstOrDefaultAsync();
+                .FirstOrDefaultAsync(v => v.Id == id && v.OticaId == oticaId);
 
-            if (venda == null)
+            if (vendaDb == null)
                 return NotFound();
+
+            var venda = new
+            {
+                vendaDb.Id,
+                vendaDb.NumeroVenda,
+                ClienteNome = vendaDb.Cliente != null ? vendaDb.Cliente.Nome : "Consumidor Final",
+                ClienteCpf = vendaDb.Cliente?.CPF,
+                ClienteTelefone = vendaDb.Cliente?.Telefone,
+                VendedorNome = vendaDb.Vendedor != null ? vendaDb.Vendedor.Nome : "Balcão",
+                DataVenda = vendaDb.DataVenda.ToString("dd/MM/yyyy HH:mm"),
+                vendaDb.ValorTotalBruto,
+                vendaDb.DescontoReais,
+                vendaDb.ValorTotalLiquido,
+                vendaDb.FormaPagamento,
+                vendaDb.Parcelas,
+                vendaDb.Observacoes,
+                Itens = vendaDb.Itens.Select(i => new
+                {
+                    i.Descricao,
+                    i.Quantidade,
+                    i.PrecoUnitario,
+                    Subtotal = i.Quantidade * i.PrecoUnitario
+                }).ToList()
+            };
 
             var configLoja = await _context.ConfiguracoesLoja.FirstOrDefaultAsync(c => c.OticaId == oticaId);
 
@@ -251,4 +334,3 @@ namespace RETSYS.Web.Controllers
         public decimal PrecoUnitario { get; set; }
     }
 }
-

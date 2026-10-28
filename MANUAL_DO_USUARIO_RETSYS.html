@@ -1,782 +1,846 @@
 <!DOCTYPE html>
 <html lang="pt-BR">
+
 <head>
-<meta charset="UTF-8">
-<title>Manual do Usuário - RETSYS 2.0 Especialista em Óticas</title>
-<style>
-  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;900&family=JetBrains+Mono:wght@400;700&display=swap');
+  <meta charset="UTF-8">
+  <title>Manual do Usuário - RETSYS 2.0 Especialista em Óticas</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;900&family=JetBrains+Mono:wght@400;700&display=swap');
 
-  @page {
-    size: A4;
-    margin: 18mm 15mm 20mm 15mm;
-  }
+    @page {
+      size: A4;
+      margin: 18mm 15mm 20mm 15mm;
+    }
 
-  body {
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    color: #0f172a;
-    line-height: 1.55;
-    font-size: 10pt;
-    background: #ffffff;
-    margin: 0;
-    padding: 0;
-  }
+    body {
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      color: #0f172a;
+      line-height: 1.55;
+      font-size: 10pt;
+      background: #ffffff;
+      margin: 0;
+      padding: 0;
+    }
 
-  .page-break {
-    page-break-after: always;
-    break-after: page;
-  }
+    .page-break {
+      page-break-after: always;
+      break-after: page;
+    }
 
-  /* CAPA */
-  .cover {
-    display: flex;
-    flex-direction: column;
-    justify-content: space-between;
-    min-height: 900px;
-    padding: 40px 30px;
-    box-sizing: border-box;
-    border: 3px solid #0d9488;
-    border-radius: 24px;
-    background: linear-gradient(180deg, #f0fdfa 0%, #ffffff 40%, #f8fafc 100%);
-  }
+    /* CAPA */
+    .cover {
+      display: flex;
+      flex-direction: column;
+      justify-content: space-between;
+      min-height: 900px;
+      padding: 40px 30px;
+      box-sizing: border-box;
+      border: 3px solid #0d9488;
+      border-radius: 24px;
+      background: linear-gradient(180deg, #f0fdfa 0%, #ffffff 40%, #f8fafc 100%);
+    }
 
-  .cover-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-  }
+    .cover-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
 
-  .cover-logo {
-    font-family: 'JetBrains Mono', monospace;
-    font-size: 32pt;
-    font-weight: 900;
-    letter-spacing: -1px;
-    color: #0f172a;
-  }
+    .cover-logo {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 32pt;
+      font-weight: 900;
+      letter-spacing: -1px;
+      color: #0f172a;
+    }
 
-  .cover-logo span {
-    color: #0d9488;
-  }
+    .cover-logo span {
+      color: #0d9488;
+    }
 
-  .badge-optica {
-    background: #0d9488;
-    color: #ffffff;
-    padding: 6px 16px;
-    border-radius: 9999px;
-    font-size: 9pt;
-    font-weight: 800;
-    text-transform: uppercase;
-    letter-spacing: 1px;
-  }
+    .badge-optica {
+      background: #0d9488;
+      color: #ffffff;
+      padding: 6px 16px;
+      border-radius: 9999px;
+      font-size: 9pt;
+      font-weight: 800;
+      text-transform: uppercase;
+      letter-spacing: 1px;
+    }
 
-  .cover-body {
-    margin: auto 0;
-  }
+    .cover-body {
+      margin: auto 0;
+    }
 
-  .cover-title {
-    font-size: 28pt;
-    font-weight: 900;
-    color: #0f172a;
-    line-height: 1.15;
-    margin: 0 0 16px 0;
-    letter-spacing: -0.5px;
-  }
+    .cover-title {
+      font-size: 28pt;
+      font-weight: 900;
+      color: #0f172a;
+      line-height: 1.15;
+      margin: 0 0 16px 0;
+      letter-spacing: -0.5px;
+    }
 
-  .cover-subtitle {
-    font-size: 13pt;
-    color: #475569;
-    font-weight: 500;
-    margin: 0 0 24px 0;
-    line-height: 1.4;
-  }
+    .cover-subtitle {
+      font-size: 13pt;
+      color: #475569;
+      font-weight: 500;
+      margin: 0 0 24px 0;
+      line-height: 1.4;
+    }
 
-  .cover-feature-box {
-    background: #ffffff;
-    border: 2px solid #ccfbf1;
-    border-radius: 16px;
-    padding: 20px 24px;
-    box-shadow: 0 10px 25px -5px rgba(13, 148, 136, 0.1);
-  }
+    .cover-feature-box {
+      background: #ffffff;
+      border: 2px solid #ccfbf1;
+      border-radius: 16px;
+      padding: 20px 24px;
+      box-shadow: 0 10px 25px -5px rgba(13, 148, 136, 0.1);
+    }
 
-  .cover-feature-grid {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 16px;
-  }
+    .cover-feature-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 16px;
+    }
 
-  .cover-feature-item {
-    display: flex;
-    align-items: flex-start;
-    gap: 10px;
-  }
+    .cover-feature-item {
+      display: flex;
+      align-items: flex-start;
+      gap: 10px;
+    }
 
-  .feature-icon {
-    font-size: 14pt;
-    background: #f0fdfa;
-    padding: 6px;
-    border-radius: 10px;
-    border: 1px solid #99f6e4;
-  }
+    .feature-icon {
+      font-size: 14pt;
+      background: #f0fdfa;
+      padding: 6px;
+      border-radius: 10px;
+      border: 1px solid #99f6e4;
+    }
 
-  .feature-text h4 {
-    margin: 0 0 2px 0;
-    font-size: 10pt;
-    font-weight: 700;
-    color: #0f172a;
-  }
+    .feature-text h4 {
+      margin: 0 0 2px 0;
+      font-size: 10pt;
+      font-weight: 700;
+      color: #0f172a;
+    }
 
-  .feature-text p {
-    margin: 0;
-    font-size: 8.5pt;
-    color: #64748b;
-  }
+    .feature-text p {
+      margin: 0;
+      font-size: 8.5pt;
+      color: #64748b;
+    }
 
-  .cover-footer {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-end;
-    border-top: 2px solid #e2e8f0;
-    padding-top: 20px;
-    font-size: 8.5pt;
-    color: #64748b;
-  }
+    .cover-footer {
+      display: flex;
+      justify-content: space-between;
+      align-items: flex-end;
+      border-top: 2px solid #e2e8f0;
+      padding-top: 20px;
+      font-size: 8.5pt;
+      color: #64748b;
+    }
 
-  /* HEADINGS */
-  h1 {
-    font-size: 18pt;
-    font-weight: 900;
-    color: #0f172a;
-    border-bottom: 3px solid #0d9488;
-    padding-bottom: 6px;
-    margin-top: 24px;
-    margin-bottom: 14px;
-  }
+    /* HEADINGS */
+    h1 {
+      font-size: 18pt;
+      font-weight: 900;
+      color: #0f172a;
+      border-bottom: 3px solid #0d9488;
+      padding-bottom: 6px;
+      margin-top: 24px;
+      margin-bottom: 14px;
+    }
 
-  h2 {
-    font-size: 13pt;
-    font-weight: 800;
-    color: #1e293b;
-    margin-top: 18px;
-    margin-bottom: 8px;
-    border-left: 4px solid #0d9488;
-    padding-left: 10px;
-  }
+    h2 {
+      font-size: 13pt;
+      font-weight: 800;
+      color: #1e293b;
+      margin-top: 18px;
+      margin-bottom: 8px;
+      border-left: 4px solid #0d9488;
+      padding-left: 10px;
+    }
 
-  h3 {
-    font-size: 11pt;
-    font-weight: 700;
-    color: #334155;
-    margin-top: 12px;
-    margin-bottom: 6px;
-  }
+    h3 {
+      font-size: 11pt;
+      font-weight: 700;
+      color: #334155;
+      margin-top: 12px;
+      margin-bottom: 6px;
+    }
 
-  p {
-    margin: 0 0 10px 0;
-    color: #334155;
-  }
+    p {
+      margin: 0 0 10px 0;
+      color: #334155;
+    }
 
-  /* CALLOUTS */
-  .callout {
-    border-radius: 12px;
-    padding: 14px 18px;
-    margin: 14px 0;
-    font-size: 9pt;
-  }
+    /* CALLOUTS */
+    .callout {
+      border-radius: 12px;
+      padding: 14px 18px;
+      margin: 14px 0;
+      font-size: 9pt;
+    }
 
-  .callout-tip {
-    background: #f0fdfa;
-    border: 1px solid #99f6e4;
-    border-left: 5px solid #0d9488;
-    color: #134e4a;
-  }
+    .callout-tip {
+      background: #f0fdfa;
+      border: 1px solid #99f6e4;
+      border-left: 5px solid #0d9488;
+      color: #134e4a;
+    }
 
-  .callout-warning {
-    background: #fffbeb;
-    border: 1px solid #fde68a;
-    border-left: 5px solid #d97706;
-    color: #78350f;
-  }
+    .callout-warning {
+      background: #fffbeb;
+      border: 1px solid #fde68a;
+      border-left: 5px solid #d97706;
+      color: #78350f;
+    }
 
-  .callout-info {
-    background: #eff6ff;
-    border: 1px solid #bfdbfe;
-    border-left: 5px solid #2563eb;
-    color: #1e3a8a;
-  }
+    .callout-info {
+      background: #eff6ff;
+      border: 1px solid #bfdbfe;
+      border-left: 5px solid #2563eb;
+      color: #1e3a8a;
+    }
 
-  .callout-title {
-    font-weight: 800;
-    margin-bottom: 4px;
-  }
+    .callout-title {
+      font-weight: 800;
+      margin-bottom: 4px;
+    }
 
-  /* PASSO A PASSO BOX */
-  .step-box {
-    background: #ffffff;
-    border: 1px solid #e2e8f0;
-    border-radius: 14px;
-    padding: 14px 18px;
-    margin-bottom: 14px;
-  }
+    /* PASSO A PASSO BOX */
+    .step-box {
+      background: #ffffff;
+      border: 1px solid #e2e8f0;
+      border-radius: 14px;
+      padding: 14px 18px;
+      margin-bottom: 14px;
+    }
 
-  .step-header {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    margin-bottom: 8px;
-  }
+    .step-header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      margin-bottom: 8px;
+    }
 
-  .step-number {
-    background: #0f172a;
-    color: #ffffff;
-    font-weight: 900;
-    font-size: 9pt;
-    width: 26px;
-    height: 26px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-  }
+    .step-number {
+      background: #0f172a;
+      color: #ffffff;
+      font-weight: 900;
+      font-size: 9pt;
+      width: 26px;
+      height: 26px;
+      border-radius: 50%;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
 
-  .step-title {
-    font-size: 11pt;
-    font-weight: 800;
-    color: #0f172a;
-  }
+    .step-title {
+      font-size: 11pt;
+      font-weight: 800;
+      color: #0f172a;
+    }
 
-  /* TABELAS */
-  table {
-    width: 100%;
-    border-collapse: collapse;
-    margin: 14px 0;
-    font-size: 8.5pt;
-  }
+    /* TABELAS */
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 14px 0;
+      font-size: 8.5pt;
+    }
 
-  th {
-    background: #0f172a;
-    color: #ffffff;
-    font-weight: 700;
-    padding: 8px 10px;
-    text-align: left;
-    border: 1px solid #1e293b;
-    font-family: 'JetBrains Mono', monospace;
-  }
+    th {
+      background: #0f172a;
+      color: #ffffff;
+      font-weight: 700;
+      padding: 8px 10px;
+      text-align: left;
+      border: 1px solid #1e293b;
+      font-family: 'JetBrains Mono', monospace;
+    }
 
-  td {
-    padding: 8px 10px;
-    border: 1px solid #e2e8f0;
-    color: #334155;
-  }
+    td {
+      padding: 8px 10px;
+      border: 1px solid #e2e8f0;
+      color: #334155;
+    }
 
-  tr:nth-child(even) td {
-    background: #f8fafc;
-  }
+    tr:nth-child(even) td {
+      background: #f8fafc;
+    }
 
-  /* BADGES */
-  .pill {
-    display: inline-block;
-    padding: 2px 8px;
-    border-radius: 6px;
-    font-size: 7.5pt;
-    font-weight: 700;
-    font-family: 'JetBrains Mono', monospace;
-  }
+    /* BADGES */
+    .pill {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 6px;
+      font-size: 7.5pt;
+      font-weight: 700;
+      font-family: 'JetBrains Mono', monospace;
+    }
 
-  .pill-green { background: #dcfce7; color: #166534; border: 1px solid #bbf7d0; }
-  .pill-blue { background: #e0e7ff; color: #3730a3; border: 1px solid #c7d2fe; }
-  .pill-amber { background: #fef3c7; color: #92400e; border: 1px solid #fde68a; }
-  .pill-teal { background: #ccfbf1; color: #115e59; border: 1px solid #99f6e4; }
+    .pill-green {
+      background: #dcfce7;
+      color: #166534;
+      border: 1px solid #bbf7d0;
+    }
 
-  .grid-2 {
-    display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 12px;
-  }
+    .pill-blue {
+      background: #e0e7ff;
+      color: #3730a3;
+      border: 1px solid #c7d2fe;
+    }
 
-  .card-simple {
-    background: #f8fafc;
-    border: 1px solid #e2e8f0;
-    border-radius: 10px;
-    padding: 12px;
-  }
+    .pill-amber {
+      background: #fef3c7;
+      color: #92400e;
+      border: 1px solid #fde68a;
+    }
 
-  .card-simple h4 {
-    margin: 0 0 4px 0;
-    color: #0f172a;
-    font-size: 9.5pt;
-    font-weight: 700;
-  }
+    .pill-teal {
+      background: #ccfbf1;
+      color: #115e59;
+      border: 1px solid #99f6e4;
+    }
 
-  .card-simple p {
-    margin: 0;
-    font-size: 8.5pt;
-    color: #64748b;
-  }
-</style>
+    .grid-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .card-simple {
+      background: #f8fafc;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      padding: 12px;
+    }
+
+    .card-simple h4 {
+      margin: 0 0 4px 0;
+      color: #0f172a;
+      font-size: 9.5pt;
+      font-weight: 700;
+    }
+
+    .card-simple p {
+      margin: 0;
+      font-size: 8.5pt;
+      color: #64748b;
+    }
+  </style>
 </head>
+
 <body>
 
-<!-- CAPA DO MANUAL -->
-<div class="cover page-break">
-  <div class="cover-header">
-    <div class="cover-logo">RET<span>SYS</span></div>
-    <div class="badge-optica">Manual Oficial Não-Técnico</div>
-  </div>
+  <!-- CAPA DO MANUAL -->
+  <div class="cover page-break">
+    <div class="cover-header">
+      <div class="cover-logo">RET<span>SYS</span></div>
+      <div class="badge-optica">Manual Oficial Não-Técnico</div>
+    </div>
 
-  <div class="cover-body">
-    <h1 class="cover-title">Manual Operacional do Usuário</h1>
-    <p class="cover-subtitle">
-      Guia Prático e Ilustrado Passo a Passo para Atendentes, Vendedoras, Gerentes e Proprietários de Ótica.
-    </p>
+    <div class="cover-body">
+      <h1 class="cover-title">Manual Operacional do Usuário</h1>
+      <p class="cover-subtitle">
+        Guia Prático e Ilustrado Passo a Passo para Atendentes, Vendedoras, Gerentes e Proprietários de Ótica.
+      </p>
 
-    <div class="cover-feature-box">
-      <div class="cover-feature-grid">
-        <div class="cover-feature-item">
-          <div class="feature-icon">👓</div>
-          <div class="feature-text">
-            <h4>Emissão Rápida de O.S.</h4>
-            <p>Refração clínica completa (Longe, Perto, Adição, DNP) e fechamento.</p>
+      <div class="cover-feature-box">
+        <div class="cover-feature-grid">
+          <div class="cover-feature-item">
+            <div class="feature-icon">👓</div>
+            <div class="feature-text">
+              <h4>Emissão Rápida de O.S.</h4>
+              <p>Refração clínica completa (Longe, Perto, Adição, DNP) e fechamento.</p>
+            </div>
           </div>
-        </div>
-        <div class="cover-feature-item">
-          <div class="feature-icon">🏢</div>
-          <div class="feature-text">
-            <h4>Multi-Loja Sem Mistura</h4>
-            <p>Matriz e Filiais separadas com troca instantânea no cabeçalho.</p>
+          <div class="cover-feature-item">
+            <div class="feature-icon">🏢</div>
+            <div class="feature-text">
+              <h4>Multi-Loja Sem Mistura</h4>
+              <p>Matriz e Filiais separadas com troca instantânea no cabeçalho.</p>
+            </div>
           </div>
-        </div>
-        <div class="cover-feature-item">
-          <div class="feature-icon">📜</div>
-          <div class="feature-text">
-            <h4>Crediário & Carnês</h4>
-            <p>Impressão térmica e A4 com cálculo de juros e atraso.</p>
+          <div class="cover-feature-item">
+            <div class="feature-icon">📜</div>
+            <div class="feature-text">
+              <h4>Crediário & Carnês</h4>
+              <p>Impressão térmica e A4 com cálculo de juros e atraso.</p>
+            </div>
           </div>
-        </div>
-        <div class="cover-feature-item">
-          <div class="feature-icon">🔬</div>
-          <div class="feature-text">
-            <h4>Esteira de Laboratório</h4>
-            <p>Controle do pedido de lentes (Essilor, Hoya) e lensometria.</p>
+          <div class="cover-feature-item">
+            <div class="feature-icon">🔬</div>
+            <div class="feature-text">
+              <h4>Esteira de Laboratório</h4>
+              <p>Controle do pedido de lentes (Essilor, Hoya) e lensometria.</p>
+            </div>
           </div>
-        </div>
-        <div class="cover-feature-item">
-          <div class="feature-icon">📲</div>
-          <div class="feature-text">
-            <h4>CRM & Recall em 1 Clique</h4>
-            <p>Retorno de consulta de 1 ano e pós-venda multifocal no WhatsApp.</p>
+          <div class="cover-feature-item">
+            <div class="feature-icon">📲</div>
+            <div class="feature-text">
+              <h4>CRM & Recall em 1 Clique</h4>
+              <p>Retorno de consulta de 1 ano e pós-venda multifocal no WhatsApp.</p>
+            </div>
           </div>
-        </div>
-        <div class="cover-feature-item">
-          <div class="feature-icon">🛒</div>
-          <div class="feature-text">
-            <h4>PDV Balcão Ágil</h4>
-            <p>Venda expressa de óculos de sol e acessórios sem O.S.</p>
+          <div class="cover-feature-item">
+            <div class="feature-icon">🛒</div>
+            <div class="feature-text">
+              <h4>PDV Balcão Ágil</h4>
+              <p>Venda expressa de óculos de sol e acessórios sem O.S.</p>
+            </div>
           </div>
         </div>
       </div>
     </div>
+
+    <div class="cover-footer">
+      <div>
+        <b>RETSYS 2.0 Especialista</b> • Plataforma Web de Gestão Óptica<br>
+        Inspirado nos fluxos de mercado do SSÓtica e PWI Vixen
+      </div>
+      <div style="text-align: right;">
+        Versão: 2.0 Pro • Ano 2026<br>
+        <b>Rede Ótica Retina</b>
+      </div>
+    </div>
   </div>
 
-  <div class="cover-footer">
-    <div>
-      <b>RETSYS 2.0 Especialista</b> • Plataforma Web de Gestão Óptica<br>
-      Inspirado nos fluxos de mercado do SSÓtica e PWI Vixen
-    </div>
-    <div style="text-align: right;">
-      Versão: 2.0 Pro • Ano 2026<br>
-      <b>Rede Ótica Retina</b>
-    </div>
-  </div>
-</div>
-
-<!-- CAPÍTULO 1: ACESSO E MULTI-LOJA -->
-<div>
-  <h1>1. Começando no RETSYS: Acesso & Multi-Loja</h1>
-  <p>
-    O <b>RETSYS</b> é o sistema especialista da sua ótica. Ele funciona 100% pelo navegador de internet (no computador do balcão, tablet ou celular), dispensando qualquer instalação complicada.
-  </p>
-
-  <h2>Como Fazer Login com Segurança</h2>
-  <div class="step-box">
-    <div class="step-header">
-      <div class="step-number">1</div>
-      <div class="step-title">Acessando o Sistema</div>
-    </div>
+  <!-- CAPÍTULO 1: ACESSO E MULTI-LOJA -->
+  <div>
+    <h1>1. Começando no RETSYS: Acesso & Multi-Loja</h1>
     <p>
-      Abra o navegador (Google Chrome ou Microsoft Edge) e digite o endereço da sua ótica.
-      Digite seu <b>E-mail ou Usuário</b> e a sua <b>Senha pessoal</b>.
+      O <b>RETSYS</b> é o sistema especialista da sua ótica. Ele funciona 100% pelo navegador de internet (no computador
+      do balcão, tablet ou celular), dispensando qualquer instalação complicada.
     </p>
-  </div>
 
-  <div class="callout callout-info">
-    <div class="callout-title">🔒 Sua Senha é Pessoal e Intransferível</div>
-    Todas as vendas e comissões são vinculadas ao seu usuário autenticado. Nunca compartilhe sua senha com outras vendedoras para garantir que suas comissões sejam calculadas corretamente.
-  </div>
-
-  <h2>Como Alternar Entre as Lojas da Rede (Matriz e Filiais)</h2>
-  <p>
-    O RETSYS possui <b>segregação estrita por loja</b>. Isso significa que você nunca verá ordens de serviço ou dados de outra filial misturados, a menos que alterne para ela.
-  </p>
-
-  <div class="step-box">
-    <div class="step-header">
-      <div class="step-number">2</div>
-      <div class="step-title">Seletor de Ótica no Topo da Tela</div>
+    <h2>Como Fazer Login com Segurança</h2>
+    <div class="step-box">
+      <div class="step-header">
+        <div class="step-number">1</div>
+        <div class="step-title">Acessando o Sistema</div>
+      </div>
+      <p>
+        Abra o navegador (Google Chrome ou Microsoft Edge) e digite o endereço da sua ótica.
+        Digite seu <b>E-mail ou Usuário</b> e a sua <b>Senha pessoal</b>.
+      </p>
     </div>
+
+    <div class="callout callout-info">
+      <div class="callout-title">🔒 Sua Senha é Pessoal e Intransferível</div>
+      Todas as vendas e comissões são vinculadas ao seu usuário autenticado. Nunca compartilhe sua senha com outras
+      vendedoras para garantir que suas comissões sejam calculadas corretamente.
+    </div>
+
+    <h2>Como Alternar Entre as Lojas da Rede (Matriz e Filiais)</h2>
     <p>
-      Olhe para o topo superior esquerdo da tela (no cabeçalho preto). Você verá o botão com o ícone de prédio:
+      O RETSYS possui <b>segregação estrita por loja</b>. Isso significa que você nunca verá ordens de serviço ou dados
+      de outra filial misturados, a menos que alterne para ela.
     </p>
-    <p style="text-align: center; margin: 10px 0;">
-      <span class="pill pill-teal" style="font-size: 10pt; padding: 6px 14px;">🏢 Ótica Retina Matriz ▾</span>
-    </p>
+
+    <div class="step-box">
+      <div class="step-header">
+        <div class="step-number">2</div>
+        <div class="step-title">Seletor de Ótica no Topo da Tela</div>
+      </div>
+      <p>
+        Olhe para o topo superior esquerdo da tela (no cabeçalho preto). Você verá o botão com o ícone de prédio:
+      </p>
+      <p style="text-align: center; margin: 10px 0;">
+        <span class="pill pill-teal" style="font-size: 10pt; padding: 6px 14px;">🏢 Ótica Retina Matriz ▾</span>
+      </p>
+      <p>
+        <b>Clique sobre o botão</b>: um menu se abrirá listando todas as filiais disponíveis (ex: <i>Ótica Retina
+          Matriz</i>, <i>Retina Travessa Itália</i>, <i>Retina Parque</i>).
+        Basta dar 1 clique na filial desejada e o sistema mudará instantaneamente todo o painel, ordens e relatórios
+        para a loja selecionada.
+      </p>
+    </div>
+
+    <h2>Botões de Ação Rápida no Topo</h2>
     <p>
-      <b>Clique sobre o botão</b>: um menu se abrirá listando todas as filiais disponíveis (ex: <i>Ótica Retina Matriz</i>, <i>Retina Travessa Itália</i>, <i>Retina Parque</i>).
-      Basta dar 1 clique na filial desejada e o sistema mudará instantaneamente todo o painel, ordens e relatórios para a loja selecionada.
+      Em qualquer tela do sistema, no canto superior direito ao lado do seu nome de usuário, você encontrará 2 atalhos
+      essenciais:
     </p>
+    <div class="grid-2">
+      <div class="card-simple">
+        <h4><span class="pill pill-green">+ Nova OS</span></h4>
+        <p>Abre imediatamente a tela de emissão de Ordem de Serviço com cadastro de receita.</p>
+      </div>
+      <div class="card-simple">
+        <h4><span class="pill pill-amber">🛒 PDV Balcão</span></h4>
+        <p>Abre o ponto de venda rápido para passar óculos de sol, caixas de lentes e produtos de limpeza.</p>
+      </div>
+    </div>
   </div>
 
-  <h2>Botões de Ação Rápida no Topo</h2>
-  <p>
-    Em qualquer tela do sistema, no canto superior direito ao lado do seu nome de usuário, você encontrará 2 atalhos essenciais:
-  </p>
-  <div class="grid-2">
-    <div class="card-simple">
-      <h4><span class="pill pill-green">+ Nova OS</span></h4>
-      <p>Abre imediatamente a tela de emissão de Ordem de Serviço com cadastro de receita.</p>
+  <div class="page-break"></div>
+
+  <!-- CAPÍTULO 2: EMISSÃO DE ORDEM DE SERVIÇO -->
+  <div>
+    <h1>2. Emissão de Ordem de Serviço (O.S. Completa)</h1>
+    <p>
+      A Ordem de Serviço é o documento mais importante da ótica. Ela reúne a prescrição do médico oftalmologista, a
+      escolha da armação, o laboratório fornecedor das lentes e o fechamento do pagamento.
+    </p>
+
+    <div class="step-box">
+      <div class="step-header">
+        <div class="step-number">1</div>
+        <div class="step-title">Identificação do Cliente</div>
+      </div>
+      <p>
+        • Digite o <b>CPF do Cliente</b> e clique em <b>"Buscar CPF"</b>.<br>
+        • Se o cliente já comprou na loja antes, o sistema preencherá automaticamente o Nome, Telefone, Data de
+        Nascimento e Endereço!<br>
+        • Se for um cliente novo, basta preencher o <b>Nome Completo</b> e o <b>WhatsApp</b> (obrigatório para avisos de
+        entrega).
+      </p>
     </div>
-    <div class="card-simple">
-      <h4><span class="pill pill-amber">🛒 PDV Balcão</span></h4>
-      <p>Abre o ponto de venda rápido para passar óculos de sol, caixas de lentes e produtos de limpeza.</p>
+
+    <div class="step-box">
+      <div class="step-header">
+        <div class="step-number">2</div>
+        <div class="step-title">Preenchimento da Receita (Refração Oftalmológica)</div>
+      </div>
+      <p>
+        O sistema adota a convenção médica brasileira padronizada:
+      </p>
+      <table>
+        <thead>
+          <tr>
+            <th>Olho</th>
+            <th>Esférico (Longe)</th>
+            <th>Cilíndrico</th>
+            <th>Eixo (0° a 180°)</th>
+            <th>Adição (AD)</th>
+            <th>DNP (mm)</th>
+            <th>Altura (mm)</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><b>OD</b> (Direito)</td>
+            <td>-2.50</td>
+            <td>-0.75</td>
+            <td>180°</td>
+            <td>+2.00</td>
+            <td>31.5</td>
+            <td>18.0</td>
+          </tr>
+          <tr>
+            <td><b>OE</b> (Esquerdo)</td>
+            <td>-2.25</td>
+            <td>-0.50</td>
+            <td>175°</td>
+            <td>+2.00</td>
+            <td>31.0</td>
+            <td>18.0</td>
+          </tr>
+        </tbody>
+      </table>
+      <div class="callout callout-tip" style="margin-top: 6px;">
+        <b>Cálculo Automático da Adição:</b> Ao digitar o grau de Longe e de Perto, o RETSYS calcula automaticamente a
+        Adição. Você também pode preencher ou ajustar a Adição manualmente a qualquer momento.
+      </div>
+    </div>
+
+    <div class="step-box">
+      <div class="step-header">
+        <div class="step-number">3</div>
+        <div class="step-title">Armação, Lente e Laboratório</div>
+      </div>
+      <p>
+        • <b>Armação:</b> Selecione a peça do estoque da loja ou digite o modelo avulso se o cliente trouxe a própria
+        armação.<br>
+        • <b>Lente:</b> Escolha a família da lente (Visão Simples, Bifocal ou Multifocal), o material/índice (1.56,
+        1.67, 1.74) e tratamentos (Antirreflexo, Crizal, Blue UV).<br>
+        • <b>Laboratório Parceiro:</b> Indique para onde o serviço será enviado (Essilor, Hoya, Zeiss ou Laboratório
+        Local de Montagem).
+      </p>
+    </div>
+
+    <div class="step-box">
+      <div class="step-header">
+        <div class="step-number">4</div>
+        <div class="step-title">Fechamento Financeiro & Formas de Pagamento</div>
+      </div>
+      <p>
+        O sistema totaliza os valores automaticamente:<br>
+        <b>Total Bruto = Armação + Lente + Montagem - Desconto</b><br>
+        Selecione a forma de pagamento:
+      </p>
+      <ul>
+        <li><b>Dinheiro / PIX:</b> Quitação à vista com emissão do recibo.</li>
+        <li><b>Cartão de Crédito:</b> Parcelamento em até 12x com registro da bandeira.</li>
+        <li><b>Crediário Próprio / Carnê da Loja:</b> O sistema divide o saldo restante em até 10 parcelas mensais e
+          gera o carnê impresso imediatamente.</li>
+      </ul>
     </div>
   </div>
-</div>
 
-<div class="page-break"></div>
+  <div class="page-break"></div>
 
-<!-- CAPÍTULO 2: EMISSÃO DE ORDEM DE SERVIÇO -->
-<div>
-  <h1>2. Emissão de Ordem de Serviço (O.S. Completa)</h1>
-  <p>
-    A Ordem de Serviço é o documento mais importante da ótica. Ela reúne a prescrição do médico oftalmologista, a escolha da armação, o laboratório fornecedor das lentes e o fechamento do pagamento.
-  </p>
-
-  <div class="step-box">
-    <div class="step-header">
-      <div class="step-number">1</div>
-      <div class="step-title">Identificação do Cliente</div>
-    </div>
+  <!-- CAPÍTULO 3: CREDIÁRIO E IMPRESSÃO DE CARNÊS -->
+  <div>
+    <h1>3. Crediário Próprio & Impressão de Carnês</h1>
     <p>
-      • Digite o <b>CPF do Cliente</b> e clique em <b>"Buscar CPF"</b>.<br>
-      • Se o cliente já comprou na loja antes, o sistema preencherá automaticamente o Nome, Telefone, Data de Nascimento e Endereço!<br>
-      • Se for um cliente novo, basta preencher o <b>Nome Completo</b> e o <b>WhatsApp</b> (obrigatório para avisos de entrega).
+      O crediário próprio é a ferramenta mais poderosa para fidelizar clientes em cidades e bairros. O RETSYS possui
+      emissor nativo de carnê idêntico ao modelo clássico de ótica.
     </p>
+
+    <h2>Como Emitir o Carnê de Pagamento</h2>
+    <div class="step-box">
+      <div class="step-header">
+        <div class="step-number">1</div>
+        <div class="step-title">Acessando a Impressão do Carnê</div>
+      </div>
+      <p>
+        Após salvar a Ordem de Serviço ou acessando o Painel de OS, você verá o botão com o ícone de pergaminho <b>[ 📜
+          ]</b> na linha da ordem de serviço.
+        Clique nele para abrir a página de <b>Impressão de Carnê</b>.
+      </p>
+    </div>
+
+    <h2>Estrutura das Folhas do Carnê</h2>
+    <p>Cada parcela impressa é dividida em duas vias padronizadas:</p>
+    <div class="grid-2">
+      <div class="card-simple" style="border-left: 4px solid #0f172a;">
+        <h4>Canhoto do Caixa (Via da Ótica)</h4>
+        <p>
+          Fica no carnê do cliente até o momento do pagamento. Quando o cliente comparece à loja para pagar a prestação,
+          a atendente destaca esse canhoto, carimba a data de quitação e guarda no caixa.
+        </p>
+      </div>
+      <div class="card-simple" style="border-left: 4px solid #0d9488;">
+        <h4>Corpo da Parcela (Via do Cliente)</h4>
+        <p>
+          Contém o logotipo da Ótica, CNPJ, Telefone, Endereço, Nome Completo do Paciente, Número da O.S., Número da
+          Parcela (ex: 02/05), Data de Vencimento e Espaço para Carimbo de Quitado.
+        </p>
+      </div>
+    </div>
+
+    <div class="callout callout-warning">
+      <div class="callout-title">⚠️ Régua de Inadimplência e Atrasos</div>
+      O sistema calcula automaticamente quantos dias uma parcela está em atraso. Na tela de quitação, o atendente pode
+      aplicar multa e juros conforme a política definida pelo gerente da loja.
+    </div>
+
+    <h2>Formatos de Impressão Suportados</h2>
+    <ul>
+      <li><b>Papel Sulfite A4:</b> Imprime até 3 ou 4 lâminas de carnê por página com linhas pontilhadas para corte.
+      </li>
+      <li><b>Impressora Térmica 80mm:</b> Para lojas que utilizam impressoras de bobina (Epson, Bematech, Elgin),
+        permitindo emitir os carnês um a um na velocidade do balcão.</li>
+    </ul>
   </div>
 
-  <div class="step-box">
-    <div class="step-header">
-      <div class="step-number">2</div>
-      <div class="step-title">Preenchimento da Receita (Refração Oftalmológica)</div>
-    </div>
+  <div class="page-break"></div>
+
+  <!-- CAPÍTULO 4: ESTEIRA DE LABORATÓRIO E KANBAN -->
+  <div>
+    <h1>4. Esteira de Laboratório, Montagem & Retirada</h1>
     <p>
-      O sistema adota a convenção médica brasileira padronizada:
+      Nunca mais perca o prazo de entrega de um óculos! O RETSYS possui uma esteira especialista de laboratório e um
+      <b>Quadro Kanban</b> visual.
     </p>
+
+    <h2>As 5 Etapas do Ciclo dos Óculos</h2>
     <table>
       <thead>
         <tr>
-          <th>Olho</th>
-          <th>Esférico (Longe)</th>
-          <th>Cilíndrico</th>
-          <th>Eixo (0° a 180°)</th>
-          <th>Adição (AD)</th>
-          <th>DNP (mm)</th>
-          <th>Altura (mm)</th>
+          <th>Etapa</th>
+          <th>Onde os Óculos Estão?</th>
+          <th>Ação do Atendente</th>
         </tr>
       </thead>
       <tbody>
         <tr>
-          <td><b>OD</b> (Direito)</td>
-          <td>-2.50</td>
-          <td>-0.75</td>
-          <td>180°</td>
-          <td>+2.00</td>
-          <td>31.5</td>
-          <td>18.0</td>
+          <td><span class="pill pill-amber">1. Lançada</span></td>
+          <td>No balcão de vendas</td>
+          <td>A OS foi emitida e aguarda o pedido da lente ao fornecedor.</td>
         </tr>
         <tr>
-          <td><b>OE</b> (Esquerdo)</td>
-          <td>-2.25</td>
-          <td>-0.50</td>
-          <td>175°</td>
-          <td>+2.00</td>
-          <td>31.0</td>
-          <td>18.0</td>
+          <td><span class="pill pill-blue">2. Lab Externo</span></td>
+          <td>No laboratório (Essilor/Hoya/Zeiss)</td>
+          <td>A lente foi solicitada. Digite o número do pedido para rastreio.</td>
+        </tr>
+        <tr>
+          <td><span class="pill pill-teal">3. Em Montagem</span></td>
+          <td>Na oficina / surfaçagem interna</td>
+          <td>A lente chegou da distribuidora e está sendo recortada e montada no aro.</td>
+        </tr>
+        <tr>
+          <td><span class="pill pill-green">4. Pronta no Balcão</span></td>
+          <td>Na gaveta de entregas da loja</td>
+          <td>Montagem concluída e lensometria validada. Óculos prontos!</td>
+        </tr>
+        <tr>
+          <td><span class="pill pill-green">5. Entregue</span></td>
+          <td>Nas mãos do paciente</td>
+          <td>Cliente retirou o produto e quitou o saldo restante.</td>
         </tr>
       </tbody>
     </table>
-    <div class="callout callout-tip" style="margin-top: 6px;">
-      <b>Cálculo Automático da Adição:</b> Ao digitar o grau de Longe e de Perto, o RETSYS calcula automaticamente a Adição. Você também pode preencher ou ajustar a Adição manualmente a qualquer momento.
-    </div>
-  </div>
 
-  <div class="step-box">
-    <div class="step-header">
-      <div class="step-number">3</div>
-      <div class="step-title">Armação, Lente e Laboratório</div>
-    </div>
+    <h2>Lensometria & Controle de Qualidade</h2>
     <p>
-      • <b>Armação:</b> Selecione a peça do estoque da loja ou digite o modelo avulso se o cliente trouxe a própria armação.<br>
-      • <b>Lente:</b> Escolha a família da lente (Visão Simples, Bifocal ou Multifocal), o material/índice (1.56, 1.67, 1.74) e tratamentos (Antirreflexo, Crizal, Blue UV).<br>
-      • <b>Laboratório Parceiro:</b> Indique para onde o serviço será enviado (Essilor, Hoya, Zeiss ou Laboratório Local de Montagem).
+      Antes de avisar o cliente que o óculos está pronto, o montador ou optometrista deve posicionar as lentes no
+      <b>lensômetro</b> da loja e conferir se o grau esférico, cilíndrico e eixo batem rigorosamente com a receita do
+      médico.
+      No RETSYS, basta clicar em <b>"Validar Lensometria"</b> para registrar o operador e o horário da checagem de
+      qualidade.
+    </p>
+
+    <h2>Aviso de "Óculos Pronto" no WhatsApp em 1 Clique</h2>
+    <p>
+      Assim que a ordem muda para <b>PRONTA</b>, surge o botão verde de WhatsApp com mensagem personalizada para
+      notificar o cliente na mesma hora.
     </p>
   </div>
 
-  <div class="step-box">
-    <div class="step-header">
-      <div class="step-number">4</div>
-      <div class="step-title">Fechamento Financeiro & Formas de Pagamento</div>
-    </div>
+  <div class="page-break"></div>
+
+  <!-- CAPÍTULO 5: CRM DE RECALL E RETORNO DE 1 ANO -->
+  <div>
+    <h1>5. Central de CRM Óptico & Recall Anual</h1>
     <p>
-      O sistema totaliza os valores automaticamente:<br>
-      <b>Total Bruto = Armação + Lente + Montagem - Desconto</b><br>
-      Selecione a forma de pagamento:
+      O segredo do faturamento recorrente das óticas líderes é o <b>Recall Anual</b>. A maioria dos pacientes esquece de
+      renovar seus exames após 1 ano. O RETSYS faz essa cobrança elegante por você!
     </p>
-    <ul>
-      <li><b>Dinheiro / PIX:</b> Quitação à vista com emissão do recibo.</li>
-      <li><b>Cartão de Crédito:</b> Parcelamento em até 12x com registro da bandeira.</li>
-      <li><b>Crediário Próprio / Carnê da Loja:</b> O sistema divide o saldo restante em até 10 parcelas mensais e gera o carnê impresso imediatamente.</li>
-    </ul>
-  </div>
-</div>
 
-<div class="page-break"></div>
+    <h2>Acessando o Painel de CRM</h2>
+    <p>No menu lateral, clique em <b>CRM & Recall (1 Ano)</b>. O sistema divide os pacientes em 3 abas inteligentes:</p>
 
-<!-- CAPÍTULO 3: CREDIÁRIO E IMPRESSÃO DE CARNÊS -->
-<div>
-  <h1>3. Crediário Próprio & Impressão de Carnês</h1>
-  <p>
-    O crediário próprio é a ferramenta mais poderosa para fidelizar clientes em cidades e bairros. O RETSYS possui emissor nativo de carnê idêntico ao modelo clássico de ótica.
-  </p>
-
-  <h2>Como Emitir o Carnê de Pagamento</h2>
-  <div class="step-box">
-    <div class="step-header">
-      <div class="step-number">1</div>
-      <div class="step-title">Acessando a Impressão do Carnê</div>
-    </div>
-    <p>
-      Após salvar a Ordem de Serviço ou acessando o Painel de OS, você verá o botão com o ícone de pergaminho <b>[ 📜 ]</b> na linha da ordem de serviço.
-      Clique nele para abrir a página de <b>Impressão de Carnê</b>.
-    </p>
-  </div>
-
-  <h2>Estrutura das Folhas do Carnê</h2>
-  <p>Cada parcela impressa é dividida em duas vias padronizadas:</p>
-  <div class="grid-2">
-    <div class="card-simple" style="border-left: 4px solid #0f172a;">
-      <h4>Canhoto do Caixa (Via da Ótica)</h4>
+    <div class="step-box">
+      <div class="step-header">
+        <div class="step-number">1</div>
+        <div class="step-title">Recall de Consulta (330 a 365 dias)</div>
+      </div>
       <p>
-        Fica no carnê do cliente até o momento do pagamento. Quando o cliente comparece à loja para pagar a prestação, a atendente destaca esse canhoto, carimba a data de quitação e guarda no caixa.
+        Lista todos os pacientes cuja receita oftálmica completou 11 a 12 meses.
+        Ao lado de cada nome, clique em <b>"WhatsApp"</b>: o sistema abre o aplicativo do WhatsApp com a mensagem pronta
+        convidando o paciente para agendar um novo exame de vista com o médico da preferência dele.
       </p>
     </div>
-    <div class="card-simple" style="border-left: 4px solid #0d9488;">
-      <h4>Corpo da Parcela (Via do Cliente)</h4>
+
+    <div class="step-box">
+      <div class="step-header">
+        <div class="step-number">2</div>
+        <div class="step-title">Aniversariantes do Mês</div>
+      </div>
       <p>
-        Contém o logotipo da Ótica, CNPJ, Telefone, Endereço, Nome Completo do Paciente, Número da O.S., Número da Parcela (ex: 02/05), Data de Vencimento e Espaço para Carimbo de Quitado.
+        Exibe todos os clientes que fazem aniversário no mês vigente, destacando com um selo quem faz aniversário
+        <b>HOJE</b>.
+        Envie uma mensagem carinhosa de parabéns com um cupom de 10% ou 15% de desconto para presenteá-lo.
+      </p>
+    </div>
+
+    <div class="step-box">
+      <div class="step-header">
+        <div class="step-number">3</div>
+        <div class="step-title">Pós-Venda de Adaptação Multifocal (7 a 45 dias)</div>
+      </div>
+      <p>
+        Lentes multifocais exigem adaptação cerebral e pequenos ajustes na altura das plaquetas.
+        O sistema lista clientes que retiraram óculos nas últimas 3 semanas para você checar se a visão de perto e de
+        longe está confortável.
       </p>
     </div>
   </div>
 
-  <div class="callout callout-warning">
-    <div class="callout-title">⚠️ Régua de Inadimplência e Atrasos</div>
-    O sistema calcula automaticamente quantos dias uma parcela está em atraso. Na tela de quitação, o atendente pode aplicar multa e juros conforme a política definida pelo gerente da loja.
-  </div>
+  <div class="page-break"></div>
 
-  <h2>Formatos de Impressão Suportados</h2>
-  <ul>
-    <li><b>Papel Sulfite A4:</b> Imprime até 3 ou 4 lâminas de carnê por página com linhas pontilhadas para corte.</li>
-    <li><b>Impressora Térmica 80mm:</b> Para lojas que utilizam impressoras de bobina (Epson, Bematech, Elgin), permitindo emitir os carnês um a um na velocidade do balcão.</li>
-  </ul>
-</div>
+  <!-- CAPÍTULO 6: PDV BALCÃO RÁPIDO & FECHAMENTO DE CAIXA -->
+  <div>
+    <h1>6. PDV Balcão Rápido, Caixa & Comissões</h1>
 
-<div class="page-break"></div>
-
-<!-- CAPÍTULO 4: ESTEIRA DE LABORATÓRIO E KANBAN -->
-<div>
-  <h1>4. Esteira de Laboratório, Montagem & Retirada</h1>
-  <p>
-    Nunca mais perca o prazo de entrega de um óculos! O RETSYS possui uma esteira especialista de laboratório e um <b>Quadro Kanban</b> visual.
-  </p>
-
-  <h2>As 5 Etapas do Ciclo dos Óculos</h2>
-  <table>
-    <thead>
-      <tr>
-        <th>Etapa</th>
-        <th>Onde os Óculos Estão?</th>
-        <th>Ação do Atendente</th>
-      </tr>
-    </thead>
-    <tbody>
-      <tr>
-        <td><span class="pill pill-amber">1. Lançada</span></td>
-        <td>No balcão de vendas</td>
-        <td>A OS foi emitida e aguarda o pedido da lente ao fornecedor.</td>
-      </tr>
-      <tr>
-        <td><span class="pill pill-blue">2. Lab Externo</span></td>
-        <td>No laboratório (Essilor/Hoya/Zeiss)</td>
-        <td>A lente foi solicitada. Digite o número do pedido para rastreio.</td>
-      </tr>
-      <tr>
-        <td><span class="pill pill-teal">3. Em Montagem</span></td>
-        <td>Na oficina / surfaçagem interna</td>
-        <td>A lente chegou da distribuidora e está sendo recortada e montada no aro.</td>
-      </tr>
-      <tr>
-        <td><span class="pill pill-green">4. Pronta no Balcão</span></td>
-        <td>Na gaveta de entregas da loja</td>
-        <td>Montagem concluída e lensometria validada. Óculos prontos!</td>
-      </tr>
-      <tr>
-        <td><span class="pill pill-green">5. Entregue</span></td>
-        <td>Nas mãos do paciente</td>
-        <td>Cliente retirou o produto e quitou o saldo restante.</td>
-      </tr>
-    </tbody>
-  </table>
-
-  <h2>Lensometria & Controle de Qualidade</h2>
-  <p>
-    Antes de avisar o cliente que o óculos está pronto, o montador ou optometrista deve posicionar as lentes no <b>lensômetro</b> da loja e conferir se o grau esférico, cilíndrico e eixo batem rigorosamente com a receita do médico.
-    No RETSYS, basta clicar em <b>"Validar Lensometria"</b> para registrar o operador e o horário da checagem de qualidade.
-  </p>
-
-  <h2>Aviso de "Óculos Pronto" no WhatsApp em 1 Clique</h2>
-  <p>
-    Assim que a ordem muda para <b>PRONTA</b>, surge o botão verde de WhatsApp com mensagem personalizada para notificar o cliente na mesma hora.
-  </p>
-</div>
-
-<div class="page-break"></div>
-
-<!-- CAPÍTULO 5: CRM DE RECALL E RETORNO DE 1 ANO -->
-<div>
-  <h1>5. Central de CRM Óptico & Recall Anual</h1>
-  <p>
-    O segredo do faturamento recorrente das óticas líderes é o <b>Recall Anual</b>. A maioria dos pacientes esquece de renovar seus exames após 1 ano. O RETSYS faz essa cobrança elegante por você!
-  </p>
-
-  <h2>Acessando o Painel de CRM</h2>
-  <p>No menu lateral, clique em <b>CRM & Recall (1 Ano)</b>. O sistema divide os pacientes em 3 abas inteligentes:</p>
-
-  <div class="step-box">
-    <div class="step-header">
-      <div class="step-number">1</div>
-      <div class="step-title">Recall de Consulta (330 a 365 dias)</div>
+    <h2>PDV de Venda Direta (Sem O.S.)</h2>
+    <p>
+      Para vendas rápidas de armações solares, caixas de lentes de contato descartáveis, cordões, estojos e produtos de
+      limpeza de lentes:
+    </p>
+    <div class="step-box">
+      <div class="step-header">
+        <div class="step-number">1</div>
+        <div class="step-title">Operando o PDV Balcão</div>
+      </div>
+      <p>
+        1. Clique no botão âmbar <b>"🛒 PDV Balcão"</b> no topo da tela.<br>
+        2. Busque o produto pelo nome, código ou marca.<br>
+        3. Clique nos produtos para adicionar ao carrinho à direita.<br>
+        4. Selecione o Cliente (ou deixe <i>Consumidor Balcão</i>) e escolha a forma de pagamento.<br>
+        5. Clique em <b>"Finalizar Venda"</b>: o estoque é baixado instantaneamente e o comprovante térmico de 80mm é
+        emitido.
+      </p>
     </div>
+
+    <h2>Fluxo de Caixa Diário & Fechamento</h2>
     <p>
-      Lista todos os pacientes cuja receita oftálmica completou 11 a 12 meses.
-      Ao lado de cada nome, clique em <b>"WhatsApp"</b>: o sistema abre o aplicativo do WhatsApp com a mensagem pronta convidando o paciente para agendar um novo exame de vista com o médico da preferência dele.
+      No módulo de Caixa, o gerente tem a visão consolidada de todas as entradas em Dinheiro, Cartão de Débito, Cartão
+      de Crédito e PIX.
+      No fim do expediente, basta conferir as gavetas físicas e emitir o <b>Fechamento de Caixa Diário</b>.
+    </p>
+
+    <h2>Minhas Comissões (Extrato da Vendedora)</h2>
+    <p>
+      Toda vendedora tem acesso à tela de Minhas Comissões. Nela, a atendente acompanha em tempo real o total faturado
+      no mês e sua comissão acumulada.
     </p>
   </div>
 
-  <div class="step-box">
-    <div class="step-header">
-      <div class="step-number">2</div>
-      <div class="step-title">Aniversariantes do Mês</div>
+  <div class="page-break"></div>
+
+  <!-- CAPÍTULO 7: PERGUNTAS FREQUENTES (FAQ) -->
+  <div>
+    <h1>7. Perguntas Frequentes & Resolução Rápida</h1>
+
+    <div class="step-box">
+      <h3 style="margin-top:0;">❓ O cliente trouxe a armação de casa e só comprou as lentes. Como lançar?</h3>
+      <p>
+        Na emissão da O.S., basta selecionar a opção <b>"Armação Própria do Cliente"</b> e digitar a marca/modelo no
+        campo de texto livre. O sistema não descontará nenhuma unidade do seu estoque físico e cobrará apenas o valor
+        das lentes e da montagem.
+      </p>
     </div>
-    <p>
-      Exibe todos os clientes que fazem aniversário no mês vigente, destacando com um selo quem faz aniversário <b>HOJE</b>.
-      Envie uma mensagem carinhosa de parabéns com um cupom de 10% ou 15% de desconto para presenteá-lo.
-    </p>
-  </div>
 
-  <div class="step-box">
-    <div class="step-header">
-      <div class="step-number">3</div>
-      <div class="step-title">Pós-Venda de Adaptação Multifocal (7 a 45 dias)</div>
+    <div class="step-box">
+      <h3 style="margin-top:0;">❓ Como dar baixa quando o cliente vier buscar os óculos e pagar o restante?</h3>
+      <p>
+        Acesse o menu <b>Ordens de Serviço</b>, localize a O.S. pelo número ou nome do cliente e clique no botão verde
+        <b>"🚚 Entregar"</b>.
+        Se houver saldo a pagar (ex: R$ 300,00 restantes), abrirá uma janela para você registrar se o cliente pagou em
+        Dinheiro, Cartão ou PIX e confirmar a entrega.
+      </p>
     </div>
-    <p>
-      Lentes multifocais exigem adaptação cerebral e pequenos ajustes na altura das plaquetas.
-      O sistema lista clientes que retiraram óculos nas últimas 3 semanas para você checar se a visão de perto e de longe está confortável.
-    </p>
-  </div>
-</div>
 
-<div class="page-break"></div>
-
-<!-- CAPÍTULO 6: PDV BALCÃO RÁPIDO & FECHAMENTO DE CAIXA -->
-<div>
-  <h1>6. PDV Balcão Rápido, Caixa & Comissões</h1>
-
-  <h2>PDV de Venda Direta (Sem O.S.)</h2>
-  <p>
-    Para vendas rápidas de armações solares, caixas de lentes de contato descartáveis, cordões, estojos e produtos de limpeza de lentes:
-  </p>
-  <div class="step-box">
-    <div class="step-header">
-      <div class="step-number">1</div>
-      <div class="step-title">Operando o PDV Balcão</div>
+    <div class="step-box">
+      <h3 style="margin-top:0;">❓ Posso corrigir uma data ou grau de uma OS que já foi fechada?</h3>
+      <p>
+        Sim! Usuários com perfil de <b>Gerente</b> ou <b>Administrador</b> têm acesso ao botão de lápis <b>[ ✏️ ]</b> na
+        listagem de OS.
+        Qualquer alteração em valores recalcula automaticamente as comissões da vendedora e gera um registro inviolável
+        no <b>Log de Auditoria</b> do sistema.
+      </p>
     </div>
-    <p>
-      1. Clique no botão âmbar <b>"🛒 PDV Balcão"</b> no topo da tela.<br>
-      2. Busque o produto pelo nome, código ou marca.<br>
-      3. Clique nos produtos para adicionar ao carrinho à direita.<br>
-      4. Selecione o Cliente (ou deixe <i>Consumidor Balcão</i>) e escolha a forma de pagamento.<br>
-      5. Clique em <b>"Finalizar Venda"</b>: o estoque é baixado instantaneamente e o comprovante térmico de 80mm é emitido.
-    </p>
+
+    <div
+      style="margin-top: 40px; padding: 20px; background: #f8fafc; border: 2px dashed #cbd5e1; border-radius: 16px; text-align: center;">
+      <h3 style="margin: 0 0 6px 0; color: #0f172a;">Suporte & Atendimento Técnico RETSYS</h3>
+      <p style="margin: 0; font-size: 9pt; color: #64748b;">
+        Em caso de dúvidas operacionais ou necessidade de configuração de novas impressoras térmicas, contate o
+        administrador do sistema.
+      </p>
+      <p style="margin: 8px 0 0 0; font-weight: 800; font-family: 'JetBrains Mono', monospace; color: #0d9488;">
+        RETSYS ÓTICAS 2.0 • GESTÃO ESPECIALISTA
+      </p>
+    </div>
   </div>
-
-  <h2>Fluxo de Caixa Diário & Fechamento</h2>
-  <p>
-    No módulo de Caixa, o gerente tem a visão consolidada de todas as entradas em Dinheiro, Cartão de Débito, Cartão de Crédito e PIX.
-    No fim do expediente, basta conferir as gavetas físicas e emitir o <b>Fechamento de Caixa Diário</b>.
-  </p>
-
-  <h2>Minhas Comissões (Extrato da Vendedora)</h2>
-  <p>
-    Toda vendedora tem acesso à tela de Minhas Comissões. Nela, a atendente acompanha em tempo real o total faturado no mês e sua comissão acumulada.
-  </p>
-</div>
-
-<div class="page-break"></div>
-
-<!-- CAPÍTULO 7: PERGUNTAS FREQUENTES (FAQ) -->
-<div>
-  <h1>7. Perguntas Frequentes & Resolução Rápida</h1>
-
-  <div class="step-box">
-    <h3 style="margin-top:0;">❓ O cliente trouxe a armação de casa e só comprou as lentes. Como lançar?</h3>
-    <p>
-      Na emissão da O.S., basta selecionar a opção <b>"Armação Própria do Cliente"</b> e digitar a marca/modelo no campo de texto livre. O sistema não descontará nenhuma unidade do seu estoque físico e cobrará apenas o valor das lentes e da montagem.
-    </p>
-  </div>
-
-  <div class="step-box">
-    <h3 style="margin-top:0;">❓ Como dar baixa quando o cliente vier buscar os óculos e pagar o restante?</h3>
-    <p>
-      Acesse o menu <b>Ordens de Serviço</b>, localize a O.S. pelo número ou nome do cliente e clique no botão verde <b>"🚚 Entregar"</b>.
-      Se houver saldo a pagar (ex: R$ 300,00 restantes), abrirá uma janela para você registrar se o cliente pagou em Dinheiro, Cartão ou PIX e confirmar a entrega.
-    </p>
-  </div>
-
-  <div class="step-box">
-    <h3 style="margin-top:0;">❓ Posso corrigir uma data ou grau de uma OS que já foi fechada?</h3>
-    <p>
-      Sim! Usuários com perfil de <b>Gerente</b> ou <b>Administrador</b> têm acesso ao botão de lápis <b>[ ✏️ ]</b> na listagem de OS.
-      Qualquer alteração em valores recalcula automaticamente as comissões da vendedora e gera um registro inviolável no <b>Log de Auditoria</b> do sistema.
-    </p>
-  </div>
-
-  <div style="margin-top: 40px; padding: 20px; background: #f8fafc; border: 2px dashed #cbd5e1; border-radius: 16px; text-align: center;">
-    <h3 style="margin: 0 0 6px 0; color: #0f172a;">Suporte & Atendimento Técnico RETSYS</h3>
-    <p style="margin: 0; font-size: 9pt; color: #64748b;">
-      Em caso de dúvidas operacionais ou necessidade de configuração de novas impressoras térmicas, contate o administrador do sistema.
-    </p>
-    <p style="margin: 8px 0 0 0; font-weight: 800; font-family: 'JetBrains Mono', monospace; color: #0d9488;">
-      RETSYS ÓTICAS 2.0 • GESTÃO ESPECIALISTA
-    </p>
-  </div>
-</div>
 
 </body>
+
 </html>

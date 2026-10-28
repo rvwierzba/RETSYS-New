@@ -294,3 +294,39 @@ Este documento atua como o registro de **Memória Incremental** do projeto RETSY
 ### 3. Validação de Build
 - **Frontend**: `npm run build` executado com êxito (143 módulos, 0 erros).
 - **Backend**: `dotnet build` executado com êxito (0 erros, 0 avisos).
+
+
+## [LOG-007] - 2026-10-28: Correção Crítica do Histórico de Vendas (/vendas), Quirks Mode e Unificação Comercial
+- **Autor/Agente**: Arquiteto de Software & Assistente de IA Avançado (Antigravity)
+- **Módulos Afetados**: `RETSYS.Web/Controllers/VendasController.cs` (removido), `RETSYS.Web/Controllers/VendasBalcaoController.cs`, `RETSYS.Web/Frontend/Pages/Vendas/Index.vue`, `RETSYS.Web/Views/App.cshtml`
+- **Contexto & Solicitante**: Usuário reportou em produção (`https://wo-retsys.tech/`) tela de erro "Ocorreu um erro inesperado. Nossa equipe já foi notificada" e erro no console `TypeError: can't access property "default", e is undefined` ao clicar em "Histórico de Vendas", juntamente com aviso de "Quirks Mode" no navegador.
+
+### 1. Diagnóstico da Causa Raiz
+1. **Conflito de Rotas Ambíguas (AmbiguousMatchException - HTTP 500)**:
+   - Havia dois controllers registrando exatamente a rota `[HttpGet("/vendas")]`:
+     - `VendasController.cs` (controller stub redundante sem injeção de dependências ou dados).
+     - `VendasBalcaoController.cs` (controller multi-tenant real).
+   - O ASP.NET Core disparava `AmbiguousMatchException` em tempo de execução, caindo no `UseExceptionHandler` que retornava HTTP 500 em texto puro. O Inertia tentava carregar o componente e falhava com `e is undefined` (`can't access property 'default'`).
+2. **Quirks Mode no Navegador**:
+   - `RETSYS.Web/Views/App.cshtml` continha blocos C# Razor `@using` e `@{ ... }` antes do `<!DOCTYPE html>`, emitindo quebras de linha em branco antes do doctype e forçando navegadores (como Firefox) a entrar em Quirks Mode.
+3. **Formatação de Data em LINQ PostgreSQL**:
+   - As queries em `VendasBalcaoController.cs` continham `DataVenda.ToString("dd/MM/yyyy HH:mm")` dentro de projeções LINQ do EF Core, o que causava incompatibilidade de tradução SQL no Npgsql.
+
+### 2. Resumo das Soluções Implementadas
+1. **Eliminação da Rota Duplicada**:
+   - Removido permanentemente o arquivo redundante `RETSYS.Web/Controllers/VendasController.cs`.
+2. **Correção do DOCTYPE para Standards Mode**:
+   - Reorganizado `RETSYS.Web/Views/App.cshtml` para garantir `<!DOCTYPE html>` exatamente na linha 1 do documento, eliminando o Quirks Mode.
+3. **Projeção em Memória e Unificação Comercial no Histórico de Vendas**:
+   - `VendasBalcaoController.Index`:
+     - Executa busca segura no banco e projeta a formatação de data em memória C# com `.Select(...)` após `.ToListAsync()`.
+     - Integra no Histórico de Vendas tanto as saídas de **PDV Balcão (VB-...)** quanto as de **Ordens de Serviço (OS-...)**, permitindo visualização consolidada com métricas de faturamento e totalizadores.
+     - `Comprovante`: Consulta individual tratada em memória de forma segura.
+4. **Remodelação de `Vendas/Index.vue`**:
+   - KPI Cards no topo (Faturamento Filtrado, Total de Operações, Vendas Balcão, Ordens de Serviço).
+   - Abas de navegação rápida: `[ Todas as Vendas ]`, `[ Apenas Balcão (VB) ]`, `[ Apenas OSs de Grau ]`.
+   - Busca em tempo real, badges visuais e atalhos para emissão de cupom térmico e visualização de OS.
+
+### 3. Validação e Verificação
+- **Frontend Build**: `npm run build` executado com êxito (143 módulos, 0 erros).
+- **Backend Build**: `dotnet build RETSYS.Web/RETSYS.Web.csproj --no-restore -nodereuse:false -maxcpucount:1` finalizado com êxito (0 erros, 0 avisos).
