@@ -322,32 +322,11 @@ namespace RETSYS.Web.Controllers
             });
         }
 
-        // 4. Lista de Aniversariantes do Mês
+        // 4. Lista de Aniversariantes do Mês (Centralizado no Módulo CRM)
         [HttpGet("/clientes/aniversariantes")]
-        public async Task<IActionResult> Aniversariantes([FromQuery] int? mes)
+        public IActionResult Aniversariantes([FromQuery] int? mes)
         {
-            var oticaId = ObterOticaId();
-            var mesFiltro = mes ?? DateTime.Today.Month;
-
-            var aniversariantes = await _context.Clientes
-                .Where(c => c.OticaId == oticaId && c.DataNascimento.HasValue && c.DataNascimento.Value.Month == mesFiltro)
-                .OrderBy(c => c.DataNascimento!.Value.Day)
-                .Select(c => new
-                {
-                    c.Id,
-                    c.Nome,
-                    c.Telefone,
-                    c.Email,
-                    DataNascimento = c.DataNascimento,
-                    Dia = c.DataNascimento!.Value.Day
-                })
-                .ToListAsync();
-
-            return Inertia.Render("Clientes/Aniversariantes", new
-            {
-                Aniversariantes = aniversariantes,
-                MesFiltro = mesFiltro
-            });
+            return Redirect("/crm");
         }
 
         // 5. Edição de Cliente

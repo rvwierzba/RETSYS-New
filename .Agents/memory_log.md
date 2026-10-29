@@ -330,3 +330,41 @@ Este documento atua como o registro de **Memória Incremental** do projeto RETSY
 ### 3. Validação e Verificação
 - **Frontend Build**: `npm run build` executado com êxito (143 módulos, 0 erros).
 - **Backend Build**: `dotnet build RETSYS.Web/RETSYS.Web.csproj --no-restore -nodereuse:false -maxcpucount:1` finalizado com êxito (0 erros, 0 avisos).
+
+## [LOG-008] - 2026-10-29: Edição Completa de OS, Receita Padrão Oftalmológico com Grau de Perto e Disparos de WhatsApp
+- **Autor/Agente**: Arquiteto de Software & Assistente de IA Avançado (Antigravity)
+- **Módulos Afetados**: `RETSYS.Web/Controllers/OrdensServicoController.cs`, `RETSYS.Web/Controllers/ClientesController.cs`, `RETSYS.Web/Frontend/Pages/OrdensServico/Edit.vue` (novo), `RETSYS.Web/Frontend/Pages/OrdensServico/Create.vue`, `RETSYS.Web/Frontend/Pages/OrdensServico/Index.vue`, `RETSYS.Web/Frontend/Pages/Crm/Index.vue`, `RETSYS.Web/Frontend/app.js`
+- **Contexto & Solicitante**: Usuário reportou que o botão de editar OS não funcionava, solicitou a adequação da tabela de receitas para o formato oftalmológico brasileiro contendo o campo explícito "Grau de Perto" com cálculo automático de Adição (com base na foto médica enviada do Hospital de Olhos Bragança - Dr. Ulysses Tachibana), integração de disparos de WhatsApp (Óculos Pronto, 1 Ano de Receita / Recall e Pós-venda de adaptação) e auditoria de todos os fluxos de navegação e CRUD.
+
+### 1. Resumo das Soluções Implementadas
+1. **Edição Completa de Ordem de Serviço (OS)**:
+   - Identificada a causa raiz: `OrdensServico/Index.vue` chamava `abrirModalEditarAdmin` (inexistente) e não havia nem página `Edit.vue` nem endpoint `[HttpGet("/ordens/{id}/editar")]`.
+   - Criada a página `RETSYS.Web/Frontend/Pages/OrdensServico/Edit.vue` estruturada em 5 abas completas:
+     - Aba 1: Cliente e Dados de Atendimento (Vendedor, Loja, Datas, Status, Observações).
+     - Aba 2: Receituário Clínico com Padrão Oftalmológico Brasileiro (Longe e Perto).
+     - Aba 3: Produtos, Armação, Lente e Laboratório Parceiro (Essilor, Hoya, Zeiss, etc.).
+     - Aba 4: Fechamento Financeiro, Descontos, Entrada e Parcelas.
+     - Aba 5: Trilha de Auditoria com histórico de modificações (`OsAuditoriaLogs`).
+   - Implementado endpoint `[HttpGet("/ordens/{id:guid}/editar")]` no `OrdensServicoController.cs` com pré-carregamento de todas as entidades relacionadas e permissão multi-tenant.
+   - Ajustado `EditarAdmin` (`[HttpPost("/ordens/{id:guid}/editar")]`) com suporte a vendedores e gerentes da loja.
+
+2. **Receituário Clínico Padrão Oftalmológico Brasileiro ("Grau de Perto")**:
+   - Atualizados `Create.vue`, `Edit.vue` e a prancheta de `Index.vue` para exibir a grade clássica:
+     - **Para Longe**: OD / OE (Esférico, Cilíndrico, Eixo, DP/DNP).
+     - **Para Perto**: OD / OE (Esférico, Cilíndrico, Eixo, DP/DNP).
+   - Reatividade bidirecional automática:
+     - `Grau de Perto = Grau de Longe + Adição`.
+     - `Adição = Grau de Perto - Grau de Longe`.
+   - Persistência transparente e retrocompatível no backend: caso o operador preencha o grau de perto, a adição é automaticamente calculada e gravada em `OsReceita`.
+
+3. **Módulo de Mensageria e Disparos de WhatsApp (CRM & Notificação Operacional)**:
+   - **Óculos Pronto**: Na listagem e na prancheta de OSs (`Index.vue`), integrado modal inteligente de WhatsApp que abre automaticamente quando o status muda para `PRONTA` ou ao clicar no botão de WhatsApp da OS, gerando link formatado `https://api.whatsapp.com/send?phone=...` com mensagem personalizada contendo o nome do cliente, número da OS e convite para retirada na loja.
+   - **Recall de 1 Ano & Pós-Venda**: No CRM (`Crm/Index.vue`), corrigido o mapeamento de props enviadas pelo backend (`ListaRecall`, `ListaPosVenda`, `ListaAniversariantes`), adicionado modal com template de mensagem personalizável e botão de disparo com 1 clique.
+   - Rota `/clientes/aniversariantes` redirecionada de forma segura para `/crm`.
+
+4. **Resolução de Erros de Roteamento no Inertia**:
+   - Modificado `app.js` com resolvedor de páginas case-insensitive defensivo para evitar falhas `TypeError: can't access property "default", e is undefined`.
+
+### 2. Validação e Verificação
+- **Backend Build**: `dotnet build RETSYS.Web/RETSYS.Web.csproj --no-restore -nodereuse:false -maxcpucount:1` finalizado com **0 Erros e 0 Avisos**.
+- **Frontend Build**: `npm --prefix RETSYS.Web run build` compilou 144 módulos com sucesso (3.28s) gerando `app-CdaYgI3D.js` e `app-DEjK2QdT.css`.

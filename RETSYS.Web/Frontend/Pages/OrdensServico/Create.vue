@@ -203,57 +203,131 @@
             </span>
           </div>
 
-          <!-- Grade de Longe -->
-          <div class="p-4 bg-slate-50 rounded-2xl border border-slate-200 space-y-3">
-            <span class="text-xs font-mono font-bold uppercase text-slate-700 tracking-wider block">Grau de Longe</span>
-            
-            <div class="grid grid-cols-4 gap-2 text-center text-[10px] font-mono font-bold text-slate-400">
-              <div>Olho</div><div>Esférico</div><div>Cilíndrico</div><div>Eixo (0° a 180°)</div>
+          <!-- Grade de Longe e Perto (Padrão Oftalmológico BR) -->
+          <div class="p-5 bg-slate-50 rounded-2xl border border-slate-200 space-y-4">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-mono font-bold uppercase text-slate-700 tracking-wider">
+                Receituário de Óculos (Para Longe &amp; Para Perto)
+              </span>
+              <span class="text-[10px] font-mono font-bold text-teal-700 bg-teal-50 border border-teal-200 px-2 py-0.5 rounded-full">
+                OD / OE
+              </span>
             </div>
 
-            <div class="grid grid-cols-4 gap-2 items-center font-mono">
-              <span class="font-bold text-slate-900 text-center">OD</span>
-              <input v-model.number="form.odEsferico" type="number" step="0.25" placeholder="0.00" class="rounded-xl border-slate-200 text-xs text-center font-bold bg-white" />
-              <input v-model.number="form.odCilindrico" type="number" step="0.25" placeholder="0.00" class="rounded-xl border-slate-200 text-xs text-center font-bold text-amber-700 bg-white" />
-              <input v-model.number="form.odEixo" type="number" min="0" max="180" placeholder="180" class="rounded-xl border-slate-200 text-xs text-center bg-white" />
+            <div class="overflow-x-auto">
+              <table class="w-full text-center text-xs border-collapse">
+                <thead>
+                  <tr class="text-[10px] font-mono font-bold uppercase text-slate-400 border-b border-slate-200">
+                    <th class="py-2.5 px-3 text-left">Visão</th>
+                    <th class="py-2.5 px-3">Olho</th>
+                    <th class="py-2.5 px-3">Esférico</th>
+                    <th class="py-2.5 px-3">Cilíndrico</th>
+                    <th class="py-2.5 px-3">Eixo (0° a 180°)</th>
+                    <th class="py-2.5 px-3">DNP / DP (mm)</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-200 font-mono">
+                  <!-- Para Longe - OD -->
+                  <tr class="bg-white">
+                    <td rowspan="2" class="py-3 px-3 text-left font-black text-slate-800 bg-slate-100/60 uppercase text-[10px] tracking-wider border-r border-slate-200">
+                      Para Longe
+                    </td>
+                    <td class="py-3 px-3 font-bold text-slate-900">OD</td>
+                    <td class="py-2 px-2">
+                      <input v-model.number="form.odEsferico" @input="recalcularPerto" type="number" step="0.25" placeholder="0.00" class="w-24 text-center font-bold rounded-lg border-slate-200 text-xs py-1.5 bg-white" />
+                    </td>
+                    <td class="py-2 px-2">
+                      <input v-model.number="form.odCilindrico" type="number" step="0.25" placeholder="0.00" class="w-24 text-center font-bold text-amber-700 rounded-lg border-slate-200 text-xs py-1.5 bg-white" />
+                    </td>
+                    <td class="py-2 px-2">
+                      <input v-model.number="form.odEixo" type="number" min="0" max="180" placeholder="0" class="w-20 text-center rounded-lg border-slate-200 text-xs py-1.5 bg-white" />
+                    </td>
+                    <td class="py-2 px-2">
+                      <input v-model.number="form.dnpOd" type="number" step="0.5" placeholder="32" class="w-20 text-center rounded-lg border-slate-200 text-xs py-1.5 bg-white" />
+                    </td>
+                  </tr>
+
+                  <!-- Para Longe - OE -->
+                  <tr class="bg-white">
+                    <td class="py-3 px-3 font-bold text-slate-900 border-t border-slate-100">OE</td>
+                    <td class="py-2 px-2 border-t border-slate-100">
+                      <input v-model.number="form.oeEsferico" @input="recalcularPerto" type="number" step="0.25" placeholder="0.00" class="w-24 text-center font-bold rounded-lg border-slate-200 text-xs py-1.5 bg-white" />
+                    </td>
+                    <td class="py-2 px-2 border-t border-slate-100">
+                      <input v-model.number="form.oeCilindrico" type="number" step="0.25" placeholder="0.00" class="w-24 text-center font-bold text-amber-700 rounded-lg border-slate-200 text-xs py-1.5 bg-white" />
+                    </td>
+                    <td class="py-2 px-2 border-t border-slate-100">
+                      <input v-model.number="form.oeEixo" type="number" min="0" max="180" placeholder="0" class="w-20 text-center rounded-lg border-slate-200 text-xs py-1.5 bg-white" />
+                    </td>
+                    <td class="py-2 px-2 border-t border-slate-100">
+                      <input v-model.number="form.dnpOe" type="number" step="0.5" placeholder="32" class="w-20 text-center rounded-lg border-slate-200 text-xs py-1.5 bg-white" />
+                    </td>
+                  </tr>
+
+                  <!-- Para Perto - OD -->
+                  <tr class="bg-teal-50/20">
+                    <td rowspan="2" class="py-3 px-3 text-left font-black text-teal-800 bg-teal-50/60 uppercase text-[10px] tracking-wider border-r border-slate-200">
+                      Para Perto
+                    </td>
+                    <td class="py-3 px-3 font-bold text-teal-900">OD</td>
+                    <td class="py-2 px-2">
+                      <input v-model.number="form.odEsfericoPerto" @input="onPertoOdInput" type="number" step="0.25" placeholder="0.00" class="w-24 text-center font-bold text-teal-900 bg-teal-50/50 rounded-lg border-teal-200 text-xs py-1.5" />
+                    </td>
+                    <td class="py-2 px-2">
+                      <input :value="form.odCilindrico" disabled placeholder="0.00" class="w-24 text-center font-bold text-slate-400 bg-slate-100/50 rounded-lg border-slate-200 text-xs py-1.5" title="Cilíndrico de perto é idêntico ao de longe" />
+                    </td>
+                    <td class="py-2 px-2">
+                      <input :value="form.odEixo" disabled placeholder="0" class="w-20 text-center text-slate-400 bg-slate-100/50 rounded-lg border-slate-200 text-xs py-1.5" title="Eixo de perto é idêntico ao de longe" />
+                    </td>
+                    <td class="py-2 px-2">
+                      <input :value="form.dnpOd ? Math.max(0, form.dnpOd - 2) : ''" disabled placeholder="30" class="w-20 text-center text-slate-400 bg-slate-100/50 rounded-lg border-slate-200 text-xs py-1.5" title="DNP perto (convergência)" />
+                    </td>
+                  </tr>
+
+                  <!-- Para Perto - OE -->
+                  <tr class="bg-teal-50/20">
+                    <td class="py-3 px-3 font-bold text-teal-900 border-t border-teal-100/60">OE</td>
+                    <td class="py-2 px-2 border-t border-teal-100/60">
+                      <input v-model.number="form.oeEsfericoPerto" @input="onPertoOeInput" type="number" step="0.25" placeholder="0.00" class="w-24 text-center font-bold text-teal-900 bg-teal-50/50 rounded-lg border-teal-200 text-xs py-1.5" />
+                    </td>
+                    <td class="py-2 px-2 border-t border-teal-100/60">
+                      <input :value="form.oeCilindrico" disabled placeholder="0.00" class="w-24 text-center font-bold text-slate-400 bg-slate-100/50 rounded-lg border-slate-200 text-xs py-1.5" title="Cilíndrico de perto é idêntico ao de longe" />
+                    </td>
+                    <td class="py-2 px-2 border-t border-teal-100/60">
+                      <input :value="form.oeEixo" disabled placeholder="0" class="w-20 text-center text-slate-400 bg-slate-100/50 rounded-lg border-slate-200 text-xs py-1.5" title="Eixo de perto é idêntico ao de longe" />
+                    </td>
+                    <td class="py-2 px-2 border-t border-teal-100/60">
+                      <input :value="form.dnpOe ? Math.max(0, form.dnpOe - 2) : ''" disabled placeholder="30" class="w-20 text-center text-slate-400 bg-slate-100/50 rounded-lg border-slate-200 text-xs py-1.5" title="DNP perto (convergência)" />
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
 
-            <div class="grid grid-cols-4 gap-2 items-center font-mono">
-              <span class="font-bold text-slate-900 text-center">OE</span>
-              <input v-model.number="form.oeEsferico" type="number" step="0.25" placeholder="0.00" class="rounded-xl border-slate-200 text-xs text-center font-bold bg-white" />
-              <input v-model.number="form.oeCilindrico" type="number" step="0.25" placeholder="0.00" class="rounded-xl border-slate-200 text-xs text-center font-bold text-amber-700 bg-white" />
-              <input v-model.number="form.oeEixo" type="number" min="0" max="180" placeholder="180" class="rounded-xl border-slate-200 text-xs text-center bg-white" />
-            </div>
-          </div>
-
-          <!-- Adição e DNP / Alturas -->
-          <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-            <div>
-              <label class="block text-[11px] font-mono font-bold uppercase text-teal-800 mb-1">Adição (AD)</label>
-              <input 
-                v-model.number="form.adicao" 
-                type="number" 
-                step="0.25" 
-                min="0" 
-                max="4.00" 
-                placeholder="+2.00"
-                class="w-full rounded-2xl border-teal-300 text-xs font-mono font-bold text-teal-900 bg-teal-50/30 focus:border-teal-500" 
-              />
-            </div>
-
-            <div>
-              <label class="block text-[11px] font-mono font-bold uppercase text-slate-500 mb-1">DNP OD / OE (mm)</label>
-              <div class="grid grid-cols-2 gap-2">
-                <input v-model.number="form.dnpOd" type="number" step="0.5" placeholder="OD" class="rounded-2xl border-slate-200 text-xs font-mono text-center bg-slate-50" />
-                <input v-model.number="form.dnpOe" type="number" step="0.5" placeholder="OE" class="rounded-2xl border-slate-200 text-xs font-mono text-center bg-slate-50" />
+            <!-- Adição e Alturas -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-3 border-t border-slate-200">
+              <div>
+                <label class="block text-[11px] font-mono font-bold uppercase text-teal-800 mb-1">
+                  Adição (AD) [Perto - Longe]
+                </label>
+                <input 
+                  v-model.number="form.adicao" 
+                  @input="onAdicaoInput"
+                  type="number" 
+                  step="0.25" 
+                  min="0" 
+                  max="4.00" 
+                  placeholder="+2.00"
+                  class="w-full rounded-2xl border-teal-300 text-xs font-mono font-bold text-teal-900 bg-teal-50/40 focus:border-teal-500" 
+                />
               </div>
-            </div>
 
-            <div>
-              <label class="block text-[11px] font-mono font-bold uppercase text-slate-500 mb-1">Altura Montagem (mm)</label>
-              <div class="grid grid-cols-2 gap-2">
-                <input v-model.number="form.alturaMontagemOd" type="number" step="0.5" placeholder="Alt OD" class="rounded-2xl border-slate-200 text-xs font-mono text-center bg-slate-50" />
-                <input v-model.number="form.alturaMontagemOe" type="number" step="0.5" placeholder="Alt OE" class="rounded-2xl border-slate-200 text-xs font-mono text-center bg-slate-50" />
+              <div>
+                <label class="block text-[11px] font-mono font-bold uppercase text-slate-500 mb-1">Altura Montagem OD / OE (mm)</label>
+                <div class="grid grid-cols-2 gap-2">
+                  <input v-model.number="form.alturaMontagemOd" type="number" step="0.5" placeholder="Alt OD" class="rounded-2xl border-slate-200 text-xs font-mono text-center bg-white" />
+                  <input v-model.number="form.alturaMontagemOe" type="number" step="0.5" placeholder="Alt OE" class="rounded-2xl border-slate-200 text-xs font-mono text-center bg-white" />
+                </div>
               </div>
             </div>
           </div>
@@ -535,6 +609,8 @@ const form = ref({
   oeCilindrico: null,
   oeEixo: null,
   adicao: null,
+  odEsfericoPerto: null,
+  oeEsfericoPerto: null,
   dnpOd: null,
   dnpOe: null,
   alturaMontagemOd: null,
@@ -562,6 +638,43 @@ const form = ref({
   dataPrevistaEntrega: new Date(Date.now() + 7 * 86400000).toISOString().substring(0, 10),
   observacoes: ''
 })
+
+// Sincronização Longe <-> Perto <-> Adição
+const recalcularPerto = () => {
+  if (form.value.adicao !== null && form.value.adicao !== undefined && form.value.adicao !== '') {
+    const ad = Number(form.value.adicao || 0)
+    form.value.odEsfericoPerto = Number(((form.value.odEsferico || 0) + ad).toFixed(2))
+    form.value.oeEsfericoPerto = Number(((form.value.oeEsferico || 0) + ad).toFixed(2))
+  }
+}
+
+const onAdicaoInput = () => {
+  recalcularPerto()
+}
+
+const onPertoOdInput = () => {
+  if (form.value.odEsfericoPerto !== null && form.value.odEsfericoPerto !== undefined && form.value.odEsfericoPerto !== '') {
+    const longe = Number(form.value.odEsferico || 0)
+    const perto = Number(form.value.odEsfericoPerto || 0)
+    const adCalculada = Number((perto - longe).toFixed(2))
+    if (adCalculada >= 0) {
+      form.value.adicao = adCalculada
+      form.value.oeEsfericoPerto = Number(((form.value.oeEsferico || 0) + adCalculada).toFixed(2))
+    }
+  }
+}
+
+const onPertoOeInput = () => {
+  if (form.value.oeEsfericoPerto !== null && form.value.oeEsfericoPerto !== undefined && form.value.oeEsfericoPerto !== '') {
+    const longe = Number(form.value.oeEsferico || 0)
+    const perto = Number(form.value.oeEsfericoPerto || 0)
+    const adCalculada = Number((perto - longe).toFixed(2))
+    if (adCalculada >= 0) {
+      form.value.adicao = adCalculada
+      form.value.odEsfericoPerto = Number(((form.value.odEsferico || 0) + adCalculada).toFixed(2))
+    }
+  }
+}
 
 // Cálculos Financeiros Dinâmicos
 const totalLiquidoCalculado = computed(() => {

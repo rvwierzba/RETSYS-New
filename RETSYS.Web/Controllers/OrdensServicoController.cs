@@ -1048,6 +1048,11 @@ namespace RETSYS.Web.Controllers
                     ? adicaoInformada
                     : null;
 
+                if (!adicao.HasValue && formCollection.ContainsKey("odEsfericoPerto") && decimal.TryParse(formCollection["odEsfericoPerto"].ToString(), out var odPerto) && odPerto != 0)
+                {
+                    adicao = Math.Max(0m, odPerto - odEsferico);
+                }
+
                 decimal.TryParse(formCollection["dnpOd"].ToString(), out var dnpOd);
                 decimal.TryParse(formCollection["dnpOe"].ToString(), out var dnpOe);
 
@@ -1194,6 +1199,7 @@ namespace RETSYS.Web.Controllers
         }
 
         // --- SEÇÃO 3.2: MARCAR LENTE COMO PEDIDA ---
+        [HttpPost("/ordens/{id:guid}/marcar-lente-pedida")]
         [HttpPost("/ordens/marcar-lente-pedida/{id:guid}")]
         public async Task<IActionResult> MarcarLentePedida(Guid id)
         {
@@ -1231,6 +1237,7 @@ namespace RETSYS.Web.Controllers
         }
 
         // --- SEÇÃO 3.1 E 6: MARCAR COMO ENTREGUE E QUITAR SALDO NA RETIRADA ---
+        [HttpPost("/ordens/{id:guid}/entregar")]
         [HttpPost("/ordens/quitar-e-entregar/{id:guid}")]
         public async Task<IActionResult> QuitarEEntregar(Guid id, [FromBody] QuitarEEntregarRequest? jsonModel)
         {
@@ -1524,6 +1531,7 @@ namespace RETSYS.Web.Controllers
         }
 
         // 5. Alteração de status padrão.
+        [HttpPost("/ordens/{id:guid}/status")]
         [HttpPost("/ordens/alterar-status/{id:guid}")]
         public async Task<IActionResult> AlterarStatus(
             Guid id,
@@ -1532,7 +1540,7 @@ namespace RETSYS.Web.Controllers
         {
             var oticaId = ObterOticaId();
 
-            string statusAlvo = novoStatus ?? bodyModel?.NovoStatus ?? string.Empty;
+            string statusAlvo = novoStatus ?? bodyModel?.NovoStatus ?? bodyModel?.Status ?? string.Empty;
             if (string.IsNullOrWhiteSpace(statusAlvo) && Request.HasFormContentType)
             {
                 statusAlvo = Request.Form["novoStatus"].ToString();
@@ -1618,6 +1626,7 @@ namespace RETSYS.Web.Controllers
         }
 
         // 6. Cancelamento lógico seguro da OS.
+        [HttpPost("/ordens/{id:guid}/cancelar")]
         [HttpPost("/ordens/cancelar/{id:guid}")]
         [HttpPost("/ordens/excluir/{id:guid}")]
         public async Task<IActionResult> Cancelar(Guid id)
@@ -1895,7 +1904,206 @@ namespace RETSYS.Web.Controllers
         }
 
         // 9. Edição Administrativa Completa da OS pós-emissão (Exclusivo Admin / Gerente - Seção 1 do PDF)
+                // 8.1 Tela de EdiÃ§Ã£o Completa da OS pÃ³s-emissÃ£o
+        [HttpGet("/ordens/{id:guid}/editar")]
+        [HttpGet("/ordens-servico/{id:guid}/editar")]
+        public async Task<IActionResult> Editar(Guid id)
+        {
+            var oticaId = ObterOticaId();
+            var idsRede = ObterIdsOticasDaRede(oticaId, _context);
+
+            var os = await _context.OrdensServico
+                .Include(o => o.Cliente)
+                .Include(o => o.Vendedor)
+                .Include(o => o.Financeiro)
+                    .ThenInclude(f => f!.Armacao)
+                .Include(o => o.Financeiro)
+                    .ThenInclude(f => f!.LentePreco)
+                        .ThenInclude(lp => lp!.Lente)
+                .Include(o => o.Receita)
+                .Include(o => o.Parcelas)
+                .Include(o => o.Otica)
+                .FirstOrDefaultAsync(o => o.Id == id && o.Ativo);
+
+            if (os == null)
+            {
+                return NotFound();
+            }
+
+            if (!EhSistema() && os.OticaId != oticaId && !idsRede.Contains(os.OticaId))
+            {
+                return Forbid();
+            }
+
+            var matrizId = ObterMatrizIdEfetivo(oticaId, _context);
+            var vendedores = await _context.Usuarios
+                .Where(u => u.Ativo && (u.OticaId == oticaId || idsRede.Contains(u.OticaId)))
+                .OrderBy(u => u.Nome)
+                .Select(u => new { u.Id, u.Nome })
+                .ToListAsync();
+
+            var armacoes = await _context.Armacoes
+                .Include(a => a.Marca)
+                .Where(a => a.OticaId == oticaId && a.Ativo)
+                .Select(a => new
+                {
+                    a.Id,
+                    MarcaNome = a.Marca != null ? a.Marca.Nome : "Sem marca",
+                    a.ModeloReferencia,
+                    a.Cor,
+                    a.QuantidadeEstoque,
+                    a.PrecoVenda
+                })
+                .ToListAsync();
+
+            var lentes = await _context.LentesTabelaPrecos
+                .Include(lp => lp.Lente)
+                .Where(lp => lp.Ativo && lp.Lente != null && lp.Lente.Ativo && (lp.Lente.OticaId == oticaId || lp.Lente.OticaId == matrizId))
+                .Select(lp => new
+                {
+                    lp.Id,
+                    Laboratorio = lp.Lente.Laboratorio,
+                    Tipo = lp.Lente.Tipo,
+                    lp.IndiceRefracao,
+                    lp.Tratamento,
+                    lp.PrecoVenda
+                })
+                .ToListAsync();
+
+            var oticas = await _context.Oticas
+                .Where(o => o.Id == matrizId || o.MatrizId == matrizId)
+                .OrderBy(o => o.Nome)
+                .Select(o => new { o.Id, o.Nome })
+                .ToListAsync();
+
+            var auditoriaLogs = await _context.OsAuditoriaLogs
+                .Include(l => l.Usuario)
+                .Where(l => l.OrdemServicoId == os.Id)
+                .OrderByDescending(l => l.DataAlteracao)
+                .Take(20)
+                .Select(l => new
+                {
+                    l.Id,
+                    DataAlteracao = l.DataAlteracao.ToString("dd/MM/yyyy HH:mm"),
+                    UsuarioNome = l.Usuario != null ? l.Usuario.Nome : "Sistema",
+                    l.CampoAlterado,
+                    l.ValorAntigo,
+                    l.ValorNovo,
+                    l.Descricao
+                })
+                .ToListAsync();
+
+            var osModel = new
+            {
+                os.Id,
+                os.NumeroOS,
+                DataEntradaFormatada = os.DataEntrada.ToString("yyyy-MM-dd"),
+                DataPrevistaEntregaFormatada = os.DataPrevistaEntrega != default ? os.DataPrevistaEntrega.ToString("yyyy-MM-dd") : "",
+                DataEntregaRealFormatada = os.DataEntregaReal.HasValue ? os.DataEntregaReal.Value.ToString("yyyy-MM-dd") : "",
+                os.Status,
+                os.LojaVenda,
+                os.OticaId,
+                os.VendedorId,
+                VendedorNome = os.Vendedor?.Nome,
+                os.MedicoNome,
+                os.MedicoCrm,
+                os.MedicoTipo,
+                os.Observacoes,
+                os.ArmacaoModeloManual,
+                os.LenteDescricaoManual,
+                os.LaboratorioParceiro,
+                os.NumeroPedidoLaboratorio,
+                os.EtapaLaboratorio,
+                os.LentePedida,
+
+                // Cliente
+                Cliente = new
+                {
+                    os.Cliente.Id,
+                    os.Cliente.Nome,
+                    os.Cliente.CPF,
+                    os.Cliente.Telefone,
+                    os.Cliente.Email,
+                    os.Cliente.Convenio,
+                    os.Cliente.Logradouro,
+                    os.Cliente.Numero,
+                    os.Cliente.Bairro,
+                    os.Cliente.Cidade,
+                    os.Cliente.Estado,
+                    os.Cliente.Cep,
+                    DataNascimentoFormatada = os.Cliente.DataNascimento.HasValue ? os.Cliente.DataNascimento.Value.ToString("yyyy-MM-dd") : ""
+                },
+
+                // Receita com Longe e Perto
+                Receita = os.Receita != null ? new
+                {
+                    os.Receita.OdEsferico,
+                    os.Receita.OdCilindrico,
+                    os.Receita.OdEixo,
+                    os.Receita.OeEsferico,
+                    os.Receita.OeCilindrico,
+                    os.Receita.OeEixo,
+                    os.Receita.Adicao,
+                    OdEsfericoPerto = os.Receita.OdEsfericoPerto,
+                    OeEsfericoPerto = os.Receita.OeEsfericoPerto,
+                    os.Receita.DnpOd,
+                    os.Receita.DnpOe,
+                    os.Receita.AlturaMontagemOd,
+                    os.Receita.AlturaMontagemOe,
+                    os.Receita.Aro,
+                    os.Receita.Dm,
+                    os.Receita.Vert,
+                    os.Receita.Po,
+                    os.Receita.CoOd,
+                    os.Receita.CoOe,
+                    os.Receita.ObsReceita
+                } : null,
+
+                // Financeiro
+                Financeiro = os.Financeiro != null ? new
+                {
+                    os.Financeiro.ArmacaoId,
+                    os.Financeiro.LentePrecoId,
+                    os.Financeiro.ValorTotalBruto,
+                    os.Financeiro.DescontoReais,
+                    os.Financeiro.DescontoPercentual,
+                    os.Financeiro.ValorTotalLiquido,
+                    os.Financeiro.ValorArmacao,
+                    os.Financeiro.ValorLente,
+                    os.Financeiro.ValorEntrada,
+                    os.Financeiro.ValorRestante,
+                    os.Financeiro.FormaPagamento,
+                    os.Financeiro.Parcelas
+                } : null,
+
+                // Parcelas
+                Parcelas = os.Parcelas.OrderBy(p => p.NumeroParcela).Select(p => new
+                {
+                    p.Id,
+                    p.NumeroParcela,
+                    p.Valor,
+                    DataVencimento = p.DataVencimento.ToString("dd/MM/yyyy"),
+                    Pago = p.Paga,
+                    DataPagamento = p.DataPagamento.HasValue ? p.DataPagamento.Value.ToString("dd/MM/yyyy") : "",
+                    FormaPagamento = p.Metodo.HasValue ? p.Metodo.Value.ToString() : (p.Paga ? "PAGO" : "PENDENTE")
+                }).ToList()
+            };
+
+            return Inertia.Render("OrdensServico/Edit", new
+            {
+                Ordem = osModel,
+                Vendedores = vendedores,
+                Armacoes = armacoes,
+                Lentes = lentes,
+                Oticas = oticas,
+                AuditoriaLogs = auditoriaLogs
+            });
+        }
+
+        // 9. EdiÃ§Ã£o Completa da OS pÃ³s-emissÃ£o
         [HttpPost("/ordens/editar-admin/{id:guid}")]
+        [HttpPost("/ordens/{id:guid}/editar")]
+        [HttpPost("/ordens-servico/{id:guid}/editar")]
         public async Task<IActionResult> EditarAdmin(
             Guid id,
             [FromBody] EditarAdminRequest? jsonModel)
@@ -2105,7 +2313,18 @@ namespace RETSYS.Web.Controllers
                 if (model.OeEsferico.HasValue) { RegistrarLog("Receita: OE Esférico", os.Receita.OeEsferico.ToString("F2"), model.OeEsferico.Value.ToString("F2")); os.Receita.OeEsferico = model.OeEsferico.Value; }
                 if (model.OeCilindrico.HasValue) { RegistrarLog("Receita: OE Cilíndrico", os.Receita.OeCilindrico.ToString("F2"), model.OeCilindrico.Value.ToString("F2")); os.Receita.OeCilindrico = model.OeCilindrico.Value; }
                 if (model.OeEixo.HasValue) { RegistrarLog("Receita: OE Eixo", os.Receita.OeEixo.ToString(), model.OeEixo.Value.ToString()); os.Receita.OeEixo = model.OeEixo.Value; }
-                if (model.Adicao.HasValue) { RegistrarLog("Receita: Adição", os.Receita.Adicao?.ToString("F2"), model.Adicao.Value.ToString("F2")); os.Receita.Adicao = model.Adicao.Value; }
+                if (model.Adicao.HasValue) 
+                { 
+                    RegistrarLog("Receita: Adição", os.Receita.Adicao?.ToString("F2"), model.Adicao.Value.ToString("F2")); 
+                    os.Receita.Adicao = model.Adicao.Value; 
+                }
+                else if (model.OdEsfericoPerto.HasValue)
+                {
+                    decimal esfLonge = model.OdEsferico ?? os.Receita.OdEsferico;
+                    decimal adCalc = Math.Max(0m, model.OdEsfericoPerto.Value - esfLonge);
+                    RegistrarLog("Receita: Adição", os.Receita.Adicao?.ToString("F2"), adCalc.ToString("F2"));
+                    os.Receita.Adicao = adCalc;
+                }
                 if (model.DnpOd.HasValue) { RegistrarLog("Receita: DNP OD", os.Receita.DnpOd.ToString("F1"), model.DnpOd.Value.ToString("F1")); os.Receita.DnpOd = model.DnpOd.Value; }
                 if (model.DnpOe.HasValue) { RegistrarLog("Receita: DNP OE", os.Receita.DnpOe.ToString("F1"), model.DnpOe.Value.ToString("F1")); os.Receita.DnpOe = model.DnpOe.Value; }
                 if (model.AlturaMontagemOd.HasValue) { RegistrarLog("Receita: Altura OD", os.Receita.AlturaMontagemOd?.ToString("F1"), model.AlturaMontagemOd.Value.ToString("F1")); os.Receita.AlturaMontagemOd = model.AlturaMontagemOd.Value; }
@@ -2285,6 +2504,12 @@ namespace RETSYS.Web.Controllers
         public decimal? OeCilindrico { get; set; }
         public int? OeEixo { get; set; }
         public decimal? Adicao { get; set; }
+        public decimal? OdEsfericoPerto { get; set; }
+        public decimal? OeEsfericoPerto { get; set; }
+        public string? ArmacaoModeloManual { get; set; }
+        public string? LaboratorioParceiro { get; set; }
+        public string? NumeroPedidoLaboratorio { get; set; }
+        public bool? LentePedida { get; set; }
         public decimal? DnpOd { get; set; }
         public decimal? DnpOe { get; set; }
         public decimal? AlturaMontagemOd { get; set; }
@@ -2312,6 +2537,7 @@ namespace RETSYS.Web.Controllers
     public class AlterarStatusRequest
     {
         public string? NovoStatus { get; set; }
+        public string? Status { get; set; }
     }
 
     public class PedirLenteRequest

@@ -368,15 +368,15 @@
                       <span>🚚</span>
                     </button>
 
-                    <!-- Edição Administrativa (Exclusivo Admin) -->
-                    <button 
-                      v-if="eAdmin && os.status !== 'CANCELADO' && os.status !== 'CANCELADA'"
-                      @click="abrirModalEditarAdmin(os)"
-                      class="p-1.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 transition text-xs"
-                      title="Editar Dados da OS (Admin)"
+                    <!-- Edição da OS -->
+                    <a 
+                      v-if="os.status !== 'CANCELADO' && os.status !== 'CANCELADA'"
+                      :href="`/ordens/${os.id || os.Id}/editar`"
+                      class="p-1.5 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 border border-indigo-200 transition text-xs flex items-center justify-center"
+                      title="Editar Dados da OS"
                     >
                       ✏️
-                    </button>
+                    </a>
 
                     <!-- Cancelar OS -->
                     <button 
@@ -431,42 +431,79 @@
             </div>
           </div>
 
-          <!-- Tabela de Refração Oftalmológica -->
-          <div v-if="osSelecionada.receita || osSelecionada.Receita" class="p-4 bg-teal-50/50 rounded-2xl border border-teal-200 space-y-2">
-            <h4 class="text-xs font-mono font-bold uppercase text-teal-900 tracking-wider">Prescrição Óptica (Graus)</h4>
-            <table class="w-full text-xs text-center border-collapse bg-white rounded-xl overflow-hidden shadow-xs">
-              <thead>
-                <tr class="bg-teal-900 text-white font-mono text-[10px]">
-                  <th class="py-2">Olho</th>
-                  <th class="py-2">Esférico (Longe)</th>
-                  <th class="py-2">Cilíndrico</th>
-                  <th class="py-2">Eixo</th>
-                  <th class="py-2">Adição</th>
-                  <th class="py-2">DNP</th>
-                  <th class="py-2">Altura</th>
-                </tr>
-              </thead>
-              <tbody class="divide-y divide-slate-100 font-mono">
-                <tr>
-                  <td class="py-2 font-bold text-slate-900 bg-slate-50">OD</td>
-                  <td class="py-2">{{ (osSelecionada.receita || osSelecionada.Receita).odEsferico ?? '--' }}</td>
-                  <td class="py-2 text-amber-700 font-bold">{{ (osSelecionada.receita || osSelecionada.Receita).odCilindrico ?? '--' }}</td>
-                  <td class="py-2">{{ (osSelecionada.receita || osSelecionada.Receita).odEixo ? (osSelecionada.receita || osSelecionada.Receita).odEixo + '°' : '--' }}</td>
-                  <td class="py-2 text-teal-700 font-bold">{{ (osSelecionada.receita || osSelecionada.Receita).adicao ?? '--' }}</td>
-                  <td class="py-2">{{ (osSelecionada.receita || osSelecionada.Receita).dnpOd ?? '--' }} mm</td>
-                  <td class="py-2">{{ (osSelecionada.receita || osSelecionada.Receita).alturaMontagemOd ?? '--' }} mm</td>
-                </tr>
-                <tr>
-                  <td class="py-2 font-bold text-slate-900 bg-slate-50">OE</td>
-                  <td class="py-2">{{ (osSelecionada.receita || osSelecionada.Receita).oeEsferico ?? '--' }}</td>
-                  <td class="py-2 text-amber-700 font-bold">{{ (osSelecionada.receita || osSelecionada.Receita).oeCilindrico ?? '--' }}</td>
-                  <td class="py-2">{{ (osSelecionada.receita || osSelecionada.Receita).oeEixo ? (osSelecionada.receita || osSelecionada.Receita).oeEixo + '°' : '--' }}</td>
-                  <td class="py-2 text-teal-700 font-bold">{{ (osSelecionada.receita || osSelecionada.Receita).adicao ?? '--' }}</td>
-                  <td class="py-2">{{ (osSelecionada.receita || osSelecionada.Receita).dnpOe ?? '--' }} mm</td>
-                  <td class="py-2">{{ (osSelecionada.receita || osSelecionada.Receita).alturaMontagemOe ?? '--' }} mm</td>
-                </tr>
-              </tbody>
-            </table>
+          <!-- Tabela de Refração Oftalmológica (Para Longe & Para Perto) -->
+          <div v-if="osSelecionada.receita || osSelecionada.Receita" class="p-4 bg-teal-50/50 rounded-2xl border border-teal-200 space-y-3">
+            <div class="flex items-center justify-between">
+              <h4 class="text-xs font-mono font-bold uppercase text-teal-900 tracking-wider">Prescrição Oftalmológica (Receituário de Óculos)</h4>
+              <span class="text-[10px] font-mono font-bold text-teal-700 bg-teal-100/70 px-2 py-0.5 rounded-full">
+                OD / OE
+              </span>
+            </div>
+
+            <div class="overflow-x-auto">
+              <table class="w-full text-xs text-center border-collapse bg-white rounded-xl overflow-hidden shadow-xs">
+                <thead>
+                  <tr class="bg-teal-900 text-white font-mono text-[10px]">
+                    <th class="py-2 px-3 text-left">Visão</th>
+                    <th class="py-2">Olho</th>
+                    <th class="py-2">Esférico</th>
+                    <th class="py-2">Cilíndrico</th>
+                    <th class="py-2">Eixo</th>
+                    <th class="py-2">DNP</th>
+                    <th class="py-2">Altura</th>
+                  </tr>
+                </thead>
+                <tbody class="divide-y divide-slate-100 font-mono text-[11px]">
+                  <!-- Longe OD -->
+                  <tr>
+                    <td rowspan="2" class="py-2 px-3 text-left font-black text-slate-800 bg-slate-50 uppercase text-[9px] border-r border-slate-100">Para Longe</td>
+                    <td class="py-2 font-bold text-slate-900">OD</td>
+                    <td class="py-2 font-bold">{{ (osSelecionada.receita || osSelecionada.Receita).odEsferico ?? '--' }}</td>
+                    <td class="py-2 text-amber-700 font-bold">{{ (osSelecionada.receita || osSelecionada.Receita).odCilindrico ?? '--' }}</td>
+                    <td class="py-2">{{ (osSelecionada.receita || osSelecionada.Receita).odEixo ? (osSelecionada.receita || osSelecionada.Receita).odEixo + '°' : '--' }}</td>
+                    <td class="py-2">{{ (osSelecionada.receita || osSelecionada.Receita).dnpOd ?? '--' }} mm</td>
+                    <td class="py-2">{{ (osSelecionada.receita || osSelecionada.Receita).alturaMontagemOd ?? '--' }} mm</td>
+                  </tr>
+                  <!-- Longe OE -->
+                  <tr>
+                    <td class="py-2 font-bold text-slate-900 border-t border-slate-100">OE</td>
+                    <td class="py-2 font-bold border-t border-slate-100">{{ (osSelecionada.receita || osSelecionada.Receita).oeEsferico ?? '--' }}</td>
+                    <td class="py-2 text-amber-700 font-bold border-t border-slate-100">{{ (osSelecionada.receita || osSelecionada.Receita).oeCilindrico ?? '--' }}</td>
+                    <td class="py-2 border-t border-slate-100">{{ (osSelecionada.receita || osSelecionada.Receita).oeEixo ? (osSelecionada.receita || osSelecionada.Receita).oeEixo + '°' : '--' }}</td>
+                    <td class="py-2 border-t border-slate-100">{{ (osSelecionada.receita || osSelecionada.Receita).dnpOe ?? '--' }} mm</td>
+                    <td class="py-2 border-t border-slate-100">{{ (osSelecionada.receita || osSelecionada.Receita).alturaMontagemOe ?? '--' }} mm</td>
+                  </tr>
+                  <!-- Perto OD -->
+                  <tr class="bg-teal-50/20">
+                    <td rowspan="2" class="py-2 px-3 text-left font-black text-teal-800 bg-teal-50/60 uppercase text-[9px] border-r border-slate-100">Para Perto</td>
+                    <td class="py-2 font-bold text-teal-900">OD</td>
+                    <td class="py-2 font-bold text-teal-800">
+                      {{ Number(((osSelecionada.receita || osSelecionada.Receita).odEsferico ?? 0) + ((osSelecionada.receita || osSelecionada.Receita).adicao ?? 0)).toFixed(2) }}
+                    </td>
+                    <td class="py-2 text-slate-400">{{ (osSelecionada.receita || osSelecionada.Receita).odCilindrico ?? '--' }}</td>
+                    <td class="py-2 text-slate-400">{{ (osSelecionada.receita || osSelecionada.Receita).odEixo ? (osSelecionada.receita || osSelecionada.Receita).odEixo + '°' : '--' }}</td>
+                    <td class="py-2 text-slate-400">{{ (osSelecionada.receita || osSelecionada.Receita).dnpOd ? ((osSelecionada.receita || osSelecionada.Receita).dnpOd - 2) + ' mm' : '--' }}</td>
+                    <td class="py-2 text-slate-400">--</td>
+                  </tr>
+                  <!-- Perto OE -->
+                  <tr class="bg-teal-50/20">
+                    <td class="py-2 font-bold text-teal-900 border-t border-teal-100/60">OE</td>
+                    <td class="py-2 font-bold text-teal-800 border-t border-teal-100/60">
+                      {{ Number(((osSelecionada.receita || osSelecionada.Receita).oeEsferico ?? 0) + ((osSelecionada.receita || osSelecionada.Receita).adicao ?? 0)).toFixed(2) }}
+                    </td>
+                    <td class="py-2 text-slate-400 border-t border-teal-100/60">{{ (osSelecionada.receita || osSelecionada.Receita).oeCilindrico ?? '--' }}</td>
+                    <td class="py-2 text-slate-400 border-t border-teal-100/60">{{ (osSelecionada.receita || osSelecionada.Receita).oeEixo ? (osSelecionada.receita || osSelecionada.Receita).oeEixo + '°' : '--' }}</td>
+                    <td class="py-2 text-slate-400 border-t border-teal-100/60">{{ (osSelecionada.receita || osSelecionada.Receita).dnpOe ? ((osSelecionada.receita || osSelecionada.Receita).dnpOe - 2) + ' mm' : '--' }}</td>
+                    <td class="py-2 text-slate-400 border-t border-teal-100/60">--</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            <div class="flex items-center justify-between text-xs font-mono pt-1 text-slate-600">
+              <span>Adição (AD): <b class="text-teal-900 font-bold">+{{ (osSelecionada.receita || osSelecionada.Receita).adicao ?? '0.00' }}</b></span>
+              <span v-if="osSelecionada.medicoNome">Médico: <b>{{ osSelecionada.medicoNome }}</b> (CRM: {{ osSelecionada.medicoCrm || '--' }})</span>
+            </div>
           </div>
 
           <!-- Produtos & Financeiro -->
@@ -484,14 +521,30 @@
           </div>
 
           <!-- Botões do Rodapé da Prancheta -->
-          <div class="flex items-center justify-between pt-4 border-t border-slate-100 text-xs">
-            <a 
-              :href="`/ordens/${osSelecionada.id || osSelecionada.Id}/carne`" 
-              target="_blank"
-              class="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold transition flex items-center gap-1.5"
-            >
-              <span>📜</span> Imprimir Carnê
-            </a>
+          <div class="flex flex-wrap items-center justify-between gap-3 pt-4 border-t border-slate-100 text-xs">
+            <div class="flex items-center gap-2">
+              <a 
+                :href="`/ordens/${osSelecionada.id || osSelecionada.Id}/editar`" 
+                class="px-4 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold transition flex items-center gap-1.5 shadow-xs"
+              >
+                <span>✏️</span> Editar Dados da OS
+              </a>
+
+              <button 
+                @click="abrirWhatsAppOS(osSelecionada)"
+                class="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold transition flex items-center gap-1.5 shadow-xs"
+              >
+                <span>💬</span> WhatsApp do Cliente
+              </button>
+
+              <a 
+                :href="`/ordens/${osSelecionada.id || osSelecionada.Id}/carne`" 
+                target="_blank"
+                class="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white font-bold transition flex items-center gap-1.5 shadow-xs"
+              >
+                <span>📜</span> Carnê
+              </a>
+            </div>
 
             <button 
               @click="osSelecionada = null" 
@@ -543,6 +596,46 @@
                 class="px-5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold transition shadow-sm"
               >
                 {{ processandoEntrega ? 'Confirmando...' : 'Confirmar Entrega' }}
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- MODAL DE DISPARO DE WHATSAPP: ÓCULOS PRONTO -->
+      <div v-if="modalProntoZapAberta" class="fixed inset-0 bg-slate-950/70 backdrop-blur-xs z-50 flex items-center justify-center p-4 animate-fadeIn">
+        <div class="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-md w-full p-6 space-y-4">
+          <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+            <h3 class="text-base font-bold text-slate-950 font-mono flex items-center gap-2">
+              <span class="text-xl">💬</span> Disparar WhatsApp: Óculos Pronto
+            </h3>
+            <button @click="modalProntoZapAberta = false" class="text-slate-400 hover:text-slate-800 font-bold">✕</button>
+          </div>
+
+          <div v-if="osProntoZap" class="space-y-3 text-xs">
+            <div class="p-3 bg-emerald-50 rounded-2xl border border-emerald-200 text-emerald-950 space-y-1">
+              <p><b>Ordem de Serviço:</b> #{{ osProntoZap.numeroOS || osProntoZap.NumeroOS }}</p>
+              <p><b>Paciente:</b> {{ osProntoZap.clienteNome || osProntoZap.ClienteNome }}</p>
+              <p><b>WhatsApp:</b> {{ osProntoZap.clienteTelefone || osProntoZap.ClienteTelefone || 'Sem telefone' }}</p>
+            </div>
+
+            <p class="text-slate-600">
+              A ordem foi atualizada para <b>PRONTA</b>. Deseja disparar a mensagem no WhatsApp do cliente informando que os óculos estão prontos para retirada?
+            </p>
+
+            <div class="p-3 bg-slate-50 rounded-2xl border border-slate-200 text-[11px] text-slate-600 font-mono italic">
+              "Olá {{ (osProntoZap.clienteNome || '').split(' ')[0] }}! Seus óculos da OS #{{ osProntoZap.numeroOS }} ficaram prontos com muito carinho! Você já pode passar na loja para experimentá-los e fazer os ajustes finais..."
+            </div>
+
+            <div class="flex justify-end gap-2 pt-3 border-t border-slate-100">
+              <button @click="modalProntoZapAberta = false" class="px-4 py-2 rounded-xl text-slate-600 font-bold hover:bg-slate-100">
+                Agora Não
+              </button>
+              <button 
+                @click="dispararZapProntoConfirmado" 
+                class="px-5 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-700 text-white font-bold transition shadow-sm flex items-center gap-2"
+              >
+                <span>💬 Abrir WhatsApp e Enviar</span>
               </button>
             </div>
           </div>
@@ -708,9 +801,36 @@ const abrirWhatsAppOS = (os) => {
   window.open(`https://api.whatsapp.com/send?phone=55${tel}&text=${encodeURIComponent(msg)}`, '_blank')
 }
 
-// Alterar Status
+// Modal de Disparo de Óculos Pronto
+const modalProntoZapAberta = ref(false)
+const osProntoZap = ref(null)
+
+const abrirModalProntoZap = (os) => {
+  osProntoZap.value = os
+  modalProntoZapAberta.value = true
+}
+
+const dispararZapProntoConfirmado = () => {
+  if (osProntoZap.value) {
+    abrirWhatsAppOS(osProntoZap.value)
+    modalProntoZapAberta.value = false
+  }
+}
+
+// Alterar Status com Gatilho Automático de WhatsApp
 const alterarStatusOS = (id, novoStatus) => {
-  router.post(`/ordens/${id}/status`, { status: novoStatus }, { preserveScroll: true })
+  router.post(`/ordens/${id}/status`, { status: novoStatus, novoStatus: novoStatus }, { 
+    preserveScroll: true,
+    onSuccess: () => {
+      if (novoStatus === 'PRONTA' || novoStatus === 'PRONTO') {
+        const lista = props.Ordens || props.ordens || []
+        const osObj = lista.find(o => (o.id || o.Id) === id)
+        if (osObj) {
+          abrirModalProntoZap(osObj)
+        }
+      }
+    }
+  })
 }
 
 const marcarLentePedida = (id) => {
