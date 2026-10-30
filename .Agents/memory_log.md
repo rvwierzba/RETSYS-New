@@ -444,3 +444,20 @@ Este documento atua como o registro de **Memória Incremental** do projeto RETSY
 - **Suíte de Testes Automatizados**: `dotnet test RETSYS.Tests/RETSYS.Tests.csproj` executou 22 testes com **100% de aprovação (22 aprovados, 0 falhas, 0 ignorados)**.
 - **Frontend Build**: `npm --prefix RETSYS.Web run build` compilou 144 módulos com êxito (30.00s), gerando `app-DPg459XC.js` e `app-nfj1Be0s.css`.
 - **Backend Build**: `dotnet build RETSYS.Web/RETSYS.Web.csproj --no-restore -nodereuse:false -maxcpucount:1` finalizado com **0 Erros e 0 Avisos**.
+
+
+## [LOG-011] - 2026-10-30: Remoção dos Manuais do Usuário (PDF, HTML e Markdown)
+- **Autor/Agente**: Assistente de IA Avançado (Antigravity)
+- **Módulos Afetados**: Raiz do Repositório (`MANUAL_DO_USUARIO_RETSYS.html`, `MANUAL_DO_USUARIO_RETSYS.pdf`, `MANUAL_OPERACIONAL_OTICA.md`) e `scratch/`
+- **Contexto & Solicitante**: Limpeza solicitada pelo usuário removendo todos os artefatos de manuais gerados anteriormente.
+
+### 1. Resumo das Alterações
+- Removidos do controle de versão e do disco:
+  - `MANUAL_DO_USUARIO_RETSYS.html`
+  - `MANUAL_DO_USUARIO_RETSYS.pdf`
+  - `MANUAL_OPERACIONAL_OTICA.md`
+  - Scripts auxiliares em `scratch/build_manual_pdf.js` e `scratch/run_edge_pdf.js`
+
+### 2. Validação e Verificação
+- `git status` validou remoção limpa dos arquivos.
+- `dotnet build` e `dotnet test` continuam com 100% de integridade e 0 erros.
