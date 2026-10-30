@@ -368,3 +368,45 @@ Este documento atua como o registro de **Memória Incremental** do projeto RETSY
 ### 2. Validação e Verificação
 - **Backend Build**: `dotnet build RETSYS.Web/RETSYS.Web.csproj --no-restore -nodereuse:false -maxcpucount:1` finalizado com **0 Erros e 0 Avisos**.
 - **Frontend Build**: `npm --prefix RETSYS.Web run build` compilou 144 módulos com sucesso (3.28s) gerando `app-CdaYgI3D.js` e `app-DEjK2QdT.css`.
+
+
+## [LOG-009] - 2026-10-30: Correção de Emissão de OS (Inertia JSON crash), Edição por Vendedor, Isolamento de Lojas e Medidas Técnicas de Armação/DP
+- **Autor/Agente**: Arquiteto de Software & Assistente de IA Avançado (Antigravity)
+- **Módulos Afetados**: `RETSYS.Web/Controllers/OrdensServicoController.cs`, `RETSYS.Web/Frontend/Pages/OrdensServico/Create.vue`, `RETSYS.Web/Frontend/Pages/OrdensServico/Edit.vue`, `RETSYS.Web/Frontend/Pages/OrdensServico/Index.vue`
+- **Contexto & Solicitante**:
+  1. Erro na emissão de OS com modal Inertia: `All Inertia requests must receive a valid Inertia response, however a plain JSON response was received. {"mensagem":"Informe o nome do cliente."}`.
+  2. Alterações de dados da OS não salvavam quando o usuário era vendedor/atendente da loja.
+  3. Ordens de Serviço apareciam misturadas entre as diferentes filiais da rede.
+  4. Faltavam campos de medidas da armação e DP (Aro, Ponte, DM, VERT, Haste, CO OD/OE, DP Total) na emissão e na edição.
+  5. Dúvidas sobre configuração e automação de disparos de WhatsApp por loja.
+
+### 1. Resumo das Soluções Implementadas
+1. **Eliminação do Erro de Resposta JSON no Inertia durante Emissão de OS**:
+   - `OrdensServicoController.Store`:
+     - O frontend enviava requisição com payload JSON (`router.post`), mas a action esperava `[FromForm] IFormCollection`. Os campos vinham vazios e disparavam `BadRequest(new { mensagem = "Informe o nome do cliente." })`, que o Inertia intercepta como erro de protocolo.
+     - Criado DTO tipado `CriarOsRequest` mapeando todos os parâmetros de cliente, receita, produtos e financeiro.
+     - Implementado suporte unificado para requisições JSON e Form, além do método `RetornarErroValidacao` que detecta requisições Inertia (`X-Inertia`) e redireciona com mensagem flash via `Inertia.Share("erro", ...)` em vez de devolver JSON cru.
+     - Sucesso redireciona com `Inertia.Share("sucesso", ...); return RedirectToAction(nameof(Index))`.
+
+2. **Permissão e Persistência na Edição de OS por Vendedores / Atendentes**:
+   - Em `EditarAdmin`, a checagem anterior `if (!EhAdministrador())` bloqueava e retornava antecipadamente antes de salvar caso o usuário logado não fosse `ADMIN` ou `DONO`.
+   - Agora a verificação de permissão ocorre após o carregamento da OS, permitindo que operadores da mesma loja ou rede (`os.OticaId == oticaId || idsRede.Contains(os.OticaId)`) alterem e salvem os dados com sucesso, registrando o histórico de auditoria (`OsAuditoriaLogs`).
+
+3. **Isolamento Estrito Multi-Loja (Fim da Mistura de OSs)**:
+   - Em `OrdensServicoController.Index`, a listagem anteriormente unificava todas as óticas da rede (`idsRede.Contains(os.OticaId)`) por padrão caso nenhum filtro explícito fosse passado.
+   - Corrigido: por padrão, cada operador enxerga **apenas as OSs da sua ótica ativa** (`lojaFiltroEfetivo = oticaId`). A visualização de todas as unidades da rede só é ativada se um administrador/dono selecionar explicitamente a opção correspondente no filtro.
+
+4. **Medidas Completas de Armação, Centralização Técnica e DP Total**:
+   - Tanto em `Create.vue` quanto em `Edit.vue`:
+     - Adicionado campo **DP Total (mm)** com cálculo bidirecional automático para DNP OD e OE (`DP / 2`).
+     - Adicionados campos técnicos laboratoriais: **Aro / Horizontal (A)**, **Ponte / DBL (PO)**, **Maior Diagonal (DM)**, **Vertical (VERT)**, **Haste**, **CO OD** e **CO OE**.
+     - Adicionado campo de **Observações Técnicas da Receita / Montagem** e seleção do tipo de especialista.
+     - Sincronização completa de gravação com os campos existentes da tabela `OsReceita`.
+
+5. **Disparos e Configuração de WhatsApp por Loja**:
+   - Cada ótica possui seu próprio número e templates de mensagem independentes na tabela `ConfiguracoesLoja`, editáveis em `/configuracoes`.
+   - Na prancheta e listagem de OSs (`Index.vue`), o botão de WhatsApp utiliza dinamicamente o nome da loja da venda (`os.lojaVenda`), preenchendo a mensagem oficial com um clique.
+
+### 2. Validação e Verificação
+- **Frontend Build**: `npm --prefix RETSYS.Web run build` compilou 144 módulos com êxito (12.87s), gerando `app-B9CSKh-f.js` e `app-nfj1Be0s.css`.
+- **Backend Build**: `dotnet build RETSYS.Web/RETSYS.Web.csproj --no-restore -nodereuse:false -maxcpucount:1` finalizado com **0 Erros e 0 Avisos**.

@@ -217,7 +217,7 @@
                     <input v-model.number="form.odEixo" type="number" min="0" max="180" placeholder="0" class="w-20 text-center rounded-lg border-slate-200 text-xs py-1.5" />
                   </td>
                   <td class="py-2 px-2">
-                    <input v-model.number="form.dnpOd" type="number" step="0.5" placeholder="32" class="w-20 text-center rounded-lg border-slate-200 text-xs py-1.5" />
+                    <input v-model.number="form.dnpOd" @input="onDnpInput" type="number" step="0.5" placeholder="32" class="w-20 text-center rounded-lg border-slate-200 text-xs py-1.5" />
                   </td>
                 </tr>
 
@@ -234,7 +234,7 @@
                     <input v-model.number="form.oeEixo" type="number" min="0" max="180" placeholder="0" class="w-20 text-center rounded-lg border-slate-200 text-xs py-1.5" />
                   </td>
                   <td class="py-2 px-2 border-t border-slate-100">
-                    <input v-model.number="form.dnpOe" type="number" step="0.5" placeholder="32" class="w-20 text-center rounded-lg border-slate-200 text-xs py-1.5" />
+                    <input v-model.number="form.dnpOe" @input="onDnpInput" type="number" step="0.5" placeholder="32" class="w-20 text-center rounded-lg border-slate-200 text-xs py-1.5" />
                   </td>
                 </tr>
 
@@ -278,7 +278,7 @@
             </table>
           </div>
 
-          <!-- Adição e Alturas -->
+          <!-- Adição, DP e Alturas -->
           <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-3 border-t border-slate-200">
             <div>
               <label class="block text-[11px] font-mono font-bold uppercase text-teal-800 mb-1">
@@ -297,54 +297,95 @@
             </div>
 
             <div>
+              <label class="block text-[11px] font-mono font-bold uppercase text-slate-500 mb-1">
+                DP Total (mm) [OD + OE]
+              </label>
+              <input 
+                v-model.number="form.dpTotal" 
+                @input="onDpTotalInput"
+                type="number" 
+                step="0.5" 
+                placeholder="Ex: 64"
+                class="w-full rounded-2xl border-slate-200 text-xs font-mono font-bold text-center bg-white" 
+              />
+            </div>
+
+            <div>
               <label class="block text-[11px] font-mono font-bold uppercase text-slate-500 mb-1">Altura Montagem OD / OE (mm)</label>
               <div class="grid grid-cols-2 gap-2">
                 <input v-model.number="form.alturaMontagemOd" type="number" step="0.5" placeholder="Alt OD" class="rounded-2xl border-slate-200 text-xs font-mono text-center bg-white" />
                 <input v-model.number="form.alturaMontagemOe" type="number" step="0.5" placeholder="Alt OE" class="rounded-2xl border-slate-200 text-xs font-mono text-center bg-white" />
               </div>
             </div>
+          </div>
 
+          <!-- MEDIDAS DA ARMAÇÃO & MONTAGEM TÉCNICA (LABORATÓRIO) -->
+          <div class="pt-4 border-t border-slate-200 space-y-3">
+            <div class="flex items-center justify-between">
+              <span class="text-xs font-mono font-bold uppercase text-slate-700 tracking-wider flex items-center gap-1.5">
+                <span>📐</span> Medidas da Armação &amp; Montagem Técnica
+              </span>
+              <span class="text-[10px] text-slate-400 font-mono">Essilor / Hoya / Zeiss / Lab</span>
+            </div>
+
+            <div class="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-2.5 text-xs font-mono">
+              <div>
+                <label class="block text-[10px] uppercase text-slate-400 mb-1">Aro / Horiz. (A)</label>
+                <input v-model.number="form.aro" type="number" step="0.5" placeholder="54 mm" class="w-full rounded-xl border-slate-200 text-xs text-center bg-white" />
+              </div>
+              <div>
+                <label class="block text-[10px] uppercase text-slate-400 mb-1">Ponte / DBL (PO)</label>
+                <input v-model.number="form.po" type="number" step="0.5" placeholder="18 mm" class="w-full rounded-xl border-slate-200 text-xs text-center bg-white" />
+              </div>
+              <div>
+                <label class="block text-[10px] uppercase text-slate-400 mb-1">Diag. Maior (DM)</label>
+                <input v-model.number="form.dm" type="number" step="0.5" placeholder="58 mm" class="w-full rounded-xl border-slate-200 text-xs text-center bg-white" />
+              </div>
+              <div>
+                <label class="block text-[10px] uppercase text-slate-400 mb-1">Vertical (VERT)</label>
+                <input v-model.number="form.vert" type="number" step="0.5" placeholder="38 mm" class="w-full rounded-xl border-slate-200 text-xs text-center bg-white" />
+              </div>
+              <div>
+                <label class="block text-[10px] uppercase text-slate-400 mb-1">Haste (mm)</label>
+                <input v-model.number="form.haste" type="number" step="1" placeholder="140 mm" class="w-full rounded-xl border-slate-200 text-xs text-center bg-white" />
+              </div>
+              <div>
+                <label class="block text-[10px] uppercase text-slate-400 mb-1">CO OD (mm)</label>
+                <input v-model.number="form.coOd" type="number" step="0.5" placeholder="Centro OD" class="w-full rounded-xl border-slate-200 text-xs text-center bg-white" />
+              </div>
+              <div>
+                <label class="block text-[10px] uppercase text-slate-400 mb-1">CO OE (mm)</label>
+                <input v-model.number="form.coOe" type="number" step="0.5" placeholder="Centro OE" class="w-full rounded-xl border-slate-200 text-xs text-center bg-white" />
+              </div>
+            </div>
+          </div>
+
+          <!-- Observações Técnicas da Receita -->
+          <div class="pt-2 border-t border-slate-100">
+            <label class="block text-[11px] font-mono font-bold uppercase text-slate-500 mb-1">Observações Técnicas da Receita / Montagem</label>
+            <textarea v-model="form.obsReceita" rows="2" placeholder="Observações específicas para o laboratório ou sobre o receituário do paciente..." class="w-full rounded-2xl border-slate-200 text-xs bg-white"></textarea>
+          </div>
+
+          <!-- Médico e Validade -->
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 pt-2 border-t border-slate-100">
             <div>
               <label class="block text-[11px] font-mono font-bold uppercase text-slate-500 mb-1">Médico / Especialista</label>
-              <input v-model="form.medicoNome" type="text" placeholder="Dr. Ulysses Tachibana" class="w-full rounded-2xl border-slate-200 text-xs bg-white" />
+              <input v-model="form.medicoNome" type="text" placeholder="Dr. Nome do Especialista" class="w-full rounded-2xl border-slate-200 text-xs bg-slate-50" />
             </div>
-          </div>
 
-          <!-- CRM e Medidas Técnicas da Armação -->
-          <div class="grid grid-cols-2 sm:grid-cols-6 gap-3 pt-3 border-t border-slate-200 text-xs">
             <div>
-              <label class="block text-[10px] font-mono uppercase text-slate-400 mb-1">CRM / CROO</label>
-              <input v-model="form.medicoCrm" type="text" placeholder="SP 120572" class="w-full rounded-xl border-slate-200 text-xs font-mono bg-white" />
+              <label class="block text-[11px] font-mono font-bold uppercase text-slate-500 mb-1">CRM / CROO</label>
+              <input v-model="form.medicoCrm" type="text" placeholder="CRM 12345 / SP" class="w-full rounded-2xl border-slate-200 text-xs bg-slate-50 font-mono" />
             </div>
+
             <div>
-              <label class="block text-[10px] font-mono uppercase text-slate-400 mb-1">Aro (mm)</label>
-              <input v-model.number="form.aro" type="number" step="0.5" class="w-full rounded-xl border-slate-200 text-xs font-mono bg-white" />
-            </div>
-            <div>
-              <label class="block text-[10px] font-mono uppercase text-slate-400 mb-1">Ponte (PO)</label>
-              <input v-model.number="form.po" type="number" step="0.5" class="w-full rounded-xl border-slate-200 text-xs font-mono bg-white" />
-            </div>
-            <div>
-              <label class="block text-[10px] font-mono uppercase text-slate-400 mb-1">Diag. Maior (DM)</label>
-              <input v-model.number="form.dm" type="number" step="0.5" class="w-full rounded-xl border-slate-200 text-xs font-mono bg-white" />
-            </div>
-            <div>
-              <label class="block text-[10px] font-mono uppercase text-slate-400 mb-1">Vertical (VERT)</label>
-              <input v-model.number="form.vert" type="number" step="0.5" class="w-full rounded-xl border-slate-200 text-xs font-mono bg-white" />
-            </div>
-            <div>
-              <label class="block text-[10px] font-mono uppercase text-slate-400 mb-1">Tipo Médico</label>
-              <select v-model="form.medicoTipo" class="w-full rounded-xl border-slate-200 text-xs bg-white font-bold">
+              <label class="block text-[11px] font-mono font-bold uppercase text-slate-500 mb-1">Tipo de Profissional</label>
+              <select v-model="form.medicoTipo" class="w-full rounded-2xl border-slate-200 text-xs bg-slate-50 font-bold">
                 <option value="OFTALMOLOGISTA">Oftalmologista</option>
                 <option value="OPTOMETRISTA">Optometrista</option>
-                <option value="NAO_ESPECIFICADO">Outro</option>
+                <option value="NAO_ESPECIFICADO">Outro Especialista</option>
               </select>
             </div>
-          </div>
-
-          <div>
-            <label class="block text-[11px] font-mono font-bold uppercase text-slate-500 mb-1">Observações da Receita / Clínica</label>
-            <textarea v-model="form.obsReceita" rows="2" placeholder="Observações clínicas adicionais..." class="w-full rounded-2xl border-slate-200 text-xs bg-white"></textarea>
           </div>
         </div>
       </div>
@@ -641,6 +682,7 @@ const form = ref({
   adicao: rec.adicao ?? rec.Adicao ?? null,
   odEsfericoPerto: rec.odEsfericoPerto ?? ((rec.odEsferico ?? 0) + (rec.adicao ?? 0)),
   oeEsfericoPerto: rec.oeEsfericoPerto ?? ((rec.oeEsferico ?? 0) + (rec.adicao ?? 0)),
+  dpTotal: ((rec.dnpOd ?? rec.DnpOd ?? 0) + (rec.dnpOe ?? rec.DnpOe ?? 0)) > 0 ? Number(((rec.dnpOd ?? rec.DnpOd ?? 0) + (rec.dnpOe ?? rec.DnpOe ?? 0)).toFixed(1)) : null,
   dnpOd: rec.dnpOd ?? rec.DnpOd ?? null,
   dnpOe: rec.dnpOe ?? rec.DnpOe ?? null,
   alturaMontagemOd: rec.alturaMontagemOd ?? rec.AlturaMontagemOd ?? null,
@@ -649,6 +691,7 @@ const form = ref({
   dm: rec.dm ?? rec.Dm ?? null,
   vert: rec.vert ?? rec.Vert ?? null,
   po: rec.po ?? rec.Po ?? null,
+  haste: rec.haste ?? rec.Haste ?? null,
   coOd: rec.coOd ?? rec.CoOd ?? null,
   coOe: rec.coOe ?? rec.CoOe ?? null,
   obsReceita: rec.obsReceita || rec.ObsReceita || '',
@@ -686,6 +729,20 @@ const recalcularPerto = () => {
 
 const onAdicaoInput = () => {
   recalcularPerto()
+}
+
+const onDpTotalInput = () => {
+  if (form.value.dpTotal !== null && form.value.dpTotal !== undefined && form.value.dpTotal !== '') {
+    const half = Number((Number(form.value.dpTotal) / 2).toFixed(1))
+    form.value.dnpOd = half
+    form.value.dnpOe = half
+  }
+}
+
+const onDnpInput = () => {
+  if (form.value.dnpOd || form.value.dnpOe) {
+    form.value.dpTotal = Number(((Number(form.value.dnpOd || 0) + Number(form.value.dnpOe || 0))).toFixed(1))
+  }
 }
 
 const onPertoOdInput = () => {
@@ -741,10 +798,8 @@ const salvarEdicao = () => {
   const id = o.id || o.Id
   router.post(`/ordens/${id}/editar`, payload, {
     preserveScroll: true,
-    onSuccess: () => {
+    onFinish: () => {
       salvando.value = false
-      alert('✓ Ordem de Serviço atualizada com sucesso!')
-      router.get('/ordens')
     },
     onError: (err) => {
       salvando.value = false

@@ -45,9 +45,22 @@ namespace RETSYS.Web.Controllers
             bool ehVendedor = string.Equals(perfilClaim, nameof(PerfilUsuario.Vendedor), StringComparison.OrdinalIgnoreCase) || (!EhAdministrador() && !EhDono() && !EhSistema());
             Guid.TryParse(usuarioIdClaim, out Guid vendedorLogadoId);
 
-            Guid? lojaAlvoId = (lojaId.HasValue && lojaId.Value != Guid.Empty) 
-                ? lojaId.Value 
-                : oticaId;
+            // Isolamento rigoroso por Ótica (Multi-tenant): Por padrão SEMPRE filtra pela loja ativa conectada!
+            bool ehAdminGeral = EhSistema() || EhDono() || EhAdministrador();
+            Guid? lojaFiltroEfetivo = null;
+
+            if (lojaId.HasValue && lojaId.Value != Guid.Empty)
+            {
+                lojaFiltroEfetivo = lojaId.Value;
+            }
+            else if (lojaId.HasValue && lojaId.Value == Guid.Empty && ehAdminGeral)
+            {
+                lojaFiltroEfetivo = null; // Ver todas as lojas da rede
+            }
+            else
+            {
+                lojaFiltroEfetivo = oticaId; // Padrão seguro para cada ótica (sem OS misturada!)
+            }
 
             IQueryable<OrdemServico> query = _context.OrdensServico
                 .Include(os => os.Otica)
@@ -59,11 +72,11 @@ namespace RETSYS.Web.Controllers
                 .Include(os => os.PedidoLentePor)
                 .Where(os => os.Ativo);
 
-            if (lojaAlvoId.HasValue)
+            if (lojaFiltroEfetivo.HasValue)
             {
-                query = query.Where(os => os.OticaId == lojaAlvoId.Value);
+                query = query.Where(os => os.OticaId == lojaFiltroEfetivo.Value);
             }
-            else if (!EhSistema() && idsRede.Any())
+            else if (ehAdminGeral && idsRede.Any())
             {
                 query = query.Where(os => idsRede.Contains(os.OticaId));
             }
@@ -334,7 +347,8 @@ namespace RETSYS.Web.Controllers
                 VendedorFiltro = vendedorId,
                 TotalFiltroAtivo = totalFiltroAtivo,
                 Busca = busca ?? "",
-                LojaId = lojaAlvoId
+                LojaId = lojaFiltroEfetivo,
+                FiltroLojaId = lojaFiltroEfetivo?.ToString() ?? ""
             });
         }
 
@@ -642,12 +656,112 @@ namespace RETSYS.Web.Controllers
             });
         }
 
+        private CriarOsRequest ObterDadosCriacao(CriarOsRequest? jsonModel)
+        {
+            if (jsonModel != null && (!string.IsNullOrWhiteSpace(jsonModel.Nome) || !string.IsNullOrWhiteSpace(jsonModel.NumeroOS)))
+            {
+                return jsonModel;
+            }
+
+            var model = jsonModel ?? new CriarOsRequest();
+            if (Request.HasFormContentType)
+            {
+                var f = Request.Form;
+                if (f.ContainsKey("numeroOS")) model.NumeroOS = f["numeroOS"].ToString().Trim();
+                if (f.ContainsKey("vendedorId") && Guid.TryParse(f["vendedorId"].ToString(), out var vId)) model.VendedorId = vId;
+                if (f.ContainsKey("lojaVenda")) model.LojaVenda = f["lojaVenda"].ToString();
+                if (f.ContainsKey("dataEmissao")) model.DataEmissao = f["dataEmissao"].ToString();
+                if (f.ContainsKey("dataEntrada")) model.DataEntrada = f["dataEntrada"].ToString();
+                if (f.ContainsKey("dataPrevistaEntrega")) model.DataPrevistaEntrega = f["dataPrevistaEntrega"].ToString();
+
+                // Cliente
+                if (f.ContainsKey("cpf")) model.Cpf = f["cpf"].ToString();
+                if (f.ContainsKey("nome")) model.Nome = f["nome"].ToString();
+                if (f.ContainsKey("telefone")) model.Telefone = f["telefone"].ToString();
+                if (f.ContainsKey("email")) model.Email = f["email"].ToString();
+                if (f.ContainsKey("convenio")) model.Convenio = f["convenio"].ToString();
+                if (f.ContainsKey("dataNascimento")) model.DataNascimento = f["dataNascimento"].ToString();
+                if (f.ContainsKey("cep")) model.Cep = f["cep"].ToString();
+                if (f.ContainsKey("logradouro")) model.Logradouro = f["logradouro"].ToString();
+                if (f.ContainsKey("numero")) model.Numero = f["numero"].ToString();
+                if (f.ContainsKey("complemento")) model.Complemento = f["complemento"].ToString();
+                if (f.ContainsKey("bairro")) model.Bairro = f["bairro"].ToString();
+                if (f.ContainsKey("cidade")) model.Cidade = f["cidade"].ToString();
+                if (f.ContainsKey("estado")) model.Estado = f["estado"].ToString();
+
+                // Armação & Lente
+                if (f.ContainsKey("armacaoId") && Guid.TryParse(f["armacaoId"].ToString(), out var armId)) model.ArmacaoId = armId;
+                if (f.ContainsKey("armacaoPropria") && bool.TryParse(f["armacaoPropria"].ToString(), out var armProp)) model.ArmacaoPropria = armProp;
+                if (f.ContainsKey("armacaoModeloManual")) model.ArmacaoModeloManual = f["armacaoModeloManual"].ToString();
+                if (f.ContainsKey("valorArmacao") && decimal.TryParse(f["valorArmacao"].ToString(), out var vArm)) model.ValorArmacao = vArm;
+                if (f.ContainsKey("lenteId") && Guid.TryParse(f["lenteId"].ToString(), out var lId)) model.LenteId = lId;
+                if (f.ContainsKey("lentePrecoId") && Guid.TryParse(f["lentePrecoId"].ToString(), out var lpId)) model.LentePrecoId = lpId;
+                if (f.ContainsKey("semLente") && bool.TryParse(f["semLente"].ToString(), out var sLente)) model.SemLente = sLente;
+                if (f.ContainsKey("lenteDescricaoManual")) model.LenteDescricaoManual = f["lenteDescricaoManual"].ToString();
+                if (f.ContainsKey("valorLente") && decimal.TryParse(f["valorLente"].ToString(), out var vLente)) model.ValorLente = vLente;
+                if (f.ContainsKey("laboratorioParceiro")) model.LaboratorioParceiro = f["laboratorioParceiro"].ToString();
+                if (f.ContainsKey("numeroPedidoLaboratorio")) model.NumeroPedidoLaboratorio = f["numeroPedidoLaboratorio"].ToString();
+
+                // Financeiro
+                if (f.ContainsKey("descontoReais") && decimal.TryParse(f["descontoReais"].ToString(), out var desc)) model.DescontoReais = desc;
+                if (f.ContainsKey("valorEntrada") && decimal.TryParse(f["valorEntrada"].ToString(), out var ent)) model.ValorEntrada = ent;
+                if (f.ContainsKey("formaPagamento")) model.FormaPagamento = f["formaPagamento"].ToString();
+                if (f.ContainsKey("quantidadeParcelas") && int.TryParse(f["quantidadeParcelas"].ToString(), out var qParc)) model.QuantidadeParcelas = qParc;
+
+                // Receita
+                if (f.ContainsKey("odEsferico") && decimal.TryParse(f["odEsferico"].ToString(), out var odEsf)) model.OdEsferico = odEsf;
+                if (f.ContainsKey("odCilindrico") && decimal.TryParse(f["odCilindrico"].ToString(), out var odCil)) model.OdCilindrico = odCil;
+                if (f.ContainsKey("odEixo") && int.TryParse(f["odEixo"].ToString(), out var odEix)) model.OdEixo = odEix;
+                if (f.ContainsKey("oeEsferico") && decimal.TryParse(f["oeEsferico"].ToString(), out var oeEsf)) model.OeEsferico = oeEsf;
+                if (f.ContainsKey("oeCilindrico") && decimal.TryParse(f["oeCilindrico"].ToString(), out var oeCil)) model.OeCilindrico = oeCil;
+                if (f.ContainsKey("oeEixo") && int.TryParse(f["oeEixo"].ToString(), out var oeEix)) model.OeEixo = oeEix;
+                if (f.ContainsKey("adicao") && decimal.TryParse(f["adicao"].ToString(), out var ad)) model.Adicao = ad;
+                if (f.ContainsKey("odEsfericoPerto") && decimal.TryParse(f["odEsfericoPerto"].ToString(), out var odPerto)) model.OdEsfericoPerto = odPerto;
+                if (f.ContainsKey("oeEsfericoPerto") && decimal.TryParse(f["oeEsfericoPerto"].ToString(), out var oePerto)) model.OeEsfericoPerto = oePerto;
+                if (f.ContainsKey("dnpOd") && decimal.TryParse(f["dnpOd"].ToString(), out var dnpOd)) model.DnpOd = dnpOd;
+                if (f.ContainsKey("dnpOe") && decimal.TryParse(f["dnpOe"].ToString(), out var dnpOe)) model.DnpOe = dnpOe;
+                if (f.ContainsKey("dpTotal") && decimal.TryParse(f["dpTotal"].ToString(), out var dpTot)) model.DpTotal = dpTot;
+                if (f.ContainsKey("alturaMontagemOd") && decimal.TryParse(f["alturaMontagemOd"].ToString(), out var altOd)) model.AlturaMontagemOd = altOd;
+                if (f.ContainsKey("alturaMontagemOe") && decimal.TryParse(f["alturaMontagemOe"].ToString(), out var altOe)) model.AlturaMontagemOe = altOe;
+
+                // Medidas Armação
+                if (f.ContainsKey("aro") && decimal.TryParse(f["aro"].ToString(), out var aro)) model.Aro = aro;
+                if (f.ContainsKey("dm") && decimal.TryParse(f["dm"].ToString(), out var dm)) model.Dm = dm;
+                if (f.ContainsKey("vert") && decimal.TryParse(f["vert"].ToString(), out var vert)) model.Vert = vert;
+                if (f.ContainsKey("po") && decimal.TryParse(f["po"].ToString(), out var po)) model.Po = po;
+                if (f.ContainsKey("coOd") && decimal.TryParse(f["coOd"].ToString(), out var coOd)) model.CoOd = coOd;
+                if (f.ContainsKey("coOe") && decimal.TryParse(f["coOe"].ToString(), out var coOe)) model.CoOe = coOe;
+                if (f.ContainsKey("haste") && decimal.TryParse(f["haste"].ToString(), out var haste)) model.Haste = haste;
+                if (f.ContainsKey("obsReceita")) model.ObsReceita = f["obsReceita"].ToString();
+
+                // Médico
+                if (f.ContainsKey("medicoNome")) model.MedicoNome = f["medicoNome"].ToString();
+                if (f.ContainsKey("medicoCrm")) model.MedicoCrm = f["medicoCrm"].ToString();
+                if (f.ContainsKey("medicoTipo")) model.MedicoTipo = f["medicoTipo"].ToString();
+                if (f.ContainsKey("receitaDataExame")) model.ReceitaDataExame = f["receitaDataExame"].ToString();
+                if (f.ContainsKey("observacoes")) model.Observacoes = f["observacoes"].ToString();
+            }
+            return model;
+        }
+
         // 4. Criação de nova OS (Numeração Editável, Validação de Desconto e Entrada Parcial).
         [HttpPost("/ordens")]
         public async Task<IActionResult> Store(
-            [FromForm] IFormCollection formCollection,
+            [FromBody] CriarOsRequest? jsonModel,
             [FromQuery] int? quantidadeParcelas)
         {
+            var ehInertia = Request.Headers.ContainsKey("X-Inertia");
+
+            IActionResult RetornarErro(string mensagem)
+            {
+                if (ehInertia)
+                {
+                    Inertia.Share("erro", mensagem);
+                    return Redirect("/ordens/nova");
+                }
+                return BadRequest(new { mensagem });
+            }
+
             try
             {
                 var oticaId = ObterOticaId();
@@ -659,17 +773,20 @@ namespace RETSYS.Web.Controllers
                 bool ehAdminOuGerente =
                     string.Equals(perfilClaim, "ADMIN", StringComparison.OrdinalIgnoreCase) ||
                     string.Equals(perfilClaim, "GERENTE", StringComparison.OrdinalIgnoreCase) ||
-                    string.Equals(perfilClaim, "SISTEMA", StringComparison.OrdinalIgnoreCase);
+                    string.Equals(perfilClaim, "SISTEMA", StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(perfilClaim, "DONO", StringComparison.OrdinalIgnoreCase);
+
+                // Unificação de dados (suporte a JSON [Inertia] e Form)
+                var dados = ObterDadosCriacao(jsonModel);
 
                 Guid vendedorId = Guid.Empty;
                 if (!ehAdminOuGerente)
                 {
-                    // Vendedora padrão SEMPRE emite com seu próprio usuário (Seção 5.3)
                     vendedorId = usuarioLogadoId;
                 }
-                else if (Guid.TryParse(formCollection["vendedorId"].ToString(), out Guid vIdParsed) && vIdParsed != Guid.Empty)
+                else if (dados.VendedorId.HasValue && dados.VendedorId.Value != Guid.Empty)
                 {
-                    vendedorId = vIdParsed;
+                    vendedorId = dados.VendedorId.Value;
                 }
                 else
                 {
@@ -678,10 +795,7 @@ namespace RETSYS.Web.Controllers
 
                 if (vendedorId == Guid.Empty)
                 {
-                    return BadRequest(new
-                    {
-                        mensagem = "Selecione uma vendedora válida."
-                    });
+                    return RetornarErro("Selecione um vendedor(a) responsável.");
                 }
 
                 var vendedor = await _context.Usuarios
@@ -689,15 +803,12 @@ namespace RETSYS.Web.Controllers
 
                 if (vendedor == null || !vendedor.Ativo)
                 {
-                    return BadRequest(new
-                    {
-                        mensagem = "Vendedora não localizada ou inativa."
-                    });
+                    return RetornarErro("Vendedor(a) não localizado(a) ou inativo(a).");
                 }
 
-                // --- SEÇÃO 2: NUMERAÇÃO DA OS EDITÁVEL (por Ótica) ---
-                string numeroOsDigitado = formCollection.ContainsKey("numeroOS")
-                    ? formCollection["numeroOS"].ToString().Trim()
+                // Numeração da OS
+                string numeroOsDigitado = !string.IsNullOrWhiteSpace(dados.NumeroOS)
+                    ? dados.NumeroOS.Trim()
                     : "";
 
                 if (string.IsNullOrWhiteSpace(numeroOsDigitado))
@@ -711,26 +822,20 @@ namespace RETSYS.Web.Controllers
 
                     if (jaExiste)
                     {
-                        return BadRequest(new
-                        {
-                            mensagem = "Já existe uma OS com este número."
-                        });
+                        return RetornarErro("Já existe uma OS ativa com este número nesta loja.");
                     }
                 }
 
-                string cpfInformado = new string(
-                    formCollection["cpf"].ToString().Where(char.IsDigit).ToArray()
-                );
-
+                // Cliente
+                string cpfInformado = !string.IsNullOrWhiteSpace(dados.Cpf)
+                    ? new string(dados.Cpf.Where(char.IsDigit).ToArray())
+                    : "";
                 string? cpfFinalOs = string.IsNullOrWhiteSpace(cpfInformado) ? null : cpfInformado;
-                string nomeClienteInformado = formCollection["nome"].ToString().Trim();
+                string nomeClienteInformado = dados.Nome?.Trim() ?? "";
 
                 if (string.IsNullOrWhiteSpace(nomeClienteInformado))
                 {
-                    return BadRequest(new
-                    {
-                        mensagem = "Informe o nome do cliente."
-                    });
+                    return RetornarErro("O nome do cliente é obrigatório para emissão da OS.");
                 }
 
                 Cliente? cliente = null;
@@ -761,215 +866,111 @@ namespace RETSYS.Web.Controllers
                         CPF = cpfFinalOs,
                         CreatedAt = DateTime.UtcNow
                     };
-
                     _context.Clientes.Add(cliente);
                 }
 
-                cliente.Nome = formCollection["nome"].ToString();
-                cliente.Telefone = formCollection.ContainsKey("telefone") ? formCollection["telefone"].ToString() : "";
-                cliente.Logradouro = formCollection.ContainsKey("logradouro") ? formCollection["logradouro"].ToString() : "";
-                cliente.Numero = formCollection.ContainsKey("numero") ? formCollection["numero"].ToString() : "";
-                cliente.Bairro = formCollection.ContainsKey("bairro") ? formCollection["bairro"].ToString() : "";
-                cliente.Cidade = formCollection.ContainsKey("cidade") ? formCollection["cidade"].ToString() : "";
-                cliente.Estado = formCollection.ContainsKey("estado") ? formCollection["estado"].ToString() : "";
-                cliente.Cep = formCollection.ContainsKey("cep") ? formCollection["cep"].ToString() : "";
-                cliente.Complemento = formCollection.ContainsKey("complemento") ? formCollection["complemento"].ToString() : null;
-                cliente.Convenio = formCollection.ContainsKey("convenio") ? formCollection["convenio"].ToString() : null;
-                cliente.Email = formCollection.ContainsKey("email") ? formCollection["email"].ToString() : null;
+                cliente.Nome = nomeClienteInformado;
+                cliente.Telefone = dados.Telefone?.Trim() ?? "";
+                cliente.Logradouro = dados.Logradouro?.Trim() ?? "";
+                cliente.Numero = dados.Numero?.Trim() ?? "";
+                cliente.Bairro = dados.Bairro?.Trim() ?? "";
+                cliente.Cidade = dados.Cidade?.Trim() ?? "";
+                cliente.Estado = dados.Estado?.Trim() ?? "";
+                cliente.Cep = dados.Cep?.Trim() ?? "";
+                cliente.Complemento = dados.Complemento?.Trim();
+                cliente.Convenio = dados.Convenio?.Trim();
+                cliente.Email = dados.Email?.Trim();
 
-                if (formCollection.ContainsKey("dataNascimento") &&
-                    DateTime.TryParse(formCollection["dataNascimento"].ToString(), out var dataNascimento))
+                if (!string.IsNullOrWhiteSpace(dados.DataNascimento) &&
+                    DateTime.TryParse(dados.DataNascimento, out var dataNascimento))
                 {
                     cliente.DataNascimento = DateTime.SpecifyKind(dataNascimento, DateTimeKind.Utc);
                 }
-
                 cliente.UpdatedAt = DateTime.UtcNow;
 
-                Guid? armacaoId = null;
-                if (formCollection.ContainsKey("armacaoId") &&
-                    Guid.TryParse(formCollection["armacaoId"].ToString(), out Guid armGuid))
-                {
-                    armacaoId = armGuid;
-                }
+                // Armação e Lente
+                Guid? armacaoId = dados.ArmacaoId.HasValue && dados.ArmacaoId.Value != Guid.Empty ? dados.ArmacaoId.Value : null;
+                Guid? lentePrecoId = (dados.LentePrecoId.HasValue && dados.LentePrecoId.Value != Guid.Empty) 
+                    ? dados.LentePrecoId.Value 
+                    : (dados.LenteId.HasValue && dados.LenteId.Value != Guid.Empty ? dados.LenteId.Value : null);
 
-                Guid? lentePrecoId = null;
-                if (formCollection.ContainsKey("lenteId") &&
-                    Guid.TryParse(formCollection["lenteId"].ToString(), out Guid lenteGuid))
-                {
-                    lentePrecoId = lenteGuid;
-                }
-
-                decimal valorArmacao = formCollection.ContainsKey("valorArmacao") &&
-                                       decimal.TryParse(formCollection["valorArmacao"].ToString(), out var valorArmacaoInformado)
-                    ? valorArmacaoInformado
-                    : 0m;
-
-                decimal valorLente = formCollection.ContainsKey("valorLente") &&
-                                     decimal.TryParse(formCollection["valorLente"].ToString(), out var valorLenteInformado)
-                    ? valorLenteInformado
-                    : 0m;
+                decimal valorArmacao = dados.ValorArmacao ?? 0m;
+                decimal valorLente = dados.ValorLente ?? 0m;
 
                 if (valorArmacao < 0 || valorLente < 0)
                 {
-                    return BadRequest(new
-                    {
-                        mensagem = "Os valores da armação e da lente não podem ser negativos."
-                    });
+                    return RetornarErro("Os valores da armação e da lente não podem ser negativos.");
                 }
 
                 decimal totalBruto = valorArmacao + valorLente;
-
-                decimal descontoReais = formCollection.ContainsKey("descontoReais") &&
-                                        decimal.TryParse(formCollection["descontoReais"].ToString(), out var descontoInformado)
-                    ? descontoInformado
-                    : 0m;
+                decimal descontoReais = dados.DescontoReais ?? 0m;
 
                 if (descontoReais < 0 || (totalBruto > 0 && descontoReais > totalBruto))
                 {
-                    return BadRequest(new
-                    {
-                        mensagem = "O desconto informado é inválido."
-                    });
+                    return RetornarErro("O valor de desconto informado é inválido.");
                 }
 
-                // --- SEÇÃO 1: CORREÇÃO NO CÁLCULO E VALIDAÇÃO DO DESCONTO ---
                 decimal descontoPercentual = 0m;
                 if (totalBruto > 0)
                 {
                     descontoPercentual = Math.Round((descontoReais / totalBruto) * 100m, 2);
-
                     if (!ehAdminOuGerente && vendedor.LimiteDesconto > 0 && descontoPercentual > vendedor.LimiteDesconto)
                     {
-                        return BadRequest(new
-                        {
-                            mensagem = $"Desconto de {descontoPercentual}% acima do limite autorizado ({vendedor.LimiteDesconto}%). Solicite aprovação do administrador."
-                        });
+                        return RetornarErro($"Desconto de {descontoPercentual}% acima do seu limite autorizado ({vendedor.LimiteDesconto}%). Solicite autorização da gerência.");
                     }
                 }
 
                 decimal valorTotalLiquido = Math.Max(0, totalBruto - descontoReais);
-
-                // --- SEÇÃO 5: VALOR DE ENTRADA E SALDO RESTANTE ---
-                decimal valorEntrada = formCollection.ContainsKey("valorEntrada") &&
-                                       decimal.TryParse(formCollection["valorEntrada"].ToString(), out var entVal)
-                    ? entVal
-                    : 0m;
+                decimal valorEntrada = dados.ValorEntrada ?? 0m;
 
                 if (valorEntrada < 0)
                 {
-                    return BadRequest(new
-                    {
-                        mensagem = "O valor de entrada não pode ser negativo."
-                    });
+                    return RetornarErro("O valor de entrada não pode ser negativo.");
                 }
-
                 if (valorEntrada > valorTotalLiquido)
                 {
-                    return BadRequest(new
-                    {
-                        mensagem = "O valor de entrada não pode ser maior que o valor total líquido da OS."
-                    });
+                    return RetornarErro("O valor de entrada não pode ser maior que o total da OS.");
                 }
 
-                decimal valorRestante = valorTotalLiquido - valorEntrada;
-
-                // --- SEÇÃO 4.5: FORMA DE PAGAMENTO (SEM CONVENIO) ---
-                string formaPagamento = formCollection.ContainsKey("formaPagamento")
-                    ? formCollection["formaPagamento"].ToString().ToUpper()
-                    : "DINHEIRO";
+                decimal valorRestante = Math.Max(0, valorTotalLiquido - valorEntrada);
+                string formaPagamento = !string.IsNullOrWhiteSpace(dados.FormaPagamento) ? dados.FormaPagamento.ToUpper() : "DINHEIRO";
 
                 if (formaPagamento == "CONVENIO")
                 {
-                    return BadRequest(new
-                    {
-                        mensagem = "Convênio não é uma forma de pagamento válida. Escolha Dinheiro, PIX, Cartão ou Boleto."
-                    });
+                    return RetornarErro("Convênio não é uma forma de pagamento de fechamento. Utilize Dinheiro, PIX, Cartão ou Carnê.");
                 }
 
-                int? parcelasFinais = null;
-                int loopParcelas = 1;
-
-                if (formaPagamento == "CARTAO_CREDITO")
-                {
-                    if (quantidadeParcelas == null || quantidadeParcelas <= 0)
-                    {
-                        return BadRequest(new
-                        {
-                            mensagem = "Defina o número de parcelas para o cartão de crédito."
-                        });
-                    }
-
-                    parcelasFinais = quantidadeParcelas.Value;
-                    loopParcelas = parcelasFinais.Value;
-                }
+                int? parcelasFinais = dados.Parcelas ?? dados.QuantidadeParcelas ?? quantidadeParcelas ?? 1;
+                int loopParcelas = Math.Max(1, parcelasFinais.Value);
 
                 Armacao? armacaoSelecionada = null;
-
-                if (armacaoId.HasValue)
+                if (armacaoId.HasValue && !dados.ArmacaoPropria)
                 {
                     armacaoSelecionada = await _context.Armacoes
-                        .FirstOrDefaultAsync(a =>
-                            a.Id == armacaoId.Value &&
-                            a.OticaId == oticaId &&
-                            a.Ativo);
+                        .FirstOrDefaultAsync(a => a.Id == armacaoId.Value && a.OticaId == oticaId && a.Ativo);
 
-                    if (armacaoSelecionada == null)
+                    if (armacaoSelecionada != null && armacaoSelecionada.QuantidadeEstoque > 0)
                     {
-                        return BadRequest(new
-                        {
-                            mensagem = "A armação selecionada não foi localizada ou está inativa."
-                        });
-                    }
-
-                    if (armacaoSelecionada.QuantidadeEstoque <= 0)
-                    {
-                        return BadRequest(new
-                        {
-                            mensagem = "A armação selecionada não possui estoque disponível."
-                        });
-                    }
-                }
-
-                if (lentePrecoId.HasValue)
-                {
-                    bool lenteExiste = await _context.LentesTabelaPrecos
-                        .AnyAsync(lp =>
-                            lp.Id == lentePrecoId.Value &&
-                            lp.Ativo &&
-                            lp.Lente != null &&
-                            lp.Lente.Ativo &&
-                            lp.Lente.OticaId == oticaId);
-
-                    if (!lenteExiste)
-                    {
-                        return BadRequest(new
-                        {
-                            mensagem = "A lente selecionada não foi localizada ou está inativa."
-                        });
+                        armacaoSelecionada.QuantidadeEstoque--;
                     }
                 }
 
                 var oticaObj = await _context.Oticas.AsNoTracking().FirstOrDefaultAsync(o => o.Id == oticaId);
                 string oticaNomeAtual = oticaObj?.Nome ?? "Matriz";
-
-                string lojaVenda = formCollection.ContainsKey("lojaVenda") && !string.IsNullOrWhiteSpace(formCollection["lojaVenda"].ToString())
-                    ? formCollection["lojaVenda"].ToString()
+                string lojaVenda = !string.IsNullOrWhiteSpace(dados.LojaVenda)
+                    ? dados.LojaVenda.Trim()
                     : (!string.IsNullOrWhiteSpace(vendedor.FilialLoja) ? vendedor.FilialLoja : oticaNomeAtual);
 
                 DateTime dataEntradaCalculada = DateTime.UtcNow;
-                if (ehAdminOuGerente)
+                if (ehAdminOuGerente && !string.IsNullOrWhiteSpace(dados.DataEntrada) && DateTime.TryParse(dados.DataEntrada, out var dtParsed))
                 {
-                    string? rawData = formCollection.ContainsKey("dataEmissao") && !string.IsNullOrWhiteSpace(formCollection["dataEmissao"].ToString())
-                        ? formCollection["dataEmissao"].ToString()
-                        : (formCollection.ContainsKey("dataEntrada") && !string.IsNullOrWhiteSpace(formCollection["dataEntrada"].ToString())
-                            ? formCollection["dataEntrada"].ToString()
-                            : null);
+                    dataEntradaCalculada = DateTime.SpecifyKind(dtParsed.Date.Add(DateTime.UtcNow.TimeOfDay), DateTimeKind.Utc);
+                }
 
-                    if (!string.IsNullOrWhiteSpace(rawData) && DateTime.TryParse(rawData, out var dtParsed))
-                    {
-                        var horaAtual = DateTime.UtcNow.TimeOfDay;
-                        dataEntradaCalculada = DateTime.SpecifyKind(dtParsed.Date.Add(horaAtual), DateTimeKind.Utc);
-                    }
+                DateTime dataPrevista = DateTime.UtcNow.AddDays(7);
+                if (!string.IsNullOrWhiteSpace(dados.DataPrevistaEntrega) && DateTime.TryParse(dados.DataPrevistaEntrega, out var dtPrev))
+                {
+                    dataPrevista = DateTime.SpecifyKind(dtPrev.Date, DateTimeKind.Utc);
                 }
 
                 var novaOS = new OrdemServico
@@ -981,130 +982,61 @@ namespace RETSYS.Web.Controllers
                     VendedorId = vendedor.Id,
                     LojaVenda = lojaVenda,
                     DataEntrada = dataEntradaCalculada,
-
-                    DataPrevistaEntrega = formCollection.ContainsKey("dataPrevistaEntrega") &&
-                                          DateTime.TryParse(
-                                              formCollection["dataPrevistaEntrega"].ToString(),
-                                              out var dataPrevistaEntrega)
-                        ? DateTime.SpecifyKind(dataPrevistaEntrega, DateTimeKind.Utc)
-                        : DateTime.UtcNow.AddDays(7),
-
+                    DataPrevistaEntrega = dataPrevista,
                     Status = "EM_ABERTO",
-
-                    MedicoNome = formCollection.ContainsKey("medicoNome") ? formCollection["medicoNome"].ToString() : null,
-                    MedicoCrm = formCollection.ContainsKey("medicoCrm") ? formCollection["medicoCrm"].ToString() : null,
-                    MedicoTipo = formCollection.ContainsKey("medicoTipo") ? formCollection["medicoTipo"].ToString() : "NAO_ESPECIFICADO",
-                    Observacoes = formCollection.ContainsKey("observacoes") ? formCollection["observacoes"].ToString() : null,
-
+                    LaboratorioParceiro = dados.LaboratorioParceiro ?? "Essilor",
+                    NumeroPedidoLaboratorio = dados.NumeroPedidoLaboratorio,
+                    ArmacaoModeloManual = dados.ArmacaoPropria ? (dados.ArmacaoModeloManual ?? "Armação Própria do Cliente") : dados.ArmacaoModeloManual,
+                    LenteDescricaoManual = dados.SemLente ? "Sem Lente" : dados.LenteDescricaoManual,
+                    MedicoNome = dados.MedicoNome,
+                    MedicoCrm = dados.MedicoCrm,
+                    MedicoTipo = dados.MedicoTipo ?? "NAO_ESPECIFICADO",
+                    Observacoes = dados.Observacoes,
                     LentePedida = false,
                     IsRetroativa = false,
                     Ativo = true
                 };
 
-                string? caminhoFotoAnexa = null;
+                // Receituário Óptico
+                decimal odEsf = dados.OdEsferico ?? 0m;
+                decimal oeEsf = dados.OeEsferico ?? 0m;
+                decimal rawOdCil = dados.OdCilindrico ?? 0m;
+                decimal rawOeCil = dados.OeCilindrico ?? 0m;
+                decimal odCil = rawOdCil > 0 ? -Math.Abs(rawOdCil) : rawOdCil;
+                decimal oeCil = rawOeCil > 0 ? -Math.Abs(rawOeCil) : rawOeCil;
+                int odEixo = Math.Clamp(dados.OdEixo ?? 0, 0, 180);
+                int oeEixo = Math.Clamp(dados.OeEixo ?? 0, 0, 180);
 
-                if (Request.Form.Files.Count > 0)
+                decimal? adicao = dados.Adicao;
+                if (!adicao.HasValue && dados.OdEsfericoPerto.HasValue && dados.OdEsfericoPerto.Value != 0)
                 {
-                    var arquivoFoto = Request.Form.Files.GetFile("fotoReceitaArquivo");
-
-                    if (arquivoFoto != null && arquivoFoto.Length > 0)
-                    {
-                        var pastaUploads = Path.Combine(
-                            Directory.GetCurrentDirectory(),
-                            "wwwroot",
-                            "uploads",
-                            "receitas"
-                        );
-
-                        if (!Directory.Exists(pastaUploads))
-                        {
-                            Directory.CreateDirectory(pastaUploads);
-                        }
-
-                        var nomeArquivo = Guid.NewGuid() + Path.GetExtension(arquivoFoto.FileName);
-                        var caminhoCompleto = Path.Combine(pastaUploads, nomeArquivo);
-
-                        await using var stream = new FileStream(caminhoCompleto, FileMode.Create);
-                        await arquivoFoto.CopyToAsync(stream);
-
-                        caminhoFotoAnexa = "/uploads/receitas/" + nomeArquivo;
-                    }
+                    adicao = Math.Max(0m, dados.OdEsfericoPerto.Value - odEsf);
                 }
 
-                decimal.TryParse(formCollection["odEsferico"].ToString(), out var odEsferico);
-                decimal.TryParse(formCollection["oeEsferico"].ToString(), out var oeEsferico);
-                decimal.TryParse(formCollection["odCilindrico"].ToString(), out var rawOdCilindrico);
-                decimal.TryParse(formCollection["oeCilindrico"].ToString(), out var rawOeCilindrico);
-                int.TryParse(formCollection["odEixo"].ToString(), out var odEixo);
-                int.TryParse(formCollection["oeEixo"].ToString(), out var oeEixo);
-
-                decimal odCilindrico = rawOdCilindrico > 0 ? -Math.Abs(rawOdCilindrico) : rawOdCilindrico;
-                decimal oeCilindrico = rawOeCilindrico > 0 ? -Math.Abs(rawOeCilindrico) : rawOeCilindrico;
-
-                int odEixoValidado = Math.Clamp(odEixo, 0, 180);
-                int oeEixoValidado = Math.Clamp(oeEixo, 0, 180);
-
-                decimal? adicao = decimal.TryParse(formCollection["adicao"].ToString(), out var adicaoInformada)
-                    ? adicaoInformada
-                    : null;
-
-                if (!adicao.HasValue && formCollection.ContainsKey("odEsfericoPerto") && decimal.TryParse(formCollection["odEsfericoPerto"].ToString(), out var odPerto) && odPerto != 0)
-                {
-                    adicao = Math.Max(0m, odPerto - odEsferico);
-                }
-
-                decimal.TryParse(formCollection["dnpOd"].ToString(), out var dnpOd);
-                decimal.TryParse(formCollection["dnpOe"].ToString(), out var dnpOe);
-
-                decimal? alturaOd = decimal.TryParse(formCollection["alturaMontagemOd"].ToString(), out var alturaOdInformada)
-                    ? alturaOdInformada
-                    : decimal.TryParse(formCollection["alturaMontagem"].ToString(), out var alturaGeral)
-                        ? alturaGeral
-                        : null;
-
-                decimal? alturaOe = decimal.TryParse(formCollection["alturaMontagemOe"].ToString(), out var alturaOeInformada)
-                    ? alturaOeInformada
-                    : decimal.TryParse(formCollection["alturaMontagem"].ToString(), out var alturaGeralOe)
-                        ? alturaGeralOe
-                        : null;
-
-                decimal? aro = decimal.TryParse(formCollection["aro"].ToString(), out var valorAro) ? Math.Clamp(valorAro, 0m, 80m) : null;
-                decimal? dm = decimal.TryParse(formCollection["dm"].ToString(), out var valorDm) ? Math.Clamp(valorDm, 0m, 80m) : null;
-                decimal? vert = decimal.TryParse(formCollection["vert"].ToString(), out var valorVert) ? Math.Clamp(valorVert, 0m, 80m) : null;
-                decimal? po = decimal.TryParse(formCollection["po"].ToString(), out var valorPo) ? Math.Clamp(valorPo, 0m, 25m) : null;
-                decimal? coOd = decimal.TryParse(formCollection["coOd"].ToString(), out var valorCoOd) ? Math.Clamp(valorCoOd, 0m, 80m) : null;
-                decimal? coOe = decimal.TryParse(formCollection["coOe"].ToString(), out var valorCoOe) ? Math.Clamp(valorCoOe, 0m, 80m) : null;
-
-                string observacaoReceita = formCollection.ContainsKey("obsReceita")
-                    ? formCollection["obsReceita"].ToString()
-                    : "";
-
-                if (!string.IsNullOrEmpty(caminhoFotoAnexa))
-                {
-                    observacaoReceita = $"[Anexo da Receita: {caminhoFotoAnexa}] {observacaoReceita}";
-                }
+                decimal dnpOd = dados.DnpOd ?? (dados.DpTotal.HasValue ? Math.Round(dados.DpTotal.Value / 2, 1) : 0m);
+                decimal dnpOe = dados.DnpOe ?? (dados.DpTotal.HasValue ? Math.Round(dados.DpTotal.Value / 2, 1) : 0m);
 
                 novaOS.Receita = new OsReceita
                 {
                     OsId = novaOS.Id,
-                    OdEsferico = odEsferico,
-                    OdCilindrico = odCilindrico,
-                    OdEixo = odEixoValidado,
-                    OeEsferico = oeEsferico,
-                    OeCilindrico = oeCilindrico,
-                    OeEixo = oeEixoValidado,
+                    OdEsferico = odEsf,
+                    OdCilindrico = odCil,
+                    OdEixo = odEixo,
+                    OeEsferico = oeEsf,
+                    OeCilindrico = oeCil,
+                    OeEixo = oeEixo,
                     Adicao = adicao,
                     DnpOd = dnpOd,
                     DnpOe = dnpOe,
-                    AlturaMontagemOd = alturaOd,
-                    AlturaMontagemOe = alturaOe,
-                    Aro = aro,
-                    Dm = dm,
-                    Vert = vert,
-                    Po = po,
-                    CoOd = coOd,
-                    CoOe = coOe,
-                    ObsReceita = observacaoReceita
+                    AlturaMontagemOd = dados.AlturaMontagemOd ?? dados.AlturaMontagem,
+                    AlturaMontagemOe = dados.AlturaMontagemOe ?? dados.AlturaMontagem,
+                    Aro = dados.Aro,
+                    Dm = dados.Dm,
+                    Vert = dados.Vert,
+                    Po = dados.Po,
+                    CoOd = dados.CoOd,
+                    CoOe = dados.CoOe,
+                    ObsReceita = dados.ObsReceita
                 };
 
                 novaOS.Financeiro = new OsFinanceiro
@@ -1124,12 +1056,7 @@ namespace RETSYS.Web.Controllers
                     ValorRestante = valorRestante
                 };
 
-                decimal valorParcela = Math.Round(
-                    valorTotalLiquido / loopParcelas,
-                    2,
-                    MidpointRounding.AwayFromZero
-                );
-
+                decimal valorParcela = Math.Round(valorTotalLiquido / loopParcelas, 2, MidpointRounding.AwayFromZero);
                 for (int i = 1; i <= loopParcelas; i++)
                 {
                     novaOS.Parcelas.Add(new ParcelaPagamento
@@ -1138,18 +1065,9 @@ namespace RETSYS.Web.Controllers
                         OrdemServicoId = novaOS.Id,
                         NumeroParcela = i,
                         DescricaoParcela = $"PARC. {i}/{loopParcelas} - OS: {novaOS.NumeroOS}",
-
-                        Valor = i == loopParcelas
-                            ? valorTotalLiquido - (valorParcela * (loopParcelas - 1))
-                            : valorParcela,
-
+                        Valor = i == loopParcelas ? valorTotalLiquido - (valorParcela * (loopParcelas - 1)) : valorParcela,
                         DataVencimento = DateTime.UtcNow.AddMonths(i)
                     });
-                }
-
-                if (armacaoSelecionada != null)
-                {
-                    armacaoSelecionada.QuantidadeEstoque--;
                 }
 
                 _context.OrdensServico.Add(novaOS);
@@ -1157,7 +1075,6 @@ namespace RETSYS.Web.Controllers
                 if (vendedor.ComissaoAtiva && vendedor.PercentualComissao > 0)
                 {
                     decimal percentualComissao = vendedor.PercentualComissao;
-
                     _context.Comissoes.Add(new Comissao
                     {
                         Id = Guid.NewGuid(),
@@ -1165,22 +1082,21 @@ namespace RETSYS.Web.Controllers
                         VendedorId = vendedor.Id,
                         ValorBase = valorTotalLiquido,
                         PercentualAplicado = percentualComissao,
-
-                        ValorComissao = Math.Round(
-                            valorTotalLiquido * percentualComissao / 100m,
-                            2,
-                            MidpointRounding.AwayFromZero
-                        ),
-
+                        ValorComissao = Math.Round(valorTotalLiquido * percentualComissao / 100m, 2, MidpointRounding.AwayFromZero),
                         Status = "PENDENTE",
                         DataGeracao = DateTime.UtcNow,
                         PeriodoReferencia = novaOS.DataEntrada.ToString("yyyy-MM"),
-
                         Observacoes = $"Comissão gerada automaticamente na emissão da OS {novaOS.NumeroOS}."
                     });
                 }
 
                 await _context.SaveChangesAsync();
+
+                if (ehInertia)
+                {
+                    Inertia.Share("sucesso", $"OS #{novaOS.NumeroOS} emitida com sucesso!");
+                    return RedirectToAction(nameof(Index));
+                }
 
                 return Ok(new
                 {
@@ -1190,11 +1106,7 @@ namespace RETSYS.Web.Controllers
             }
             catch (Exception ex)
             {
-                return BadRequest(new
-                {
-                    mensagem = "Falha ao processar a Ordem de Serviço.",
-                    erro = ex.Message
-                });
+                return RetornarErro($"Falha ao emitir a Ordem de Serviço: {ex.Message}");
             }
         }
 
@@ -2111,12 +2023,6 @@ namespace RETSYS.Web.Controllers
             var oticaId = ObterOticaId();
             var idsRede = ObterIdsOticasDaRede(oticaId, _context);
 
-            if (!EhAdministrador())
-            {
-                Inertia.Share("erro", "Apenas Administradores ou Gerentes podem editar dados de OS já emitidas.");
-                return RedirectToAction(nameof(Index));
-            }
-
             var os = await _context.OrdensServico
                 .Include(o => o.Cliente)
                 .Include(o => o.Vendedor)
@@ -2130,9 +2036,14 @@ namespace RETSYS.Web.Controllers
                 return NotFound();
             }
 
-            if (!EhSistema() && os.OticaId != oticaId && !idsRede.Contains(os.OticaId))
+            var perfilClaim = User.FindFirst(ClaimTypes.Role)?.Value ?? "VENDEDOR";
+            bool ehAdminOuDono = EhAdministrador() || EhDono() || EhSistema();
+            bool ehMesmaOtica = os.OticaId == oticaId || idsRede.Contains(os.OticaId);
+
+            if (!ehAdminOuDono && !ehMesmaOtica)
             {
-                return Forbid();
+                Inertia.Share("erro", "Você não tem permissão para editar dados desta Ordem de Serviço.");
+                return RedirectToAction(nameof(Index));
             }
 
             var model = jsonModel ?? new EditarAdminRequest();
@@ -2548,5 +2459,89 @@ namespace RETSYS.Web.Controllers
     public class MarcarWhatsAppRequest
     {
         public string? Tipo { get; set; } // "cadastro" ou "pronto"
+    }
+
+    public class CriarOsRequest
+    {
+        public string? NumeroOS { get; set; }
+        public Guid? VendedorId { get; set; }
+        public string? LojaVenda { get; set; }
+        public string? DataEmissao { get; set; }
+        public string? DataEntrada { get; set; }
+        public string? DataPrevistaEntrega { get; set; }
+
+        // Cliente
+        public string? Cpf { get; set; }
+        public string? Nome { get; set; }
+        public string? Telefone { get; set; }
+        public string? Email { get; set; }
+        public string? Convenio { get; set; }
+        public string? DataNascimento { get; set; }
+        public string? Cep { get; set; }
+        public string? Logradouro { get; set; }
+        public string? Numero { get; set; }
+        public string? Complemento { get; set; }
+        public string? Bairro { get; set; }
+        public string? Cidade { get; set; }
+        public string? Estado { get; set; }
+
+        // Armação & Lente
+        public Guid? ArmacaoId { get; set; }
+        public bool ArmacaoPropria { get; set; }
+        public string? ArmacaoModeloManual { get; set; }
+        public string? ArmacaoDescricaoManual { get; set; }
+        public decimal? ValorArmacao { get; set; }
+        public Guid? LenteId { get; set; }
+        public Guid? LentePrecoId { get; set; }
+        public bool SemLente { get; set; }
+        public string? LenteDescricaoManual { get; set; }
+        public decimal? ValorLente { get; set; }
+        public string? LaboratorioParceiro { get; set; }
+        public string? NumeroPedidoLaboratorio { get; set; }
+
+        // Financeiro
+        public decimal? DescontoReais { get; set; }
+        public decimal? ValorEntrada { get; set; }
+        public string? FormaPagamento { get; set; }
+        public int? Parcelas { get; set; }
+        public int? QuantidadeParcelas { get; set; }
+
+        // Receita - Longe
+        public decimal? OdEsferico { get; set; }
+        public decimal? OdCilindrico { get; set; }
+        public int? OdEixo { get; set; }
+        public decimal? OeEsferico { get; set; }
+        public decimal? OeCilindrico { get; set; }
+        public int? OeEixo { get; set; }
+
+        // Receita - Perto & Adição
+        public decimal? OdEsfericoPerto { get; set; }
+        public decimal? OeEsfericoPerto { get; set; }
+        public decimal? Adicao { get; set; }
+
+        // Medidas Técnicas / Centragem
+        public decimal? DnpOd { get; set; }
+        public decimal? DnpOe { get; set; }
+        public decimal? DpTotal { get; set; }
+        public decimal? AlturaMontagemOd { get; set; }
+        public decimal? AlturaMontagemOe { get; set; }
+        public decimal? AlturaMontagem { get; set; }
+
+        // Medidas da Armação (Laboratório)
+        public decimal? Aro { get; set; }
+        public decimal? Dm { get; set; }
+        public decimal? Vert { get; set; }
+        public decimal? Po { get; set; }
+        public decimal? CoOd { get; set; }
+        public decimal? CoOe { get; set; }
+        public decimal? Haste { get; set; }
+        public string? ObsReceita { get; set; }
+
+        // Médico
+        public string? MedicoNome { get; set; }
+        public string? MedicoCrm { get; set; }
+        public string? MedicoTipo { get; set; }
+        public string? ReceitaDataExame { get; set; }
+        public string? Observacoes { get; set; }
     }
 }

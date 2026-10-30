@@ -659,6 +659,7 @@ const props = defineProps({
   FiltroComposicao: String, filtroComposicao: String,
   FiltroVendedorId: String, filtroVendedorId: String,
   FiltroLojaId: String, filtroLojaId: String,
+  LojaId: String, lojaId: String,
   Busca: String, busca: String,
   TotalFaturamento: Number, totalFaturamento: Number,
   FiltroAtivo: String, filtroAtivo: String,
@@ -673,7 +674,7 @@ const eAdmin = computed(() => {
 })
 
 const termoBusca = ref(props.Busca ?? props.busca ?? '')
-const lojaSelecionada = ref(props.FiltroLojaId ?? props.filtroLojaId ?? '')
+const lojaSelecionada = ref(props.LojaId ?? props.lojaId ?? props.FiltroLojaId ?? props.filtroLojaId ?? '')
 const vendedorSelecionado = ref(props.FiltroVendedorId ?? props.filtroVendedorId ?? props.VendedorFiltro ?? props.vendedorFiltro ?? '')
 const filtroAtivoComp = computed(() => props.FiltroComposicao ?? props.filtroComposicao ?? props.FiltroAtivo ?? props.filtroAtivo ?? 'total')
 const totalExibido = computed(() => props.TotalFaturamento ?? props.totalFaturamento ?? props.TotalFiltroAtivo ?? props.totalFiltroAtivo ?? 0)
@@ -792,7 +793,8 @@ const abrirWhatsAppOS = (os) => {
   }
   const nome = (os.clienteNome || os.ClienteNome || '').split(' ')[0]
   const num = os.numeroOS || os.NumeroOS
-  let msg = `Olá ${nome}! Aqui é da Ótica Retina referente à sua Ordem de Serviço #${num}. `
+  const nomeLoja = os.lojaVenda || os.LojaVenda || 'sua Ótica'
+  let msg = `Olá ${nome}! Aqui é da ${nomeLoja} referente à sua Ordem de Serviço #${num}. `
   if (os.status === 'PRONTA' || os.status === 'PRONTO') {
     msg += `Seus óculos ficaram prontos com muito carinho! Você já pode passar na loja para experimentá-los e fazer os ajustes finais. Te aguardamos!`
   } else {
