@@ -141,20 +141,37 @@ namespace RETSYS.Web.Controllers
         [HttpPost("/clientes")]
         public async Task<IActionResult> Store(ClienteCadastroRequest model)
         {
-            if (string.IsNullOrWhiteSpace(model.Nome) && Request.HasFormContentType)
+            if (string.IsNullOrWhiteSpace(model.Nome))
             {
-                model.Nome = Request.Form["Nome"].ToString();
-                model.CPF = Request.Form["CPF"].ToString();
-                model.Telefone = Request.Form["Telefone"].ToString();
-                model.Email = Request.Form["Email"].ToString();
-                model.Convenio = Request.Form["Convenio"].ToString();
-                model.Cep = Request.Form["Cep"].ToString();
-                model.Logradouro = Request.Form["Logradouro"].ToString();
-                model.Numero = Request.Form["Numero"].ToString();
-                model.Bairro = Request.Form["Bairro"].ToString();
-                model.Cidade = Request.Form["Cidade"].ToString();
-                model.Estado = Request.Form["Estado"].ToString();
-                model.Observacoes = Request.Form["Observacoes"].ToString();
+                if (Request.HasFormContentType)
+                {
+                    model.Nome = Request.Form["Nome"].ToString();
+                    model.CPF = Request.Form["CPF"].ToString();
+                    model.Telefone = Request.Form["Telefone"].ToString();
+                    model.Email = Request.Form["Email"].ToString();
+                    model.Convenio = Request.Form["Convenio"].ToString();
+                    model.Cep = Request.Form["Cep"].ToString();
+                    model.Logradouro = Request.Form["Logradouro"].ToString();
+                    model.Numero = Request.Form["Numero"].ToString();
+                    model.Bairro = Request.Form["Bairro"].ToString();
+                    model.Cidade = Request.Form["Cidade"].ToString();
+                    model.Estado = Request.Form["Estado"].ToString();
+                    model.Observacoes = Request.Form["Observacoes"].ToString();
+                }
+                else if (Request.ContentType?.Contains("application/json") == true)
+                {
+                    try
+                    {
+                        using var reader = new System.IO.StreamReader(Request.Body);
+                        var body = await reader.ReadToEndAsync();
+                        if (!string.IsNullOrWhiteSpace(body))
+                        {
+                            var jsonModel = System.Text.Json.JsonSerializer.Deserialize<ClienteCadastroRequest>(body, new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                            if (jsonModel != null) model = jsonModel;
+                        }
+                    }
+                    catch { }
+                }
             }
 
             if (string.IsNullOrWhiteSpace(model.Nome))
@@ -333,20 +350,37 @@ namespace RETSYS.Web.Controllers
         [HttpPost("/clientes/editar/{id:guid}")]
         public async Task<IActionResult> Editar(Guid id, ClienteCadastroRequest model)
         {
-            if (string.IsNullOrWhiteSpace(model.Nome) && Request.HasFormContentType)
+            if (string.IsNullOrWhiteSpace(model.Nome))
             {
-                model.Nome = Request.Form["Nome"].ToString();
-                model.CPF = Request.Form["CPF"].ToString();
-                model.Telefone = Request.Form["Telefone"].ToString();
-                model.Email = Request.Form["Email"].ToString();
-                model.Convenio = Request.Form["Convenio"].ToString();
-                model.Cep = Request.Form["Cep"].ToString();
-                model.Logradouro = Request.Form["Logradouro"].ToString();
-                model.Numero = Request.Form["Numero"].ToString();
-                model.Bairro = Request.Form["Bairro"].ToString();
-                model.Cidade = Request.Form["Cidade"].ToString();
-                model.Estado = Request.Form["Estado"].ToString();
-                model.Observacoes = Request.Form["Observacoes"].ToString();
+                if (Request.HasFormContentType)
+                {
+                    model.Nome = Request.Form["Nome"].ToString();
+                    model.CPF = Request.Form["CPF"].ToString();
+                    model.Telefone = Request.Form["Telefone"].ToString();
+                    model.Email = Request.Form["Email"].ToString();
+                    model.Convenio = Request.Form["Convenio"].ToString();
+                    model.Cep = Request.Form["Cep"].ToString();
+                    model.Logradouro = Request.Form["Logradouro"].ToString();
+                    model.Numero = Request.Form["Numero"].ToString();
+                    model.Bairro = Request.Form["Bairro"].ToString();
+                    model.Cidade = Request.Form["Cidade"].ToString();
+                    model.Estado = Request.Form["Estado"].ToString();
+                    model.Observacoes = Request.Form["Observacoes"].ToString();
+                }
+                else if (Request.ContentType?.Contains("application/json") == true)
+                {
+                    try
+                    {
+                        using var reader = new System.IO.StreamReader(Request.Body);
+                        var body = await reader.ReadToEndAsync();
+                        if (!string.IsNullOrWhiteSpace(body))
+                        {
+                            var jsonModel = System.Text.Json.JsonSerializer.Deserialize<ClienteCadastroRequest>(body, new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                            if (jsonModel != null) model = jsonModel;
+                        }
+                    }
+                    catch { }
+                }
             }
 
             var oticaId = ObterOticaId();

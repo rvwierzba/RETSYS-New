@@ -29,7 +29,8 @@ public class UsuariosController : TenantController
     {
         if (!EhAdministrador())
         {
-            return Forbid();
+            Inertia.Share("erro", "Apenas administradores podem excluir colaboradores.");
+            return RedirectToAction(nameof(Index));
         }
 
         var oticaId = ObterOticaId();
@@ -102,7 +103,8 @@ public class UsuariosController : TenantController
     {
         if (!EhAdministrador())
         {
-            return Forbid();
+            Inertia.Share("erro", "Apenas administradores podem excluir colaboradores.");
+            return RedirectToAction(nameof(Index));
         }
 
         if (model.Perfil == PerfilUsuario.Sistema && !EhSistema())
@@ -195,7 +197,8 @@ public class UsuariosController : TenantController
     {
         if (!EhAdministrador())
         {
-            return Forbid();
+            Inertia.Share("erro", "Apenas administradores podem excluir colaboradores.");
+            return RedirectToAction(nameof(Index));
         }
 
         if (model.Perfil == PerfilUsuario.Sistema && !EhSistema())
@@ -216,13 +219,15 @@ public class UsuariosController : TenantController
         var usuario = await _context.Usuarios.FirstOrDefaultAsync(u => u.Id == id);
         if (usuario == null)
         {
-            return NotFound(new { message = "Usuário não encontrado." });
+            Inertia.Share("erro", "Usuário não encontrado.");
+            return RedirectToAction(nameof(Index));
         }
 
         // Validação de acesso ao usuário
         if (!EhSistema() && !idsRede.Contains(usuario.OticaId))
         {
-            return Forbid();
+            Inertia.Share("erro", "Você não tem permissão para editar este usuário.");
+            return RedirectToAction(nameof(Index));
         }
 
         var emailExiste = await _context.Usuarios
@@ -281,7 +286,8 @@ public class UsuariosController : TenantController
     {
         if (!EhAdministrador())
         {
-            return Forbid();
+            Inertia.Share("erro", "Apenas administradores podem excluir colaboradores.");
+            return RedirectToAction(nameof(Index));
         }
 
         var oticaId = ObterOticaId();
@@ -303,7 +309,8 @@ public class UsuariosController : TenantController
     {
         if (!EhAdministrador())
         {
-            return Forbid();
+            Inertia.Share("erro", "Apenas administradores podem excluir colaboradores.");
+            return RedirectToAction(nameof(Index));
         }
 
         var oticaId = ObterOticaId();

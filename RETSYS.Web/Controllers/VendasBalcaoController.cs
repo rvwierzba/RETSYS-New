@@ -204,7 +204,14 @@ namespace RETSYS.Web.Controllers
             var oticaId = ObterOticaId();
 
             if (dto.Itens == null || dto.Itens.Count == 0)
+            {
+                if (Request.Headers.ContainsKey("X-Inertia"))
+                {
+                    Inertia.Share("erro", "A venda precisa conter pelo menos 1 item.");
+                    return RedirectToAction(nameof(Pdv));
+                }
                 return BadRequest("A venda precisa conter pelo menos 1 item.");
+            }
 
             var countVendas = await _context.VendasBalcao.CountAsync(v => v.OticaId == oticaId);
             var numeroVenda = $"VB-{(countVendas + 1).ToString("D5")}";
@@ -256,6 +263,12 @@ namespace RETSYS.Web.Controllers
 
             _context.VendasBalcao.Add(venda);
             await _context.SaveChangesAsync();
+
+            if (Request.Headers.ContainsKey("X-Inertia"))
+            {
+                Inertia.Share("sucesso", $"Venda {venda.NumeroVenda} finalizada com sucesso!");
+                return RedirectToAction(nameof(Comprovante), new { id = venda.Id });
+            }
 
             return Ok(new { Sucesso = true, VendaId = venda.Id, NumeroVenda = venda.NumeroVenda });
         }

@@ -187,14 +187,16 @@ namespace RETSYS.Web.Controllers
         {
             if (!EhAdministrador())
             {
-                return StatusCode(StatusCodes.Status403Forbidden, new { mensagem = "Apenas administradores podem cadastrar lentes base." });
+                Inertia.Share("erro", "Apenas administradores podem cadastrar lentes base.");
+                return RedirectToAction(nameof(Index));
             }
 
             try
             {
                 if (input == null || string.IsNullOrWhiteSpace(input.Laboratorio) || string.IsNullOrWhiteSpace(input.Tipo))
                 {
-                    return BadRequest(new { mensagem = "Laboratório e Tipo de Bloco são campos obrigatórios." });
+                    Inertia.Share("erro", "Laboratório e Tipo de Bloco são campos obrigatórios.");
+                    return RedirectToAction(nameof(Index));
                 }
 
                 var oticaId = ObterOticaId();
@@ -340,7 +342,8 @@ namespace RETSYS.Web.Controllers
 
                 if (preco == null)
                 {
-                    return NotFound(new { mensagem = "Preço não encontrado na matriz." });
+                    Inertia.Share("erro", "Preço não encontrado na matriz.");
+                    return RedirectToAction(nameof(Index));
                 }
 
                 _context.LentesTabelaPrecos.Remove(preco);
@@ -361,7 +364,8 @@ namespace RETSYS.Web.Controllers
         {
             if (!EhAdministrador())
             {
-                return StatusCode(StatusCodes.Status403Forbidden, new { mensagem = "Apenas administradores podem editar lentes base." });
+                Inertia.Share("erro", "Apenas administradores podem editar lentes base.");
+                return RedirectToAction(nameof(Index));
             }
 
             try
@@ -370,7 +374,8 @@ namespace RETSYS.Web.Controllers
                 var lente = await _context.Lentes.FirstOrDefaultAsync(l => l.Id == id && l.OticaId == oticaId);
                 if (lente == null)
                 {
-                    return NotFound(new { mensagem = "Lente base não encontrada." });
+                    Inertia.Share("erro", "Lente base não encontrada.");
+                    return RedirectToAction(nameof(Index));
                 }
 
                 lente.Laboratorio = input.Laboratorio.Trim();
@@ -393,7 +398,8 @@ namespace RETSYS.Web.Controllers
         {
             if (!EhAdministrador())
             {
-                return StatusCode(StatusCodes.Status403Forbidden, new { mensagem = "Apenas administradores podem remover lentes base." });
+                Inertia.Share("erro", "Apenas administradores podem remover lentes base.");
+                return RedirectToAction(nameof(Index));
             }
 
             try
@@ -402,7 +408,8 @@ namespace RETSYS.Web.Controllers
                 var lente = await _context.Lentes.FirstOrDefaultAsync(l => l.Id == id && l.OticaId == oticaId);
                 if (lente == null)
                 {
-                    return NotFound(new { mensagem = "Lente base não encontrada." });
+                    Inertia.Share("erro", "Lente base não encontrada.");
+                    return RedirectToAction(nameof(Index));
                 }
 
                 _context.Lentes.Remove(lente);
@@ -422,7 +429,8 @@ namespace RETSYS.Web.Controllers
         {
             if (!EhAdministrador())
             {
-                return StatusCode(StatusCodes.Status403Forbidden, new { mensagem = "Apenas administradores podem editar preços na matriz." });
+                Inertia.Share("erro", "Apenas administradores podem editar preços na matriz.");
+                return RedirectToAction(nameof(Index));
             }
 
             try
@@ -434,7 +442,8 @@ namespace RETSYS.Web.Controllers
 
                 if (preco == null)
                 {
-                    return NotFound(new { mensagem = "Preço não encontrado na matriz." });
+                    Inertia.Share("erro", "Preço não encontrado na matriz.");
+                    return RedirectToAction(nameof(Index));
                 }
 
                 if (input.LenteId.HasValue && input.LenteId.Value != Guid.Empty)

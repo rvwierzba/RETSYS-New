@@ -97,7 +97,8 @@ public class MarcasController : TenantController
         var marca = await _context.Marcas.FirstOrDefaultAsync(m => m.Id == id && m.OticaId == oticaId);
         if (marca == null)
         {
-            return NotFound(new { message = "Marca não encontrada." });
+            Inertia.Share("erro", "Marca não encontrada.");
+            return RedirectToAction(nameof(Index));
         }
 
         var nomeExiste = await _context.Marcas

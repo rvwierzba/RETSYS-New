@@ -122,7 +122,8 @@ public class ArmacoesController : TenantController
         var armacao = await _context.Armacoes.FirstOrDefaultAsync(a => a.Id == id && a.OticaId == oticaId);
         if (armacao == null)
         {
-            return NotFound(new { message = "Armação não encontrada." });
+            Inertia.Share("erro", "Armação não encontrada.");
+            return RedirectToAction(nameof(Index));
         }
 
         var marcaValida = await _context.Marcas.AnyAsync(m => m.Id == model.MarcaId && m.OticaId == oticaId);

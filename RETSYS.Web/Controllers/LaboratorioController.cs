@@ -116,6 +116,11 @@ namespace RETSYS.Web.Controllers
 
             await _context.SaveChangesAsync();
 
+            if (Request.Headers.ContainsKey("X-Inertia"))
+            {
+                return RedirectToAction(nameof(Index));
+            }
+
             return Ok(new { Sucesso = true, Status = os.Status, Etapa = os.EtapaLaboratorio });
         }
     }

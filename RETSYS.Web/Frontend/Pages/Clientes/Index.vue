@@ -226,6 +226,66 @@
         </div>
       </div>
 
+      <!-- MODAL: EDITAR CLIENTE -->
+      <div v-if="exibirModalEditarCliente" class="fixed inset-0 bg-slate-950/70 backdrop-blur-xs z-50 flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl border border-slate-200 shadow-2xl max-w-xl w-full p-6 space-y-5">
+          <div class="flex items-center justify-between border-b border-slate-100 pb-3">
+            <h3 class="text-base font-bold text-slate-950 font-mono flex items-center gap-2">
+              <span>✏️</span> Editar Dados do Cliente
+            </h3>
+            <button @click="exibirModalEditarCliente = false" class="text-slate-400 hover:text-slate-800 font-bold">✕</button>
+          </div>
+
+          <form @submit.prevent="salvarEdicaoCliente" class="space-y-4 text-xs">
+            <div>
+              <label class="block font-bold uppercase text-slate-400 tracking-wider mb-1">Nome Completo *</label>
+              <input v-model="formEditar.Nome" type="text" placeholder="Ex: Roberto Carlos Silva" class="w-full rounded-2xl border-slate-200 text-xs font-bold bg-slate-50 focus:border-teal-500" required />
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label class="block font-bold uppercase text-slate-400 tracking-wider mb-1">CPF</label>
+                <input v-model="formEditar.CPF" type="text" placeholder="000.000.000-00" class="w-full rounded-2xl border-slate-200 text-xs font-mono bg-slate-50 focus:border-teal-500" />
+              </div>
+              <div>
+                <label class="block font-bold uppercase text-slate-400 tracking-wider mb-1">Telefone / WhatsApp *</label>
+                <input v-model="formEditar.Telefone" type="text" placeholder="(00) 00000-0000" class="w-full rounded-2xl border-slate-200 text-xs font-bold bg-slate-50 focus:border-teal-500" required />
+              </div>
+            </div>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <div>
+                <label class="block font-bold uppercase text-slate-400 tracking-wider mb-1">E-mail</label>
+                <input v-model="formEditar.Email" type="email" placeholder="cliente@email.com" class="w-full rounded-2xl border-slate-200 text-xs bg-slate-50 focus:border-teal-500" />
+              </div>
+              <div>
+                <label class="block font-bold uppercase text-slate-400 tracking-wider mb-1">Convênio / Parceria</label>
+                <input v-model="formEditar.Convenio" type="text" placeholder="Ex: Unimed, Aposentados" class="w-full rounded-2xl border-slate-200 text-xs bg-slate-50 focus:border-teal-500" />
+              </div>
+            </div>
+
+            <div class="flex items-center justify-between pt-3 border-t border-slate-100">
+              <button 
+                type="button" 
+                @click="excluirClienteAtual" 
+                class="px-4 py-2 rounded-xl text-rose-600 font-bold hover:bg-rose-50 transition"
+              >
+                🗑️ Excluir Cliente
+              </button>
+
+              <div class="flex gap-2">
+                <button type="button" @click="exibirModalEditarCliente = false" class="px-4 py-2 rounded-xl text-slate-600 font-bold hover:bg-slate-100">
+                  Cancelar
+                </button>
+                <button type="submit" :disabled="salvando" class="px-5 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-700 text-white font-bold transition shadow-sm">
+                  {{ salvando ? 'Salvando...' : 'Salvar Alterações' }}
+                </button>
+              </div>
+            </div>
+          </form>
+        </div>
+      </div>
+
     </div>
   </AuthenticatedLayout>
 </template>
@@ -242,6 +302,7 @@ const props = defineProps({
 
 const termoBusca = ref(props.FiltroBusca ?? props.filtroBusca ?? '')
 const exibirModalNovoCliente = ref(false)
+const exibirModalEditarCliente = ref(false)
 const salvando = ref(false)
 
 const formNovo = ref({
@@ -251,6 +312,61 @@ const formNovo = ref({
   Email: '',
   Convenio: ''
 })
+
+const formEditar = ref({
+  id: '',
+  Nome: '',
+  CPF: '',
+  Telefone: '',
+  Email: '',
+  Convenio: ''
+})
+
+const abrirEdicaoCliente = (c) => {
+  formEditar.value = {
+    id: c.id,
+    Nome: c.nome,
+    CPF: c.cpf,
+    Telefone: c.telefone,
+    Email: c.email,
+    Convenio: c.convenio
+  }
+  exibirModalEditarCliente.value = true
+}
+
+const salvarEdicaoCliente = () => {
+  if (!formEditar.value.Nome || !formEditar.value.Telefone) {
+    alert('Preencha Nome e Telefone.')
+    return
+  }
+  salvando.value = true
+  router.post(`/clientes/editar/${formEditar.value.id}`, formEditar.value, {
+    preserveScroll: true,
+    onSuccess: () => {
+      exibirModalEditarCliente.value = false
+      salvando.value = false
+    },
+    onError: () => {
+      salvando.value = false
+    }
+  })
+}
+
+const excluirClienteAtual = () => {
+  if (confirm(`Deseja realmente excluir o cliente ${formEditar.value.Nome}?`)) {
+    salvando.value = true
+    router.post(`/clientes/excluir/${formEditar.value.id}`, {}, {
+      preserveScroll: true,
+      onSuccess: () => {
+        exibirModalEditarCliente.value = false
+        salvando.value = false
+      },
+      onError: () => {
+        salvando.value = false
+      }
+    })
+  }
+}
 
 const listaClientes = computed(() => {
   const bruta = props.Clientes ?? props.clientes ?? []

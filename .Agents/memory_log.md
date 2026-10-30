@@ -410,3 +410,37 @@ Este documento atua como o registro de **Memória Incremental** do projeto RETSY
 ### 2. Validação e Verificação
 - **Frontend Build**: `npm --prefix RETSYS.Web run build` compilou 144 módulos com êxito (12.87s), gerando `app-B9CSKh-f.js` e `app-nfj1Be0s.css`.
 - **Backend Build**: `dotnet build RETSYS.Web/RETSYS.Web.csproj --no-restore -nodereuse:false -maxcpucount:1` finalizado com **0 Erros e 0 Avisos**.
+
+
+## [LOG-010] - 2026-10-30: Pente Fino Completo no Sistema, Eliminação de Respostas JSON em Erros do Inertia, Modal de Edição de Clientes e Criação da Suíte de Testes Automatizados (RETSYS.Tests)
+- **Autor/Agente**: Arquiteto de Software & Assistente de IA Avançado (Antigravity)
+- **Módulos Afetados**: `RETSYS.Web/Controllers/*` (`ClientesController`, `LaboratorioController`, `VendasBalcaoController`, `LentesController`, `ArmacoesController`, `MarcasController`, `UsuariosController`), `RETSYS.Web/Frontend/Pages/Clientes/Index.vue`, `RETSYS.Tests/` (novo projeto de testes automatizados com xUnit e EF Core InMemory)
+- **Contexto & Solicitante**: Auditoria profunda em todos os Controllers, Endpoints, Entidades, Telas e Formulários após solicitação de teste rigoroso e estabilização de ponta a ponta sem margem para falhas operacionais.
+
+### 1. Resumo das Soluções Implementadas
+1. **Pente Fino em Respostas do Inertia (Eliminação de Respostas JSON Cruas)**:
+   - Identificados e corrigidos múltiplos pontos de retorno raw JSON (`NotFound(new { ... })`, `BadRequest(new { ... })`, `StatusCode(403, ...)` e `Ok(new { ... })`) em ações chamadas por formulários do Inertia:
+     - `VendasBalcaoController.Finalizar`: após emissão de cupom balcão, agora compartilha flash de sucesso e redireciona diretamente para `Vendas/ComprovanteTermico` (`/vendas/{id}/comprovante`), permitindo impressão térmica imediata sem a tela de erro do Inertia.
+     - `ClientesController.Store` e `ClientesController.Editar`: implementado extrator híbrido que suporta tanto payloads JSON (`application/json`) quanto `multipart/form-data`, garantindo que os dados cheguem preenchidos e válidos em qualquer método de envio do frontend.
+     - `LaboratorioController.AvancarEtapa`: compatibilizado para requisições Inertia e chamadas assíncronas `fetch/axios`.
+     - `LentesController`: tratadas todas as ações de criação, edição e exclusão de lentes base e matriz de preços para nunca emitirem JSON puro a requisições Inertia.
+     - `ArmacoesController`, `MarcasController`, `UsuariosController`: tratamento defensivo de entidades não encontradas ou permissão negada com redirecionamento e flash messages.
+
+2. **Implementação do Modal e Métodos de Edição e Exclusão de Clientes**:
+   - `Clientes/Index.vue`: o botão de edição (lápis) da tabela de clientes chamava `abrirEdicaoCliente(c)`, porém o método e o modal não existiam.
+   - Criado modal completo de edição de clientes com campos para Nome, CPF, Telefone/WhatsApp, E-mail, Convênio e botão seguro de exclusão com confirmação.
+
+3. **Criação da Suíte Oficial de Testes Automatizados (`RETSYS.Tests`)**:
+   - Criado o projeto `RETSYS.Tests/RETSYS.Tests.csproj` em .NET 10 integrado com xUnit e EF Core InMemory.
+   - Implementadas 22 baterias de testes automatizados cobrindo:
+     - `ReceitaCalculationTests`: validação de graus de longe/perto, adição bidirecional automática, simetria de DP Total (divisão e soma de DNP) e persistência de medidas laboratoriais (Aro, Ponte, DM, VERT, Haste, Centros Ópticos).
+     - `FinanceiroCalculationTests`: cálculo de totais brutos/líquidos, travas de desconto e entrada contra valores negativos ou abusivos, parcelamento.
+     - `ComissaoRulesTests`: cálculo de comissões sobre valor líquido, cancelamento de comissão em OS cancelada, trava de período fechado/pago.
+     - `MultiTenantIsolationTests`: garantia de que dados entre lojas diferentes nunca vazam ou se misturam em consultas multi-loja.
+     - `WhatsAppTemplateTests`: formatação de URL da API do WhatsApp e substituição dinâmica de variáveis (`{cliente}`, `{numero_os}`, `{otica}`).
+     - `PdvBalcaoAndEstoqueTests`: baixa automática de estoque físico ao emitir venda balcão e conferência de integridade de itens.
+
+### 2. Validação e Verificação
+- **Suíte de Testes Automatizados**: `dotnet test RETSYS.Tests/RETSYS.Tests.csproj` executou 22 testes com **100% de aprovação (22 aprovados, 0 falhas, 0 ignorados)**.
+- **Frontend Build**: `npm --prefix RETSYS.Web run build` compilou 144 módulos com êxito (30.00s), gerando `app-DPg459XC.js` e `app-nfj1Be0s.css`.
+- **Backend Build**: `dotnet build RETSYS.Web/RETSYS.Web.csproj --no-restore -nodereuse:false -maxcpucount:1` finalizado com **0 Erros e 0 Avisos**.
