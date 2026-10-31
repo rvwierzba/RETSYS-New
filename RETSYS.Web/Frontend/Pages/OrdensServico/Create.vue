@@ -22,6 +22,15 @@
         </div>
       </div>
 
+      <!-- Alerta de Erro de Validação -->
+      <div v-if="mensagemErro" class="p-4 rounded-2xl bg-rose-50 border border-rose-200 text-rose-800 text-sm font-semibold flex items-center justify-between animate-fadeIn">
+        <div class="flex items-center gap-2">
+          <span>⚠️</span>
+          <span>{{ mensagemErro }}</span>
+        </div>
+        <button type="button" @click="limparErro" class="text-rose-500 hover:text-rose-700 font-bold text-lg leading-none">&times;</button>
+      </div>
+
       <!-- PROGRESSO DAS ETAPAS (STEPPER VISUAL ESTILO SSÓTICA / PWI) -->
       <div class="grid grid-cols-4 gap-2 bg-white p-2.5 rounded-2xl border border-slate-200 text-xs font-mono">
         <button 
@@ -323,16 +332,19 @@
               </div>
 
               <div>
-                <label class="block text-[11px] font-mono font-bold uppercase text-slate-500 mb-1">
-                  DP Total (mm) [OD + OE]
+                <label class="block text-[11px] font-mono font-bold uppercase text-slate-500 mb-1 flex items-center justify-between">
+                  <span>DP Total (mm)</span>
+                  <span v-if="dpTotalBloqueado" class="text-[9px] text-teal-600 font-semibold lowercase">calc: od+oe</span>
                 </label>
                 <input 
                   v-model.number="form.dpTotal" 
                   @input="onDpTotalInput"
+                  :readonly="dpTotalBloqueado"
+                  :class="dpTotalBloqueado ? 'bg-slate-100 text-slate-600 cursor-not-allowed' : 'bg-white text-slate-900'"
                   type="number" 
                   step="0.5" 
                   placeholder="Ex: 64"
-                  class="w-full rounded-2xl border-slate-200 text-xs font-mono font-bold text-center bg-white" 
+                  class="w-full rounded-2xl border-slate-200 text-xs font-mono font-bold text-center" 
                 />
               </div>
 
@@ -564,14 +576,27 @@
             </div>
 
             <div>
-              <label class="block text-[11px] font-mono font-bold uppercase text-slate-500 mb-1">Valor de Entrada (R$)</label>
-              <input v-model.number="form.valorEntrada" type="number" step="0.01" min="0" placeholder="0.00" class="w-full rounded-2xl border-slate-200 text-xs font-mono font-bold bg-slate-50 text-emerald-800" />
+              <div class="flex items-center justify-between mb-1">
+                <label class="block text-[11px] font-mono font-bold uppercase text-slate-500">Valor de Entrada (R$)</label>
+                <button 
+                  type="button" 
+                  v-if="totalLiquidoCalculado > 0 && form.valorEntrada !== totalLiquidoCalculado"
+                  @click="form.valorEntrada = totalLiquidoCalculado; form.parcelas = 1"
+                  class="text-[10px] text-teal-600 hover:text-teal-800 font-bold underline cursor-pointer"
+                >
+                  Quitar Total (Entrada = Total)
+                </button>
+              </div>
+              <input v-model.number="form.valorEntrada" type="number" step="0.01" min="0" :max="totalLiquidoCalculado" placeholder="0.00" class="w-full rounded-2xl border-slate-200 text-xs font-mono font-bold bg-slate-50 text-emerald-800" />
             </div>
 
             <div>
               <label class="block text-[11px] font-mono font-bold uppercase text-slate-500 mb-1">Saldo Restante na Entrega</label>
-              <div class="h-10 px-4 rounded-2xl bg-slate-100 flex items-center font-mono font-bold text-sm" :class="saldoRestanteCalculado > 0 ? 'text-rose-700' : 'text-emerald-700'">
-                R$ {{ formatarMoeda(saldoRestanteCalculado) }}
+              <div class="h-10 px-4 rounded-2xl bg-slate-100 flex items-center justify-between font-mono font-bold text-sm" :class="saldoRestanteCalculado > 0 ? 'text-rose-700' : 'text-emerald-700'">
+                <span>R$ {{ formatarMoeda(saldoRestanteCalculado) }}</span>
+                <span v-if="saldoRestanteCalculado === 0 && totalLiquidoCalculado > 0" class="px-2 py-0.5 rounded-lg text-[10px] bg-emerald-100 text-emerald-800 uppercase font-black tracking-wide border border-emerald-300">
+                  ✓ PAGO INTEGRALMENTE
+                </span>
               </div>
             </div>
           </div>
@@ -590,13 +615,19 @@
                 </select>
               </div>
 
-              <div>
-                <label class="block text-[11px] font-mono font-bold uppercase text-slate-500 mb-1">Quantidade de Parcelas</label>
+              <div v-if="saldoRestanteCalculado > 0">
+                <label class="block text-[11px] font-mono font-bold uppercase text-slate-500 mb-1">Quantidade de Parcelas do Saldo</label>
                 <select v-model.number="form.parcelas" class="w-full rounded-2xl border-slate-200 text-xs bg-white font-bold font-mono">
                   <option v-for="n in 12" :key="n" :value="n">
-                    {{ n }}x de R$ {{ formatarMoeda((saldoRestanteCalculado || totalLiquidoCalculado) / n) }}
+                    {{ n }}x de R$ {{ formatarMoeda(saldoRestanteCalculado / n) }}
                   </option>
                 </select>
+              </div>
+              <div v-else>
+                <label class="block text-[11px] font-mono font-bold uppercase text-slate-500 mb-1">Condição de Pagamento</label>
+                <div class="h-10 px-4 rounded-2xl bg-emerald-50 border border-emerald-200 flex items-center font-mono font-bold text-xs text-emerald-800">
+                  À Vista / Quitação Integral (1x)
+                </div>
               </div>
 
               <div>
@@ -660,6 +691,13 @@ const page = usePage()
 const etapaAtual = ref(1)
 const salvando = ref(false)
 const buscandoCpf = ref(false)
+const erroLocal = ref('')
+const mensagemErro = computed(() => erroLocal.value || page.props.flash?.erro || page.props.erro || '')
+const limparErro = () => {
+  erroLocal.value = ''
+  if (page.props.flash) page.props.flash.erro = null
+  if (page.props.erro) page.props.erro = null
+}
 
 const form = ref({
   numeroOS: props.ProximoNumeroOS || props.proximoNumeroOS || '',
@@ -732,8 +770,13 @@ const onAdicaoInput = () => {
   recalcularPerto()
 }
 
+const dpTotalBloqueado = computed(() => {
+  return (form.value.dnpOd !== null && form.value.dnpOd !== undefined && form.value.dnpOd !== '') ||
+         (form.value.dnpOe !== null && form.value.dnpOe !== undefined && form.value.dnpOe !== '')
+})
+
 const onDpTotalInput = () => {
-  if (form.value.dpTotal !== null && form.value.dpTotal !== undefined && form.value.dpTotal !== '') {
+  if (!dpTotalBloqueado.value && form.value.dpTotal !== null && form.value.dpTotal !== undefined && form.value.dpTotal !== '') {
     const half = Number((Number(form.value.dpTotal) / 2).toFixed(1))
     form.value.dnpOd = half
     form.value.dnpOe = half
@@ -741,8 +784,15 @@ const onDpTotalInput = () => {
 }
 
 const onDnpInput = () => {
-  if (form.value.dnpOd || form.value.dnpOe) {
-    form.value.dpTotal = Number(((Number(form.value.dnpOd || 0) + Number(form.value.dnpOe || 0))).toFixed(1))
+  const od = form.value.dnpOd
+  const oe = form.value.dnpOe
+  const temOd = od !== null && od !== undefined && od !== ''
+  const temOe = oe !== null && oe !== undefined && oe !== ''
+
+  if (temOd && temOe) {
+    form.value.dpTotal = Number((Number(od) + Number(oe)).toFixed(1))
+  } else {
+    form.value.dpTotal = null
   }
 }
 
@@ -831,15 +881,24 @@ const consultarCpf = async () => {
 // Salvar OS
 const salvarOrdemServico = () => {
   if (!form.value.nome || !form.value.telefone) {
+    erroLocal.value = 'Preencha o Nome e o WhatsApp do cliente na Etapa 1.'
     alert('Preencha o Nome e o WhatsApp do cliente na Etapa 1.')
     etapaAtual.value = 1
     return
   }
 
   salvando.value = true
+  erroLocal.value = ''
   router.post('/ordens', form.value, {
     preserveScroll: true,
-    onError: () => {
+    onSuccess: () => {
+      salvando.value = false
+    },
+    onError: (errors) => {
+      salvando.value = false
+      erroLocal.value = typeof errors === 'string' ? errors : 'Falha ao processar OS. Verifique os campos informados.'
+    },
+    onFinish: () => {
       salvando.value = false
     }
   })

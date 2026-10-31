@@ -461,3 +461,55 @@ Este documento atua como o registro de **Memória Incremental** do projeto RETSY
 ### 2. Validação e Verificação
 - `git status` validou remoção limpa dos arquivos.
 - `dotnet build` e `dotnet test` continuam com 100% de integridade e 0 erros.
+
+
+## [LOG-012] - 2026-10-31: Resolução Definitiva dos Relatórios de Auditoria (Investigação de OSs em Lojas Incorretas, Carregamento Infinito, Escopo de Vendas, Quitação Imediata e DP Automática)
+- **Autor/Agente**: Arquiteto de Software & Assistente de IA Avançado (Antigravity)
+- **Módulos Afetados**:
+  - `RETSYS.Web/Controllers/OrdensServicoController.cs`
+  - `RETSYS.Web/Controllers/VendasBalcaoController.cs`
+  - `RETSYS.Web/Frontend/Pages/OrdensServico/Create.vue`
+  - `RETSYS.Web/Frontend/Pages/OrdensServico/Edit.vue`
+  - `RETSYS.Web/Frontend/Pages/Vendas/Index.vue`
+- **Contexto & Solicitante**: Atendimento integral aos pontos levantados nos documentos `investigação das OS's no lugar errado.pdf` e `atualização RETSYS 30_10.pdf`, corrigindo causas-raiz diretamente na camada de aplicação (ASP.NET Core 10 / Entity Framework Core / Inertia.js / Vue 3) sem depender de scripts manuais no banco de dados.
+
+### 1. Causas-Raiz e Soluções Implementadas
+1. **Carregamento Infinito ao Salvar OS (Item d - P0)**:
+   - *Causa*: No frontend `Create.vue`, o envio com `router.post('/ordens', ...)` possuía apenas o callback `onError`. Quando o backend retornava redirecionamento após falha de validação via `Inertia.Share("erro", ...)`, o Inertia tratava o 302 como navegação bem-sucedida, nunca disparando `onError`. Com isso, a flag reativa `salvando` permanecia `true` indefinidamente, travando o botão em *"Salvando e Processando OS..."*.
+   - *Solução*: Implementado callback `onFinish: () => { salvando.value = false }` e `onSuccess`, além de exibição imediata do banner de alerta com `mensagemErro` derivado de `page.props.flash?.erro || page.props.erro`.
+
+2. **Isolamento de Loja e Eliminação de OSs em Lojas Erradas (Item a & Investigação PDF - P0)**:
+   - *Causa*: Na emissão da OS (`OrdensServicoController.Store`), a ótica era obtida via `ObterOticaId()`. Quando um usuário administrador ou uma sessão ativa continha o Id da Loja 2, a busca do vendedor utilizava `idsRede.Contains(u.OticaId)`, localizando a vendedora da Loja 1, mas salvando a OS com o `OticaId` da Loja 2.
+   - *Solução*:
+     - No método `Criar()` (`/ordens/nova` e `/ordens-servico/nova`): usuários com perfil de vendedor têm a ótica estritamente vinculada ao seu cadastro (`usuarioLogado.OticaId`), garantindo geração de numeração sequencial e listagem de produtos da sua unidade correta.
+     - No método `Store()`: usuários vendedores têm `oticaId = vendedor.OticaId` forçado antes de qualquer gravação.
+     - A operação de gravação foi blindada com transação explícita de banco (`Database.BeginTransactionAsync()` / `CommitAsync()`).
+
+3. **Proteção Contra Sobrescrever Dados de Clientes Homônimos**:
+   - *Causa*: Caso o CPF não fosse digitado, o sistema realizava busca por `c.Nome.ToLower() == nomeLower`. Clientes com nomes comuns (ex: Maria Silva) tinham seus dados cadastrais (telefone, endereço, data de nascimento) sobrescritos pelos dados do novo cliente digitado.
+   - *Solução*: A reutilização de cadastro sem CPF agora exige estritamente a coincidência tanto do nome quanto do telefone limpo (`cleanTelefone`). Caso o telefone divirja ou não esteja informado, um novo registro `Cliente` é criado com segurança.
+
+4. **Histórico de Vendas e Rotas 404 (Item f - P0/P1)**:
+   - *Causa*: Na listagem de vendas (`Vendas/Index.vue`), o botão `+ Nova OS Laboratório` apontava para rota inexistente `/ordens-servico/nova`, gerando erro 404. O botão `Ver OS` apontava para `/ordens-servico`.
+   - *Solução*:
+     - Adicionados aliases de rotas em `OrdensServicoController.cs`: `[HttpGet("/ordens-servico/nova")]`, `[HttpGet("/ordens-servico")]` e `[HttpPost("/ordens-servico")]`.
+     - No frontend, links corrigidos para `/ordens/nova` e `/ordens/{id}/editar`.
+     - Implementado filtro estrito de privacidade por perfil (Item F.2): vendedores visualizam exclusivamente suas próprias vendas (`VendedorId == usuarioLogadoId`). Administradores e gerentes visualizam todas as vendas com seletor de vendedor e loja.
+
+5. **Entrada = Total Gera Quitação Automática (Item c - P1)**:
+   - *Causa*: Mesmo ao pagar 100% do valor no ato, o sistema gerava parcelas com saldo pendente para a entrega.
+   - *Solução*:
+     - Quando `valorEntrada >= valorTotalLiquido && valorTotalLiquido > 0`, o sistema automaticamente marca a OS como quitada (`novaOS.Financeiro.DataQuitacao = DateTime.UtcNow`, `QuitacaoRegistradaPorId = vendedor.Id`), zera o saldo restante e gera uma única parcela marcada como paga (`DataPagamento = UtcNow`, `ValorPago = totalLiquido`).
+     - No frontend (`Create.vue`), adicionado badge visual verde `✓ PAGO INTEGRALMENTE` e botão de preenchimento rápido `Quitar Total (Entrada = Total)`.
+
+6. **DP Total Somente Leitura e Calculado Automaticamente (Item b - P2)**:
+   - *Causa*: O campo DP Total permitia preenchimento livre conflitante com DNP OD e DNP OE.
+   - *Solução*: Em `Create.vue` e `Edit.vue`, o campo DP Total agora é calculado automaticamente como `(dnpOd + dnpOe)` com uma casa decimal e permanece somente leitura (`readonly`) quando as DNPs estão preenchidas. Se apenas uma DNP estiver informada, o campo permanece vazio. Apenas quando ambas as DNPs estiverem em branco o usuário pode digitar a DP Total manualmente (modo compatibilidade com receitas antigas), dividindo o valor igualmente entre OD e OE.
+
+7. **PDV Rápido & Rotas Balcão (Item e - P2)**:
+   - Mapeado alias de rota `[HttpGet("/pdv")]` e garantido escopo multi-tenant estrito da ótica do usuário logado na venda de balcão e baixa de estoque físico.
+
+### 2. Validação e Verificação
+- **Suíte de Testes Unitários (`RETSYS.Tests`)**: Executado `dotnet test RETSYS.Tests/RETSYS.Tests.csproj` com **100% de aprovação (22 aprovados, 0 falhas, 0 ignorados)**.
+- **Backend Build**: `dotnet build RETSYS.Web/RETSYS.Web.csproj` finalizado com **0 Erros e 0 Avisos**.
+- **Frontend Build**: `npm --prefix RETSYS.Web run build` compilou 144 módulos com êxito (30.16s), gerando `app-BoOxDe75.js` e `app-BGMDOr3f.css`.

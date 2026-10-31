@@ -29,6 +29,7 @@ namespace RETSYS.Web.Controllers
 
         // 1. Listagem de OSs com suporte a filtro por vendedora, status, composição e lente pendente.
         [HttpGet("/ordens")]
+        [HttpGet("/ordens-servico")]
         public async Task<IActionResult> Index(
             [FromQuery] string? filtroComposicao,
             [FromQuery] string? filtroLentePedida,
@@ -538,20 +539,34 @@ namespace RETSYS.Web.Controllers
 
         // 2. Tela de cadastro de nova OS (Gera e sugere o próximo número sequencial).
         [HttpGet("/ordens/nova")]
+        [HttpGet("/ordens-servico/nova")]
         public async Task<IActionResult> Criar()
         {
             var oticaId = ObterOticaId();
-            var matrizId = ObterMatrizIdEfetivo(oticaId, _context);
             var usuarioIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
             var perfilClaim = User.FindFirst(ClaimTypes.Role)?.Value ?? "VENDEDOR";
             bool ehVendedor = string.Equals(perfilClaim, nameof(PerfilUsuario.Vendedor), StringComparison.OrdinalIgnoreCase) || (!EhAdministrador() && !EhDono() && !EhSistema());
 
+            Guid.TryParse(usuarioIdClaim, out Guid idLogado);
+            Usuario? usuarioLogado = null;
+            if (idLogado != Guid.Empty)
+            {
+                usuarioLogado = await _context.Usuarios.FirstOrDefaultAsync(u => u.Id == idLogado);
+            }
+
+            if (ehVendedor && usuarioLogado != null && usuarioLogado.OticaId != Guid.Empty)
+            {
+                oticaId = usuarioLogado.OticaId;
+            }
+
+            var matrizId = ObterMatrizIdEfetivo(oticaId, _context);
+
             IQueryable<Usuario> queryVendedores = _context.Usuarios
                 .Where(u => u.Ativo && u.OticaId == oticaId);
 
-            if (ehVendedor && Guid.TryParse(usuarioIdClaim, out Guid usuarioLogadoId))
+            if (ehVendedor && idLogado != Guid.Empty)
             {
-                queryVendedores = queryVendedores.Where(u => u.Id == usuarioLogadoId);
+                queryVendedores = queryVendedores.Where(u => u.Id == idLogado);
             }
 
             var vendedores = await queryVendedores
@@ -596,8 +611,6 @@ namespace RETSYS.Web.Controllers
 
             string proximoNumeroOS = await GerarProximoNumeroOsAsync(oticaId);
             var usuarioNomeClaim = User.FindFirst(ClaimTypes.Name)?.Value ?? "Colaborador(a)";
-            Guid.TryParse(usuarioIdClaim, out Guid idLogado);
-            var usuarioLogado = await _context.Usuarios.FirstOrDefaultAsync(u => u.Id == idLogado);
             string nomeVendedoraExibicao = usuarioLogado?.Nome ?? usuarioNomeClaim;
 
             return Inertia.Render("OrdensServico/Create", new
@@ -746,6 +759,7 @@ namespace RETSYS.Web.Controllers
 
         // 4. Criação de nova OS (Numeração Editável, Validação de Desconto e Entrada Parcial).
         [HttpPost("/ordens")]
+        [HttpPost("/ordens-servico")]
         public async Task<IActionResult> Store(
             [FromBody] CriarOsRequest? jsonModel,
             [FromQuery] int? quantidadeParcelas)
@@ -762,6 +776,7 @@ namespace RETSYS.Web.Controllers
                 return BadRequest(new { mensagem });
             }
 
+            await using var transaction = await _context.Database.BeginTransactionAsync();
             try
             {
                 var oticaId = ObterOticaId();
@@ -806,6 +821,13 @@ namespace RETSYS.Web.Controllers
                     return RetornarErro("Vendedor(a) não localizado(a) ou inativo(a).");
                 }
 
+                // ISOLAMENTO DE LOJA (Garantia contra vazamento de OSs entre filiais):
+                // Se o usuário não for administrador da rede, a OS pertence impreterivelmente à loja do vendedor.
+                if (!ehAdminOuGerente || oticaId == Guid.Empty)
+                {
+                    oticaId = vendedor.OticaId;
+                }
+
                 // Numeração da OS
                 string numeroOsDigitado = !string.IsNullOrWhiteSpace(dados.NumeroOS)
                     ? dados.NumeroOS.Trim()
@@ -848,13 +870,27 @@ namespace RETSYS.Web.Controllers
                             c.CPF.Replace(".", "").Replace("-", "") == cpfFinalOs);
                 }
 
-                if (cliente == null && !string.IsNullOrWhiteSpace(nomeClienteInformado))
+                string cleanTelefone = !string.IsNullOrWhiteSpace(dados.Telefone)
+                    ? new string(dados.Telefone.Where(char.IsDigit).ToArray())
+                    : "";
+
+                // PROTEÇÃO CONTRA SOBREPOSIÇÃO DE CLIENTES:
+                // Só reaproveita cliente sem CPF se o nome E o telefone coincidirem exatamente.
+                // Se o telefone for diferente ou vazio, cria um novo registro para evitar sobrescrever dados de clientes homônimos.
+                if (cliente == null && !string.IsNullOrWhiteSpace(nomeClienteInformado) && !string.IsNullOrWhiteSpace(cleanTelefone))
                 {
                     var nomeLower = nomeClienteInformado.Trim().ToLower();
-                    cliente = await _context.Clientes
-                        .FirstOrDefaultAsync(c =>
-                            c.OticaId == oticaId &&
-                            c.Nome.ToLower() == nomeLower);
+                    var clientesMesmoNome = await _context.Clientes
+                        .Where(c => c.OticaId == oticaId && c.Nome.ToLower() == nomeLower)
+                        .ToListAsync();
+
+                    cliente = clientesMesmoNome.FirstOrDefault(c =>
+                    {
+                        var telExistente = !string.IsNullOrWhiteSpace(c.Telefone)
+                            ? new string(c.Telefone.Where(char.IsDigit).ToArray())
+                            : "";
+                        return telExistente == cleanTelefone;
+                    });
                 }
 
                 if (cliente == null)
@@ -933,6 +969,13 @@ namespace RETSYS.Web.Controllers
                 }
 
                 decimal valorRestante = Math.Max(0, valorTotalLiquido - valorEntrada);
+                bool quitadoNoAto = valorTotalLiquido > 0 && (valorRestante <= 0 || valorEntrada >= valorTotalLiquido);
+                if (quitadoNoAto)
+                {
+                    valorEntrada = valorTotalLiquido;
+                    valorRestante = 0m;
+                }
+
                 string formaPagamento = !string.IsNullOrWhiteSpace(dados.FormaPagamento) ? dados.FormaPagamento.ToUpper() : "DINHEIRO";
 
                 if (formaPagamento == "CONVENIO")
@@ -940,7 +983,7 @@ namespace RETSYS.Web.Controllers
                     return RetornarErro("Convênio não é uma forma de pagamento de fechamento. Utilize Dinheiro, PIX, Cartão ou Carnê.");
                 }
 
-                int? parcelasFinais = dados.Parcelas ?? dados.QuantidadeParcelas ?? quantidadeParcelas ?? 1;
+                int? parcelasFinais = quitadoNoAto ? 1 : (dados.Parcelas ?? dados.QuantidadeParcelas ?? quantidadeParcelas ?? 1);
                 int loopParcelas = Math.Max(1, parcelasFinais.Value);
 
                 Armacao? armacaoSelecionada = null;
@@ -1053,21 +1096,45 @@ namespace RETSYS.Web.Controllers
                     FormaPagamento = formaPagamento,
                     Parcelas = parcelasFinais,
                     ValorEntrada = valorEntrada,
-                    ValorRestante = valorRestante
+                    ValorRestante = valorRestante,
+                    DataQuitacao = quitadoNoAto ? DateTime.UtcNow : null,
+                    QuitacaoRegistradaPorId = quitadoNoAto ? vendedor.Id : null,
+                    ValorRecebidoRetirada = quitadoNoAto ? 0m : null,
+                    FormaPagamentoRetirada = quitadoNoAto ? formaPagamento : null,
+                    ParcelasRetirada = quitadoNoAto ? 1 : null
                 };
 
-                decimal valorParcela = Math.Round(valorTotalLiquido / loopParcelas, 2, MidpointRounding.AwayFromZero);
-                for (int i = 1; i <= loopParcelas; i++)
+                if (quitadoNoAto)
                 {
                     novaOS.Parcelas.Add(new ParcelaPagamento
                     {
                         Id = Guid.NewGuid(),
                         OrdemServicoId = novaOS.Id,
-                        NumeroParcela = i,
-                        DescricaoParcela = $"PARC. {i}/{loopParcelas} - OS: {novaOS.NumeroOS}",
-                        Valor = i == loopParcelas ? valorTotalLiquido - (valorParcela * (loopParcelas - 1)) : valorParcela,
-                        DataVencimento = DateTime.UtcNow.AddMonths(i)
+                        NumeroParcela = 1,
+                        DescricaoParcela = $"QUITAÇÃO INTEGRAL À VISTA - OS: {novaOS.NumeroOS}",
+                        Valor = valorTotalLiquido,
+                        ValorPago = valorTotalLiquido,
+                        DataVencimento = DateTime.UtcNow,
+                        DataPagamento = DateTime.UtcNow,
+                        ObservacaoPagamento = "Quitado integralmente no ato da venda (Entrada = Total)"
                     });
+                }
+                else
+                {
+                    decimal saldoParcelar = valorRestante > 0 && valorEntrada > 0 ? valorRestante : valorTotalLiquido;
+                    decimal valorParcela = Math.Round(saldoParcelar / loopParcelas, 2, MidpointRounding.AwayFromZero);
+                    for (int i = 1; i <= loopParcelas; i++)
+                    {
+                        novaOS.Parcelas.Add(new ParcelaPagamento
+                        {
+                            Id = Guid.NewGuid(),
+                            OrdemServicoId = novaOS.Id,
+                            NumeroParcela = i,
+                            DescricaoParcela = $"PARC. {i}/{loopParcelas} - OS: {novaOS.NumeroOS}",
+                            Valor = i == loopParcelas ? saldoParcelar - (valorParcela * (loopParcelas - 1)) : valorParcela,
+                            DataVencimento = DateTime.UtcNow.AddMonths(i)
+                        });
+                    }
                 }
 
                 _context.OrdensServico.Add(novaOS);
@@ -1091,6 +1158,7 @@ namespace RETSYS.Web.Controllers
                 }
 
                 await _context.SaveChangesAsync();
+                await transaction.CommitAsync();
 
                 if (ehInertia)
                 {
@@ -1106,6 +1174,7 @@ namespace RETSYS.Web.Controllers
             }
             catch (Exception ex)
             {
+                await transaction.RollbackAsync();
                 return RetornarErro($"Falha ao emitir a Ordem de Serviço: {ex.Message}");
             }
         }

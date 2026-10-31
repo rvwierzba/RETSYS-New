@@ -22,9 +22,20 @@ namespace RETSYS.Web.Controllers
 
         // GET /vendas/pdv
         [HttpGet("/vendas/pdv")]
+        [HttpGet("/pdv")]
         public async Task<IActionResult> Pdv()
         {
             var oticaId = ObterOticaId();
+            var usuarioIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            bool ehAdminGeral = EhSistema() || EhDono() || EhAdministrador();
+            if (!ehAdminGeral && Guid.TryParse(usuarioIdClaim, out Guid usuarioLogadoId))
+            {
+                var usuarioLogado = await _context.Usuarios.AsNoTracking().FirstOrDefaultAsync(u => u.Id == usuarioLogadoId);
+                if (usuarioLogado != null && usuarioLogado.OticaId != Guid.Empty)
+                {
+                    oticaId = usuarioLogado.OticaId;
+                }
+            }
 
             var clientes = await _context.Clientes
                 .Where(c => c.OticaId == oticaId)
@@ -70,9 +81,21 @@ namespace RETSYS.Web.Controllers
 
         // GET /vendas
         [HttpGet("/vendas")]
-        public async Task<IActionResult> Index([FromQuery] string? busca, [FromQuery] string? filtro = "todas")
+        public async Task<IActionResult> Index(
+            [FromQuery] string? busca, 
+            [FromQuery] string? filtro = "todas",
+            [FromQuery] Guid? vendedorId = null,
+            [FromQuery] Guid? lojaId = null)
         {
             var oticaId = ObterOticaId();
+            var perfilClaim = User.FindFirst(ClaimTypes.Role)?.Value ?? "VENDEDOR";
+            var usuarioIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            Guid.TryParse(usuarioIdClaim, out Guid usuarioLogadoId);
+
+            bool ehAdminGeral = EhSistema() || EhDono() || EhAdministrador();
+
+            // Determina a loja de escopo
+            Guid lojaEfetiva = (ehAdminGeral && lojaId.HasValue && lojaId.Value != Guid.Empty) ? lojaId.Value : oticaId;
 
             // 1. Vendas Balcão
             var queryBalcao = _context.VendasBalcao
@@ -80,15 +103,40 @@ namespace RETSYS.Web.Controllers
                 .Include(v => v.Cliente)
                 .Include(v => v.Vendedor)
                 .Include(v => v.Itens)
-                .Where(v => v.OticaId == oticaId)
+                .Where(v => v.OticaId == lojaEfetiva)
                 .OrderByDescending(v => v.DataVenda)
                 .AsQueryable();
+
+            // 2. Vendas de Ordens de Serviço (OSs da ótica)
+            var queryOs = _context.OrdensServico
+                .AsNoTracking()
+                .Include(o => o.Cliente)
+                .Include(o => o.Vendedor)
+                .Include(o => o.Financeiro)
+                .Where(o => o.OticaId == lojaEfetiva && o.Ativo)
+                .OrderByDescending(o => o.DataEntrada)
+                .AsQueryable();
+
+            // Regra F.2: Vendedora vê apenas suas próprias vendas no histórico
+            if (!ehAdminGeral)
+            {
+                queryBalcao = queryBalcao.Where(v => v.VendedorId == usuarioLogadoId);
+                queryOs = queryOs.Where(o => o.VendedorId == usuarioLogadoId);
+            }
+            else if (vendedorId.HasValue && vendedorId.Value != Guid.Empty)
+            {
+                queryBalcao = queryBalcao.Where(v => v.VendedorId == vendedorId.Value);
+                queryOs = queryOs.Where(o => o.VendedorId == vendedorId.Value);
+            }
 
             if (!string.IsNullOrWhiteSpace(busca))
             {
                 var termo = busca.Trim().ToLower();
                 queryBalcao = queryBalcao.Where(v => v.NumeroVenda.ToLower().Contains(termo)
                     || (v.Cliente != null && v.Cliente.Nome.ToLower().Contains(termo)));
+
+                queryOs = queryOs.Where(o => o.NumeroOS.ToLower().Contains(termo)
+                    || (o.Cliente != null && o.Cliente.Nome.ToLower().Contains(termo)));
             }
 
             var vendasBalcaoRaw = await queryBalcao
@@ -97,8 +145,8 @@ namespace RETSYS.Web.Controllers
                 {
                     v.Id,
                     v.NumeroVenda,
-                    ClienteNome = v.Cliente != null ? v.Cliente.Nome : "Consumidor Final",
-                    VendedorNome = v.Vendedor != null ? v.Vendedor.Nome : "Balcão",
+                    ClienteNome = v.Cliente != null ? v.Cliente.Nome : "Cliente Balcão",
+                    VendedorNome = v.Vendedor != null ? v.Vendedor.Nome : "Atendente",
                     v.DataVenda,
                     v.ValorTotalBruto,
                     v.DescontoReais,
@@ -109,23 +157,6 @@ namespace RETSYS.Web.Controllers
                     Tipo = "BALCAO"
                 })
                 .ToListAsync();
-
-            // 2. Vendas de Ordens de Serviço (OSs da ótica)
-            var queryOs = _context.OrdensServico
-                .AsNoTracking()
-                .Include(o => o.Cliente)
-                .Include(o => o.Vendedor)
-                .Include(o => o.Financeiro)
-                .Where(o => o.OticaId == oticaId)
-                .OrderByDescending(o => o.DataEntrada)
-                .AsQueryable();
-
-            if (!string.IsNullOrWhiteSpace(busca))
-            {
-                var termo = busca.Trim().ToLower();
-                queryOs = queryOs.Where(o => o.NumeroOS.ToLower().Contains(termo)
-                    || (o.Cliente != null && o.Cliente.Nome.ToLower().Contains(termo)));
-            }
 
             var vendasOsRaw = await queryOs
                 .Take(100)
@@ -186,6 +217,10 @@ namespace RETSYS.Web.Controllers
 
             var totalFaturamento = todasVendas.Sum(v => v.ValorTotalLiquido);
 
+            object vendedoresLista = ehAdminGeral
+                ? (object)(await _context.Usuarios.AsNoTracking().Where(u => u.OticaId == lojaEfetiva && u.Ativo).OrderBy(u => u.Nome).Select(u => new { id = u.Id, nome = u.Nome }).ToListAsync())
+                : new List<object>();
+
             return Inertia.Render("Vendas/Index", new
             {
                 Vendas = todasVendas,
@@ -193,7 +228,11 @@ namespace RETSYS.Web.Controllers
                 TotalVendasBalcao = listaBalcao.Count,
                 TotalVendasOs = listaOs.Count,
                 Busca = busca ?? "",
-                Filtro = filtro ?? "todas"
+                Filtro = filtro ?? "todas",
+                VendedorId = vendedorId?.ToString() ?? "",
+                LojaId = lojaId?.ToString() ?? "",
+                EhAdmin = ehAdminGeral,
+                Vendedores = vendedoresLista
             });
         }
 
@@ -202,6 +241,19 @@ namespace RETSYS.Web.Controllers
         public async Task<IActionResult> Finalizar([FromBody] VendaBalcaoInputDto dto)
         {
             var oticaId = ObterOticaId();
+            var usuarioIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+            bool ehAdminGeral = EhSistema() || EhDono() || EhAdministrador();
+            if (!ehAdminGeral && Guid.TryParse(usuarioIdClaim, out Guid usuarioLogadoId))
+            {
+                var usuarioLogado = await _context.Usuarios.AsNoTracking().FirstOrDefaultAsync(u => u.Id == usuarioLogadoId);
+                if (usuarioLogado != null && usuarioLogado.OticaId != Guid.Empty)
+                {
+                    oticaId = usuarioLogado.OticaId;
+                }
+            }
+
+            var oticaObj = await _context.Oticas.AsNoTracking().FirstOrDefaultAsync(o => o.Id == oticaId);
+            string lojaNome = oticaObj?.Nome ?? "Matriz";
 
             if (dto.Itens == null || dto.Itens.Count == 0)
             {
@@ -233,7 +285,7 @@ namespace RETSYS.Web.Controllers
                 Parcelas = dto.Parcelas ?? 1,
                 Status = "CONCLUIDA",
                 Observacoes = dto.Observacoes,
-                LojaUnidade = "Matriz",
+                LojaUnidade = lojaNome,
                 CriadoEm = DateTime.UtcNow
             };
 

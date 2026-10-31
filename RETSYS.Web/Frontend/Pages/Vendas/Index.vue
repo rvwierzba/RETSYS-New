@@ -24,7 +24,7 @@
             <span>🛒 Novo PDV Balcão</span>
           </a>
           <a
-            href="/ordens-servico/nova"
+            href="/ordens/nova"
             class="bg-teal-600 hover:bg-teal-700 text-white font-bold py-2.5 px-4 rounded-xl text-xs uppercase tracking-wider transition shadow-sm flex items-center gap-2"
           >
             <span>+ Nova OS Laboratório</span>
@@ -221,7 +221,7 @@
                   </a>
                   <a
                     v-else
-                    href="/ordens-servico"
+                    :href="`/ordens/${v.id || v.Id}/editar`"
                     class="inline-flex items-center gap-1 text-indigo-600 hover:text-indigo-800 font-bold hover:underline"
                   >
                     <span>👁️ Ver OS</span>

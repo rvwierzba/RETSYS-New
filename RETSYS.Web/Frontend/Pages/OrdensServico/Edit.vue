@@ -297,16 +297,19 @@
             </div>
 
             <div>
-              <label class="block text-[11px] font-mono font-bold uppercase text-slate-500 mb-1">
-                DP Total (mm) [OD + OE]
+              <label class="block text-[11px] font-mono font-bold uppercase text-slate-500 mb-1 flex items-center justify-between">
+                <span>DP Total (mm)</span>
+                <span v-if="dpTotalBloqueado" class="text-[9px] text-teal-600 font-semibold lowercase">calc: od+oe</span>
               </label>
               <input 
                 v-model.number="form.dpTotal" 
                 @input="onDpTotalInput"
+                :readonly="dpTotalBloqueado"
+                :class="dpTotalBloqueado ? 'bg-slate-100 text-slate-600 cursor-not-allowed' : 'bg-white text-slate-900'"
                 type="number" 
                 step="0.5" 
                 placeholder="Ex: 64"
-                class="w-full rounded-2xl border-slate-200 text-xs font-mono font-bold text-center bg-white" 
+                class="w-full rounded-2xl border-slate-200 text-xs font-mono font-bold text-center" 
               />
             </div>
 
@@ -731,8 +734,13 @@ const onAdicaoInput = () => {
   recalcularPerto()
 }
 
+const dpTotalBloqueado = computed(() => {
+  return (form.value.dnpOd !== null && form.value.dnpOd !== undefined && form.value.dnpOd !== '') ||
+         (form.value.dnpOe !== null && form.value.dnpOe !== undefined && form.value.dnpOe !== '')
+})
+
 const onDpTotalInput = () => {
-  if (form.value.dpTotal !== null && form.value.dpTotal !== undefined && form.value.dpTotal !== '') {
+  if (!dpTotalBloqueado.value && form.value.dpTotal !== null && form.value.dpTotal !== undefined && form.value.dpTotal !== '') {
     const half = Number((Number(form.value.dpTotal) / 2).toFixed(1))
     form.value.dnpOd = half
     form.value.dnpOe = half
@@ -740,8 +748,15 @@ const onDpTotalInput = () => {
 }
 
 const onDnpInput = () => {
-  if (form.value.dnpOd || form.value.dnpOe) {
-    form.value.dpTotal = Number(((Number(form.value.dnpOd || 0) + Number(form.value.dnpOe || 0))).toFixed(1))
+  const od = form.value.dnpOd
+  const oe = form.value.dnpOe
+  const temOd = od !== null && od !== undefined && od !== ''
+  const temOe = oe !== null && oe !== undefined && oe !== ''
+
+  if (temOd && temOe) {
+    form.value.dpTotal = Number((Number(od) + Number(oe)).toFixed(1))
+  } else {
+    form.value.dpTotal = null
   }
 }
 
