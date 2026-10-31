@@ -101,6 +101,14 @@ else
     {
         errorApp.Run(async context =>
         {
+            if (context.Request.Headers.ContainsKey("X-Inertia"))
+            {
+                context.Response.StatusCode = StatusCodes.Status409Conflict;
+                var referer = context.Request.Headers["Referer"].ToString();
+                context.Response.Headers["X-Inertia-Location"] = !string.IsNullOrEmpty(referer) ? referer : "/dashboard";
+                return;
+            }
+
             context.Response.StatusCode = StatusCodes.Status500InternalServerError;
             context.Response.ContentType = "text/plain; charset=utf-8";
             await context.Response.WriteAsync("Ocorreu um erro inesperado. Nossa equipe já foi notificada. Tente novamente em alguns instantes.");
@@ -177,7 +185,7 @@ app.Use(async (context, next) =>
                 .Select(o => new { id = o.Id.ToString(), nome = o.Nome })
                 .ToList();
         }
-        else if ((ehDono || ehAdmin || ehAdminOuGerente) && db != null)
+        else if (ehDono && db != null)
         {
             // Dono tem acesso à Matriz e todas as Filiais da sua rede
             var matrizId = oticaUsuarioId;

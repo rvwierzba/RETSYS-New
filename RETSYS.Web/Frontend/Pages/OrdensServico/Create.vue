@@ -75,7 +75,7 @@
       </div>
 
       <!-- FORMULÁRIO OPERACIONAL -->
-      <form @submit.prevent="salvarOrdemServico" class="space-y-6">
+      <form @submit.prevent="salvarOrdemServico" class="space-y-6" novalidate>
 
         <!-- ETAPA 1: DADOS DO CLIENTE & ATENDIMENTO -->
         <div v-show="etapaAtual === 1" class="bg-white p-6 sm:p-8 rounded-3xl border border-slate-200 shadow-sm space-y-6 animate-fadeIn">
@@ -891,6 +891,7 @@ const salvarOrdemServico = () => {
   erroLocal.value = ''
   router.post('/ordens', form.value, {
     preserveScroll: true,
+    preserveState: true,
     onSuccess: () => {
       salvando.value = false
     },

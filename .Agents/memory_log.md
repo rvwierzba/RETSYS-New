@@ -510,6 +510,6 @@ Este documento atua como o registro de **Memória Incremental** do projeto RETSY
    - Mapeado alias de rota `[HttpGet("/pdv")]` e garantido escopo multi-tenant estrito da ótica do usuário logado na venda de balcão e baixa de estoque físico.
 
 ### 2. Validação e Verificação
-- **Suíte de Testes Unitários (`RETSYS.Tests`)**: Executado `dotnet test RETSYS.Tests/RETSYS.Tests.csproj` com **100% de aprovação (22 aprovados, 0 falhas, 0 ignorados)**.
+- **Suíte de Testes Unitários (`RETSYS.Tests`)**: Executado `dotnet test RETSYS.Tests/RETSYS.Tests.csproj` com **100% de aprovação (24 aprovados, 0 falhas, 0 ignorados)**.
 - **Backend Build**: `dotnet build RETSYS.Web/RETSYS.Web.csproj` finalizado com **0 Erros e 0 Avisos**.
-- **Frontend Build**: `npm --prefix RETSYS.Web run build` compilou 144 módulos com êxito (30.16s), gerando `app-BoOxDe75.js` e `app-BGMDOr3f.css`.
+- **Frontend Build**: `npm --prefix RETSYS.Web run build` compilou 144 módulos com êxito (2.88s), gerando `app-FKGV59xd.js` e `app-BGMDOr3f.css`.

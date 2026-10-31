@@ -89,21 +89,40 @@
 
       <!-- Filtros e Barra de Busca -->
       <div class="bg-white p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
-        <!-- Abas de Filtro de Origem -->
-        <div class="flex items-center gap-1.5 bg-slate-100 p-1 rounded-xl">
-          <button
-            v-for="aba in abas"
-            :key="aba.id"
-            @click="abaAtiva = aba.id"
-            :class="[
-              'px-3.5 py-1.5 text-xs font-bold rounded-lg transition',
-              abaAtiva === aba.id
-                ? 'bg-white text-slate-900 shadow-sm'
-                : 'text-slate-500 hover:text-slate-800'
-            ]"
-          >
-            {{ aba.nome }}
-          </button>
+        <!-- Abas de Filtro de Origem e Atendente -->
+        <div class="flex flex-wrap items-center gap-2">
+          <div class="flex items-center gap-1.5 bg-slate-100 p-1 rounded-xl">
+            <button
+              v-for="aba in abas"
+              :key="aba.id"
+              @click="abaAtiva = aba.id"
+              :class="[
+                'px-3.5 py-1.5 text-xs font-bold rounded-lg transition',
+                abaAtiva === aba.id
+                  ? 'bg-white text-slate-900 shadow-sm'
+                  : 'text-slate-500 hover:text-slate-800'
+              ]"
+            >
+              {{ aba.nome }}
+            </button>
+          </div>
+
+          <div v-if="props.EhAdmin || props.ehAdmin" class="flex items-center gap-2">
+            <select
+              v-model="vendedorSelecionado"
+              @change="mudarFiltroVendedor"
+              class="rounded-xl border border-slate-200 text-xs px-3 py-1.5 bg-slate-50 font-bold focus:border-teal-500 outline-none"
+            >
+              <option value="">👤 Todos os Atendentes</option>
+              <option 
+                v-for="vend in (props.Vendedores || props.vendedores || [])" 
+                :key="vend.id || vend.Id" 
+                :value="vend.id || vend.Id"
+              >
+                {{ vend.nome || vend.Nome }}
+              </option>
+            </select>
+          </div>
         </div>
 
         <!-- Campo de Busca em Tempo Real -->
@@ -221,7 +240,7 @@
                   </a>
                   <a
                     v-else
-                    :href="`/ordens/${v.id || v.Id}/editar`"
+                    :href="`/ordens/${v.id || v.Id}`"
                     class="inline-flex items-center gap-1 text-indigo-600 hover:text-indigo-800 font-bold hover:underline"
                   >
                     <span>👁️ Ver OS</span>
@@ -239,6 +258,7 @@
 
 <script setup>
 import { ref, computed } from 'vue'
+import { router } from '@inertiajs/vue3'
 import AuthenticatedLayout from '../../Shared/AuthenticatedLayout.vue'
 
 const props = defineProps({
@@ -251,11 +271,31 @@ const props = defineProps({
   TotalVendasOs: Number,
   totalVendasOs: Number,
   Busca: String,
-  busca: String
+  busca: String,
+  EhAdmin: Boolean,
+  ehAdmin: Boolean,
+  Vendedores: Array,
+  vendedores: Array,
+  VendedorId: String,
+  vendedorId: String,
+  LojaId: String,
+  lojaId: String
 })
 
 const termoBusca = ref(props.Busca || props.busca || '')
 const abaAtiva = ref('todas')
+const vendedorSelecionado = ref(props.VendedorId || props.vendedorId || '')
+
+const mudarFiltroVendedor = () => {
+  router.get('/vendas', {
+    busca: termoBusca.value,
+    vendedorId: vendedorSelecionado.value || undefined,
+    lojaId: props.LojaId || props.lojaId || undefined
+  }, {
+    preserveState: true,
+    preserveScroll: true
+  })
+}
 
 const abas = [
   { id: 'todas', nome: 'Todas as Vendas' },

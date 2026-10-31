@@ -197,10 +197,23 @@ namespace RETSYS.Web.Controllers
             {
                 clienteExistente = await _context.Clientes.FirstOrDefaultAsync(c => c.OticaId == oticaId && c.CPF == cpfFinal);
             }
-            if (clienteExistente == null && !string.IsNullOrWhiteSpace(model.Nome))
+            if (clienteExistente == null && !string.IsNullOrWhiteSpace(model.Nome) && !string.IsNullOrWhiteSpace(model.Telefone))
             {
                 var nomeLower = model.Nome.Trim().ToLower();
-                clienteExistente = await _context.Clientes.FirstOrDefaultAsync(c => c.OticaId == oticaId && c.Nome.ToLower() == nomeLower);
+                var cleanTel = new string(model.Telefone.Where(char.IsDigit).ToArray());
+                if (!string.IsNullOrEmpty(cleanTel))
+                {
+                    var candidatos = await _context.Clientes
+                        .Where(c => c.OticaId == oticaId && c.Nome.ToLower() == nomeLower)
+                        .ToListAsync();
+                    clienteExistente = candidatos.FirstOrDefault(c =>
+                    {
+                        var tExistente = !string.IsNullOrWhiteSpace(c.Telefone) 
+                            ? new string(c.Telefone.Where(char.IsDigit).ToArray()) 
+                            : "";
+                        return tExistente == cleanTel;
+                    });
+                }
             }
 
             var novoCliente = clienteExistente ?? new Cliente

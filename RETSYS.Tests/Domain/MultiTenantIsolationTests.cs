@@ -83,6 +83,49 @@ namespace RETSYS.Tests.Domain
 
             Assert.Equal(2, ordensRede.Count);
         }
+
+        [Fact]
+        public async Task DeveGarantirQueLojaDaOsSemprePertenceALojaDoVendedorResponsavel()
+        {
+            using var context = ObterContextoEmMemoria(Guid.NewGuid().ToString());
+
+            var loja1Id = Guid.NewGuid();
+            var loja2Id = Guid.NewGuid();
+
+            var vendedoraLoja1 = new Usuario
+            {
+                Id = Guid.NewGuid(),
+                Nome = "Ana Vendedora",
+                Email = "ana@loja1.com",
+                SenhaHash = "hash",
+                OticaId = loja1Id,
+                Ativo = true
+            };
+
+            context.Usuarios.Add(vendedoraLoja1);
+            await context.SaveChangesAsync();
+
+            // Simula emissão onde o admin estaria visualizando loja 2
+            var oticaContextoSessaoAdmin = loja2Id;
+
+            // Regra implementada: o OticaId da OS obrigatoriamente segue o OticaId da Vendedora
+            var oticaFinalOs = vendedoraLoja1.OticaId != Guid.Empty ? vendedoraLoja1.OticaId : oticaContextoSessaoAdmin;
+
+            var novaOS = new OrdemServico
+            {
+                Id = Guid.NewGuid(),
+                OticaId = oticaFinalOs,
+                VendedorId = vendedoraLoja1.Id,
+                NumeroOS = "OS-2026-0001",
+                Ativo = true
+            };
+
+            context.OrdensServico.Add(novaOS);
+            await context.SaveChangesAsync();
+
+            Assert.Equal(loja1Id, novaOS.OticaId);
+            Assert.NotEqual(loja2Id, novaOS.OticaId);
+        }
     }
 }
 

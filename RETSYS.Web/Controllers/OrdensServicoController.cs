@@ -771,6 +771,11 @@ namespace RETSYS.Web.Controllers
                 if (ehInertia)
                 {
                     Inertia.Share("erro", mensagem);
+                    var referer = Request.Headers["Referer"].ToString();
+                    if (!string.IsNullOrEmpty(referer))
+                    {
+                        return Redirect(referer);
+                    }
                     return Redirect("/ordens/nova");
                 }
                 return BadRequest(new { mensagem });
@@ -821,9 +826,10 @@ namespace RETSYS.Web.Controllers
                     return RetornarErro("Vendedor(a) não localizado(a) ou inativo(a).");
                 }
 
-                // ISOLAMENTO DE LOJA (Garantia contra vazamento de OSs entre filiais):
-                // Se o usuário não for administrador da rede, a OS pertence impreterivelmente à loja do vendedor.
-                if (!ehAdminOuGerente || oticaId == Guid.Empty)
+                // REGRA CRÍTICA DE ISOLAMENTO MULTI-TENANT (Prevenção de OSs misturadas entre lojas):
+                // Toda OS pertence OBRIGATORIAMENTE à loja em que o(a) vendedor(a) atua.
+                // O seletor de loja do topo do ADMIN é exclusivamente filtro de visualização e nunca altera a loja da venda.
+                if (vendedor.OticaId != Guid.Empty)
                 {
                     oticaId = vendedor.OticaId;
                 }
@@ -956,8 +962,8 @@ namespace RETSYS.Web.Controllers
                     }
                 }
 
-                decimal valorTotalLiquido = Math.Max(0, totalBruto - descontoReais);
-                decimal valorEntrada = dados.ValorEntrada ?? 0m;
+                decimal valorTotalLiquido = Math.Round(Math.Max(0, totalBruto - descontoReais), 2, MidpointRounding.AwayFromZero);
+                decimal valorEntrada = Math.Round(dados.ValorEntrada ?? 0m, 2, MidpointRounding.AwayFromZero);
 
                 if (valorEntrada < 0)
                 {
@@ -968,12 +974,12 @@ namespace RETSYS.Web.Controllers
                     return RetornarErro("O valor de entrada não pode ser maior que o total da OS.");
                 }
 
-                decimal valorRestante = Math.Max(0, valorTotalLiquido - valorEntrada);
-                bool quitadoNoAto = valorTotalLiquido > 0 && (valorRestante <= 0 || valorEntrada >= valorTotalLiquido);
+                decimal valorRestante = Math.Round(Math.Max(0, valorTotalLiquido - valorEntrada), 2, MidpointRounding.AwayFromZero);
+                bool quitadoNoAto = valorTotalLiquido > 0 && valorRestante <= 0.00m;
                 if (quitadoNoAto)
                 {
                     valorEntrada = valorTotalLiquido;
-                    valorRestante = 0m;
+                    valorRestante = 0.00m;
                 }
 
                 string formaPagamento = !string.IsNullOrWhiteSpace(dados.FormaPagamento) ? dados.FormaPagamento.ToUpper() : "DINHEIRO";
@@ -1888,6 +1894,8 @@ namespace RETSYS.Web.Controllers
                 // 8.1 Tela de EdiÃ§Ã£o Completa da OS pÃ³s-emissÃ£o
         [HttpGet("/ordens/{id:guid}/editar")]
         [HttpGet("/ordens-servico/{id:guid}/editar")]
+        [HttpGet("/ordens/{id:guid}")]
+        [HttpGet("/ordens-servico/{id:guid}")]
         public async Task<IActionResult> Editar(Guid id)
         {
             var oticaId = ObterOticaId();
@@ -1908,12 +1916,38 @@ namespace RETSYS.Web.Controllers
 
             if (os == null)
             {
+                if (Request.Headers.ContainsKey("X-Inertia"))
+                {
+                    Inertia.Share("erro", "Ordem de Serviço não encontrada.");
+                    return Redirect("/ordens");
+                }
                 return NotFound();
             }
 
             if (!EhSistema() && os.OticaId != oticaId && !idsRede.Contains(os.OticaId))
             {
+                if (Request.Headers.ContainsKey("X-Inertia"))
+                {
+                    Inertia.Share("erro", "Você não tem permissão para acessar esta Ordem de Serviço.");
+                    return Redirect("/ordens");
+                }
                 return Forbid();
+            }
+
+            // Regra F.2: Vendedora só pode visualizar suas próprias OSs
+            bool ehAdminGeral = EhSistema() || EhDono() || EhAdministrador();
+            if (!ehAdminGeral)
+            {
+                var usuarioIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (Guid.TryParse(usuarioIdClaim, out Guid usuarioLogadoId) && os.VendedorId.HasValue && os.VendedorId.Value != usuarioLogadoId)
+                {
+                    if (Request.Headers.ContainsKey("X-Inertia"))
+                    {
+                        Inertia.Share("erro", "Você só tem permissão para visualizar suas próprias Ordens de Serviço.");
+                        return Redirect("/vendas");
+                    }
+                    return Forbid();
+                }
             }
 
             var matrizId = ObterMatrizIdEfetivo(oticaId, _context);

@@ -75,6 +75,7 @@ namespace RETSYS.Web.Controllers
         [HttpPost("/logout")]
         public async Task<IActionResult> Logout()
         {
+            HttpContext.Session.Clear();
             await HttpContext.SignOutAsync("Cookies");
             return RedirectToAction(nameof(Login));
         }

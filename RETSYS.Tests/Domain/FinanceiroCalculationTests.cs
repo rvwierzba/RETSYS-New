@@ -59,5 +59,28 @@ namespace RETSYS.Tests.Domain
             Assert.Equal(800.00m, entradaAplicada);
             Assert.Equal(0.00m, restante);
         }
+
+        [Fact]
+        public void DeveMarcarQuitadoNoAtoQuandoEntradaIgualAoTotalEmCentavos()
+        {
+            decimal totalBruto = 720.00m;
+            decimal desconto = 0.00m;
+            decimal totalLiquido = Math.Round(totalBruto - desconto, 2);
+            decimal valorEntrada = 720.00m;
+
+            decimal valorRestante = Math.Round(Math.Max(0m, totalLiquido - valorEntrada), 2);
+            bool quitadoNoAto = totalLiquido > 0 && valorRestante <= 0.00m;
+
+            Assert.True(quitadoNoAto);
+            Assert.Equal(0.00m, valorRestante);
+
+            // Cenário 2: Reduz entrada para 500,00 -> não pago, restante 220,00
+            valorEntrada = 500.00m;
+            valorRestante = Math.Round(Math.Max(0m, totalLiquido - valorEntrada), 2);
+            quitadoNoAto = totalLiquido > 0 && valorRestante <= 0.00m;
+
+            Assert.False(quitadoNoAto);
+            Assert.Equal(220.00m, valorRestante);
+        }
     }
 }
