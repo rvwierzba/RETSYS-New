@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using RETSYS.Web.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 using InertiaCore;
 using RETSYS.Infrastructure.Data;
@@ -85,9 +86,14 @@ namespace RETSYS.Web.Controllers
 
         // POST /clientes/{clienteId}/receitas
         [HttpPost("/clientes/{clienteId}/receitas")]
-        public async Task<IActionResult> Salvar(Guid clienteId, [FromBody] ReceitaInputDto dto)
+        public async Task<IActionResult> Salvar(Guid clienteId, [FromBody] ReceitaInputDto? dto)
         {
             var oticaId = ObterOticaId();
+            if (dto == null)
+            {
+                MensagemFlash.Definir(HttpContext, "erro", "Dados da prescrição inválidos.");
+                return Redirect($"/clientes/{clienteId}/receitas");
+            }
 
             var cliente = await _context.Clientes.FirstOrDefaultAsync(c => c.Id == clienteId && c.OticaId == oticaId);
             if (cliente == null)
@@ -97,8 +103,8 @@ namespace RETSYS.Web.Controllers
             {
                 OticaId = oticaId,
                 ClienteId = clienteId,
-                DataExame = dto.DataExame ?? DateTime.UtcNow,
-                DataValidade = dto.DataValidade,
+                DataExame = DateTime.SpecifyKind(dto.DataExame ?? DateTime.UtcNow, DateTimeKind.Utc),
+                DataValidade = dto.DataValidade.HasValue ? DateTime.SpecifyKind(dto.DataValidade.Value, DateTimeKind.Utc) : null,
                 MedicoNome = string.IsNullOrWhiteSpace(dto.MedicoNome) ? "Não especificado" : dto.MedicoNome.Trim(),
                 MedicoCrm = dto.MedicoCrm?.Trim(),
                 MedicoTipo = string.IsNullOrWhiteSpace(dto.MedicoTipo) ? "OFTALMOLOGISTA" : dto.MedicoTipo.Trim(),
@@ -140,6 +146,12 @@ namespace RETSYS.Web.Controllers
             cliente.UpdatedAt = DateTime.UtcNow;
 
             await _context.SaveChangesAsync();
+
+            if (Request.Headers.ContainsKey("X-Inertia"))
+            {
+                MensagemFlash.Definir(HttpContext, "sucesso", "Prescrição cadastrada no histórico do paciente.");
+                return Redirect($"/clientes/{clienteId}/receitas");
+            }
 
             return Ok(new { Sucesso = true, ReceitaId = receita.Id });
         }

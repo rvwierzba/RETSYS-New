@@ -1,4 +1,6 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using RETSYS.Web.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 using InertiaCore;
 using RETSYS.Infrastructure.Data;
@@ -8,6 +10,7 @@ using System.Security.Claims;
 
 namespace RETSYS.Web.Controllers
 {
+    [Authorize]
     public class PerfilController : Controller
     {
         private readonly ApplicationDbContext _context;
@@ -120,13 +123,8 @@ namespace RETSYS.Web.Controllers
             _context.Usuarios.Update(usuario);
             await _context.SaveChangesAsync();
 
-            // Compartilha os novos dados na sessão global do Inertia para atualizar o topo imediatamente
-            Inertia.Share("auth", new {
-                usuarioNome = usuario.Nome,
-                usuarioPerfil = usuario.Perfil.ToString(),
-                usuarioFoto = usuario.FotoUrl,
-                spotifyTokenAtivo = HttpContext.Session.GetString("SpotifyToken") != null
-            });
+            // O cabeçalho lê nome e foto do banco a cada requisição (Program.cs), então já reflete a alteração
+            MensagemFlash.Definir(HttpContext, "sucesso", "Seu perfil foi atualizado com sucesso.");
 
             return RedirectToAction(nameof(Index));
         }

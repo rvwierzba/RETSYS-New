@@ -59,7 +59,7 @@ namespace RETSYS.Web.Controllers
                 .SumAsync(os => os.Financeiro != null ? os.Financeiro.ValorTotalLiquido : 0);
 
             // OS prontas aguardando retirada (Status: PRONTO)
-            var queryProntas = baseQueryOs.Where(os => os.Status == "PRONTO");
+            var queryProntas = baseQueryOs.Where(os => os.Status == "PRONTA" || os.Status == "PRONTO");
             if (!isAdmin) queryProntas = queryProntas.Where(os => os.VendedorId == vendedorIdFiltro);
             int osProntasCount = await queryProntas.CountAsync();
 

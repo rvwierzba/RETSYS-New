@@ -33,7 +33,7 @@ namespace RETSYS.Web.Controllers
                         .ThenInclude(lp => lp!.Lente)
                 .Include(os => os.Financeiro)
                     .ThenInclude(f => f!.Armacao)
-                .Where(os => os.OticaId == oticaId && os.Ativo && os.Status != "CANCELADO" && os.Status != "ENTREGUE")
+                .Where(os => os.OticaId == oticaId && os.Ativo && os.Status != "CANCELADO" && os.Status != "CANCELADA" && os.Status != "ENTREGUE")
                 .OrderBy(os => os.DataPrevistaEntrega)
                 .Select(os => new
                 {

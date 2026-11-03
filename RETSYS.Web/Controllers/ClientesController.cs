@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Mvc;
+using RETSYS.Web.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 using InertiaCore;
 using RETSYS.Infrastructure.Data;
@@ -103,39 +104,7 @@ namespace RETSYS.Web.Controllers
             });
         }
 
-        // API Endpoint: Consulta de CPF para preenchimento automático na emissão de OS
-        [HttpGet("/api/clientes/buscar-cpf/{cpf}")]
-        public async Task<IActionResult> BuscarPorCpf(string cpf)
-        {
-            var oticaId = ObterOticaId();
-            var cpfLimpo = new string(cpf.Where(char.IsDigit).ToArray());
-
-            var cliente = await _context.Clientes
-                .AsNoTracking()
-                .FirstOrDefaultAsync(c => c.OticaId == oticaId &&
-                    ((c.CPF != null && c.CPF == cpfLimpo) || c.CPF == cpf));
-
-            if (cliente == null)
-            {
-                return NotFound(new { mensagem = "Cliente não encontrado." });
-            }
-
-            return Ok(new
-            {
-                nome = cliente.Nome,
-                cpf = cliente.CPF,
-                telefone = cliente.Telefone,
-                dataNascimento = cliente.DataNascimento?.ToString("yyyy-MM-dd"),
-                cep = cliente.Cep,
-                logradouro = cliente.Logradouro,
-                numero = cliente.Numero,
-                bairro = cliente.Bairro,
-                cidade = cliente.Cidade,
-                estado = cliente.Estado,
-                email = cliente.Email,
-                convenio = cliente.Convenio
-            });
-        }
+        // A consulta de CPF (/api/clientes/buscar-cpf/{cpf}) fica em OrdensServicoController.BuscarPorCpf
 
         // 2. Gravação de Cliente com suporte a Cadastro Rápido e Ficha de Migração (CPF Opcional)
         [HttpPost("/clientes")]
@@ -166,7 +135,7 @@ namespace RETSYS.Web.Controllers
                         var body = await reader.ReadToEndAsync();
                         if (!string.IsNullOrWhiteSpace(body))
                         {
-                            var jsonModel = System.Text.Json.JsonSerializer.Deserialize<ClienteCadastroRequest>(body, new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                            var jsonModel = System.Text.Json.JsonSerializer.Deserialize<ClienteCadastroRequest>(body, new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true, Converters = { new RETSYS.Web.Json.ConversorJsonTolerante() } });
                             if (jsonModel != null) model = jsonModel;
                         }
                     }
@@ -176,7 +145,7 @@ namespace RETSYS.Web.Controllers
 
             if (string.IsNullOrWhiteSpace(model.Nome))
             {
-                Inertia.Share("erro", "Informe o nome completo do cliente.");
+                MensagemFlash.Definir(HttpContext, "erro", "Informe o nome completo do cliente.");
                 return RedirectToAction(nameof(Index));
             }
 
@@ -234,6 +203,10 @@ namespace RETSYS.Web.Controllers
             novoCliente.Estado = model.Estado ?? string.Empty;
             novoCliente.Convenio = model.Convenio;
             novoCliente.Email = model.Email;
+            if (!string.IsNullOrWhiteSpace(model.Observacoes))
+            {
+                novoCliente.Observacoes = model.Observacoes;
+            }
             novoCliente.UpdatedAt = DateTime.UtcNow;
 
             // Se for cadastro de Ficha Antiga (Migração de Histórico)
@@ -388,7 +361,7 @@ namespace RETSYS.Web.Controllers
                         var body = await reader.ReadToEndAsync();
                         if (!string.IsNullOrWhiteSpace(body))
                         {
-                            var jsonModel = System.Text.Json.JsonSerializer.Deserialize<ClienteCadastroRequest>(body, new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true });
+                            var jsonModel = System.Text.Json.JsonSerializer.Deserialize<ClienteCadastroRequest>(body, new System.Text.Json.JsonSerializerOptions { PropertyNameCaseInsensitive = true, Converters = { new RETSYS.Web.Json.ConversorJsonTolerante() } });
                             if (jsonModel != null) model = jsonModel;
                         }
                     }
@@ -400,30 +373,39 @@ namespace RETSYS.Web.Controllers
             var cliente = await _context.Clientes.FirstOrDefaultAsync(c => c.Id == id && c.OticaId == oticaId);
             if (cliente == null)
             {
-                Inertia.Share("erro", "Cliente não encontrado.");
+                MensagemFlash.Definir(HttpContext, "erro", "Cliente não encontrado.");
                 return RedirectToAction(nameof(Index));
             }
 
             if (string.IsNullOrWhiteSpace(model.Nome))
             {
-                Inertia.Share("erro", "Informe o nome completo do cliente.");
+                MensagemFlash.Definir(HttpContext, "erro", "Informe o nome completo do cliente.");
                 return RedirectToAction(nameof(Index));
             }
 
             string? cpfFinal = !string.IsNullOrWhiteSpace(model.CPF) 
                 ? new string(model.CPF.Where(char.IsDigit).ToArray()) 
                 : null;
+            if (string.IsNullOrWhiteSpace(cpfFinal)) cpfFinal = null;
+
+            // CPF é único por loja: avisa em vez de estourar a constraint do banco
+            if (cpfFinal != null && await _context.Clientes.AnyAsync(c => c.Id != id && c.OticaId == oticaId && c.CPF == cpfFinal))
+            {
+                MensagemFlash.Definir(HttpContext, "erro", "Já existe outro cliente com este CPF nesta loja.");
+                return RedirectToAction(nameof(Index));
+            }
 
             cliente.Nome = model.Nome.Trim();
             cliente.CPF = cpfFinal;
             cliente.Telefone = model.Telefone ?? string.Empty;
-            cliente.Cep = model.Cep ?? string.Empty;
-            cliente.Logradouro = model.Logradouro ?? string.Empty;
-            cliente.Numero = model.Numero ?? string.Empty;
-            cliente.Bairro = model.Bairro ?? string.Empty;
-            cliente.Cidade = model.Cidade ?? string.Empty;
-            cliente.Estado = model.Estado ?? string.Empty;
-            cliente.Convenio = model.Convenio;
+            // Campos não enviados pelo formulário de edição (null) preservam o valor atual do cadastro
+            cliente.Cep = model.Cep ?? cliente.Cep;
+            cliente.Logradouro = model.Logradouro ?? cliente.Logradouro;
+            cliente.Numero = model.Numero ?? cliente.Numero;
+            cliente.Bairro = model.Bairro ?? cliente.Bairro;
+            cliente.Cidade = model.Cidade ?? cliente.Cidade;
+            cliente.Estado = model.Estado ?? cliente.Estado;
+            cliente.Convenio = model.Convenio ?? cliente.Convenio;
             cliente.Email = model.Email;
             if (!string.IsNullOrWhiteSpace(model.Observacoes))
             {
@@ -444,7 +426,7 @@ namespace RETSYS.Web.Controllers
             var possuiOs = await _context.OrdensServico.AnyAsync(o => o.ClienteId == id && o.OticaId == oticaId);
             if (possuiOs)
             {
-                Inertia.Share("erro", "Não é possível excluir um cliente que já possui Ordens de Serviço registradas.");
+                MensagemFlash.Definir(HttpContext, "erro", "Não é possível excluir um cliente que já possui Ordens de Serviço registradas.");
                 return RedirectToAction(nameof(Index));
             }
 

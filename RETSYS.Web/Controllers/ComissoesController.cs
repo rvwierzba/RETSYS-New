@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using RETSYS.Web.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 using InertiaCore;
 using RETSYS.Domain.Entities;
@@ -42,7 +43,7 @@ namespace RETSYS.Web.Controllers
 
             if (!PeriodoValido(periodoAlvo))
             {
-                Inertia.Share("erro", "Período de referência inválido. Use o formato AAAA-MM.");
+                MensagemFlash.Definir(HttpContext, "erro", "Período de referência inválido. Use o formato AAAA-MM.");
                 return Redirect("/minhas-comissoes");
             }
 
@@ -191,11 +192,17 @@ namespace RETSYS.Web.Controllers
             Guid vendedorId,
             [FromBody] DtoAtualizarTaxa model)
         {
+            if (!EhAdministrador())
+            {
+                MensagemFlash.Definir(HttpContext, "erro", "Apenas a gerência pode gerenciar comissões.");
+                return Redirect("/minhas-comissoes");
+            }
+
             var oticaId = ObterOticaId();
 
             if (model.PercentualComissao < 0 || model.PercentualComissao > 100)
             {
-                Inertia.Share("erro", "A taxa de comissão deve estar entre 0% e 100%.");
+                MensagemFlash.Definir(HttpContext, "erro", "A taxa de comissão deve estar entre 0% e 100%.");
                 return RedirectToAction(nameof(Index));
             }
 
@@ -204,7 +211,7 @@ namespace RETSYS.Web.Controllers
 
             if (vendedor == null)
             {
-                Inertia.Share("erro", "Vendedor não localizado.");
+                MensagemFlash.Definir(HttpContext, "erro", "Vendedor não localizado.");
                 return RedirectToAction(nameof(Index));
             }
 
@@ -212,7 +219,7 @@ namespace RETSYS.Web.Controllers
 
             await _context.SaveChangesAsync();
 
-            Inertia.Share("sucesso", "Taxa de comissão atualizada com sucesso.");
+            MensagemFlash.Definir(HttpContext, "sucesso", "Taxa de comissão atualizada com sucesso.");
 
             return RedirectToAction(nameof(Index));
         }
@@ -222,17 +229,23 @@ namespace RETSYS.Web.Controllers
             [FromQuery] Guid vendedorId,
             [FromQuery] string? periodo)
         {
+            if (!EhAdministrador())
+            {
+                MensagemFlash.Definir(HttpContext, "erro", "Apenas a gerência pode gerenciar comissões.");
+                return Redirect("/minhas-comissoes");
+            }
+
             var oticaId = ObterOticaId();
 
             if (vendedorId == Guid.Empty)
             {
-                Inertia.Share("erro", "Selecione uma vendedora para realizar o fechamento.");
+                MensagemFlash.Definir(HttpContext, "erro", "Selecione uma vendedora para realizar o fechamento.");
                 return RedirectToAction(nameof(Index));
             }
 
             if (!PeriodoValido(periodo))
             {
-                Inertia.Share("erro", "Período de referência inválido. Use o formato AAAA-MM.");
+                MensagemFlash.Definir(HttpContext, "erro", "Período de referência inválido. Use o formato AAAA-MM.");
                 return RedirectToAction(nameof(Index));
             }
 
@@ -241,13 +254,13 @@ namespace RETSYS.Web.Controllers
 
             if (vendedor == null)
             {
-                Inertia.Share("erro", "Vendedor não encontrado.");
+                MensagemFlash.Definir(HttpContext, "erro", "Vendedor não encontrado.");
                 return RedirectToAction(nameof(Index));
             }
 
             if (!vendedor.ComissaoAtiva)
             {
-                Inertia.Share("erro", "A comissão desta vendedora está desativada.");
+                MensagemFlash.Definir(HttpContext, "erro", "A comissão desta vendedora está desativada.");
                 return RedirectToAction(nameof(Index));
             }
 
@@ -260,13 +273,13 @@ namespace RETSYS.Web.Controllers
 
             if (fechamentoExistente != null && fechamentoExistente.Status == "PAGO")
             {
-                Inertia.Share("erro", "Este período já foi pago e não pode ser alterado.");
+                MensagemFlash.Definir(HttpContext, "erro", "Este período já foi pago e não pode ser alterado.");
                 return RedirectToAction(nameof(Index));
             }
 
             if (fechamentoExistente != null && fechamentoExistente.Status == "FECHADO")
             {
-                Inertia.Share("erro", "Este período já está fechado e aguarda confirmação de pagamento.");
+                MensagemFlash.Definir(HttpContext, "erro", "Este período já está fechado e aguarda confirmação de pagamento.");
                 return RedirectToAction(nameof(Index));
             }
 
@@ -281,7 +294,7 @@ namespace RETSYS.Web.Controllers
 
             if (!comissoesPendentes.Any())
             {
-                Inertia.Share("erro", "Nenhuma comissão pendente foi localizada para esse período.");
+                MensagemFlash.Definir(HttpContext, "erro", "Nenhuma comissão pendente foi localizada para esse período.");
                 return RedirectToAction(nameof(Index));
             }
 
@@ -334,7 +347,7 @@ namespace RETSYS.Web.Controllers
 
             await _context.SaveChangesAsync();
 
-            Inertia.Share("sucesso", "Fechamento mensal realizado com sucesso.");
+            MensagemFlash.Definir(HttpContext, "sucesso", "Fechamento mensal realizado com sucesso.");
 
             return RedirectToAction(nameof(Index));
         }
@@ -342,6 +355,12 @@ namespace RETSYS.Web.Controllers
         [HttpPost("/admin/comissoes/pagar/{id:guid}")]
         public async Task<IActionResult> PagarVendedor(Guid id)
         {
+            if (!EhAdministrador())
+            {
+                MensagemFlash.Definir(HttpContext, "erro", "Apenas a gerência pode gerenciar comissões.");
+                return Redirect("/minhas-comissoes");
+            }
+
             var oticaId = ObterOticaId();
 
             var fechamento = await _context.FechamentosComissao
@@ -350,19 +369,19 @@ namespace RETSYS.Web.Controllers
 
             if (fechamento == null)
             {
-                Inertia.Share("erro", "Fechamento não localizado.");
+                MensagemFlash.Definir(HttpContext, "erro", "Fechamento não localizado.");
                 return RedirectToAction(nameof(Index));
             }
 
             if (fechamento.Status == "PAGO")
             {
-                Inertia.Share("erro", "Este fechamento já foi pago.");
+                MensagemFlash.Definir(HttpContext, "erro", "Este fechamento já foi pago.");
                 return RedirectToAction(nameof(Index));
             }
 
             if (fechamento.Status != "FECHADO")
             {
-                Inertia.Share("erro", "Apenas fechamentos com status FECHADO podem ser pagos.");
+                MensagemFlash.Definir(HttpContext, "erro", "Apenas fechamentos com status FECHADO podem ser pagos.");
                 return RedirectToAction(nameof(Index));
             }
 
@@ -377,7 +396,7 @@ namespace RETSYS.Web.Controllers
 
             if (!comissoesVinculadas.Any())
             {
-                Inertia.Share("erro", "Não existem comissões fechadas disponíveis para pagamento.");
+                MensagemFlash.Definir(HttpContext, "erro", "Não existem comissões fechadas disponíveis para pagamento.");
                 return RedirectToAction(nameof(Index));
             }
 
@@ -398,7 +417,7 @@ namespace RETSYS.Web.Controllers
 
             await _context.SaveChangesAsync();
 
-            Inertia.Share("sucesso", "Pagamento de comissão confirmado com sucesso.");
+            MensagemFlash.Definir(HttpContext, "sucesso", "Pagamento de comissão confirmado com sucesso.");
 
             return RedirectToAction(nameof(Index));
         }

@@ -4,7 +4,13 @@
 
 ### 1.1 Autenticação, Usuários e Multi-Tenancy
 - **Autenticação por Cookie**: Implementada via ASP.NET Core Authentication (`/login`, `/logout`), armazenando perfil (`Admin`, `Gerente`, `Vendedor`, `Dono`) e `OticaId` nas claims.
-- **Isolamento de Tenant**: Baseado na classe abstrata `TenantController`, garantindo que todas as consultas ao banco filtrem obrigatoriamente pelo `OticaId` do usuário logado.
+- **Isolamento de Tenant**: Baseado na classe abstrata `TenantController` (agora com `[Authorize]` herdado por todos os controllers de negócio), garantindo que todas as consultas ao banco filtrem obrigatoriamente pelo `OticaId` ativo.
+  - `ObterOticasPermitidas()`: Admin/Gerente/Vendedor → somente a própria loja; Dono → Matriz + Filiais da rede; Sistema → todas.
+  - `ResolverFiltroLojas(lojaId)`: valida o `?lojaId=` das telas contra as lojas permitidas (um `lojaId` de outra loja é ignorado). Usado em `/ordens`, `/vendas` e `/caixa/fechamento`.
+  - Sem vínculo de loja não há mais fallback para "a primeira ótica do banco".
+  - O `DatabaseSeeder` não altera mais `MatrizId` nem o `OticaId` de usuários/OSs na inicialização (era a causa de óticas independentes enxergarem dados umas das outras).
+- **Mensagens de retorno (flash)**: `MensagemFlash.Definir(HttpContext, "erro"|"sucesso", texto)` + middleware em `Program.cs` que guarda a mensagem na sessão quando a action redireciona; o `AuthenticatedLayout.vue` exibe um toast global.
+- **JSON tolerante**: `RETSYS.Web/Json/ConversorJsonTolerante.cs` converte `""` dos formulários Vue em `null`/valor padrão para `Guid`, `DateTime`, `decimal`, `int` e `bool` (antes o DTO inteiro chegava nulo).
 - **Segurança**: Senhas criptografadas via `BCrypt.Net` Enhanced Hash (fator de custo 12).
 - **Controle de Desconto e Comissão por Vendedora**:
   - Limite de desconto padrão inicial de `5.00%` para novas vendedoras (extensível por gerentes/admins).
@@ -91,6 +97,8 @@
 ## 2. Status de Build, Testes e Conformidade
 
 - **Backend .NET 10**: Compilação via MSBuild com **0 Erros e 0 Avisos**.
+- **Testes automatizados**: `dotnet test RETSYS.Tests/RETSYS.Tests.csproj` → **27 aprovados, 0 falhas** (inclui `ConversorJsonToleranteTests`).
+- **Testes ponta a ponta (03/11/2026)**: stack Docker local com cópia do banco, 5 perfis de teste (Admin/Vendedor de lojas distintas, Dono) validando isolamento entre lojas, CRUDs, flash de mensagens, emissão/edição/entrega de OS, PDV e importador de lentes.
 - **Frontend Vite v8 / Vue 3**: Bundle de produção compilado com **0 Erros** (`npm run build`).
 - **Banco de Dados PostgreSQL**: Migration `20261028150507_EvolucaoEspecialistaOtica` gerada preservando 100% dos dados pré-existentes.
 - **Firewall VPS (UFW)**: Total conformidade. Apenas portas públicas 22 (SSH), 80 (HTTP) e 443 (HTTPS) necessárias; serviços internos (PostgreSQL 5432, Ollama 11434, App 5000) isolados exclusivamente no `127.0.0.1`.

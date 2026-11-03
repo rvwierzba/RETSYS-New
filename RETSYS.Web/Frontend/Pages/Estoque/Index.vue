@@ -8,10 +8,6 @@
         <p class="text-sm text-slate-500">Cadastre e controle a quantidade em estoque e valores das armações.</p>
       </div>
 
-      <!-- Mensagens de Erro -->
-      <div v-if="$page.props.erro || $page.props.flash?.erro" class="p-4 rounded-xl bg-red-50 border border-red-200 text-red-700 text-sm font-medium">
-        {{ $page.props.erro || $page.props.flash?.erro }}
-      </div>
 
       <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
         

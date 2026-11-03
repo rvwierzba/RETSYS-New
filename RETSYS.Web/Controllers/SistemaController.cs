@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using RETSYS.Web.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 using InertiaCore;
 using RETSYS.Domain.Entities;
@@ -27,39 +28,41 @@ namespace RETSYS.Web.Controllers
         [HttpPost("/sistema/trocar-otica")]
         public async Task<IActionResult> TrocarOtica([FromBody] DtoTrocarOtica requisicao)
         {
-            if (!EhSistema() && !EhDono() && !EhAdministrador())
+            // Admin/Vendedor são fixos na própria loja (ObterOticaId ignora a sessão para eles)
+            if (!EhSistema() && !EhDono())
             {
-                return Forbid();
+                MensagemFlash.Definir(HttpContext, "erro", "Seu perfil não permite alternar de loja.");
+                return RedirecionarRetorno();
             }
 
             if (requisicao == null || requisicao.OticaId == Guid.Empty)
             {
-                Inertia.Share("erro", "Ótica inválida informada.");
+                MensagemFlash.Definir(HttpContext, "erro", "Ótica inválida informada.");
                 return RedirecionarRetorno();
             }
 
             var otica = await _context.Oticas.FirstOrDefaultAsync(o => o.Id == requisicao.OticaId);
             if (otica == null)
             {
-                Inertia.Share("erro", "A ótica selecionada não foi encontrada.");
+                MensagemFlash.Definir(HttpContext, "erro", "A ótica selecionada não foi encontrada.");
                 return RedirecionarRetorno();
             }
 
             // Se for Dono, valida se a ótica selecionada pertence à rede do Dono
-            if ((EhDono() || EhAdministrador()) && !EhSistema())
+            if (EhDono() && !EhSistema())
             {
                 var oticaUsuarioId = ObterOticaUsuarioLogado(_context);
                 var matrizId = ObterMatrizIdEfetivo(oticaUsuarioId, _context);
                 bool pertenceARede = otica.Id == matrizId || otica.MatrizId == matrizId;
                 if (!pertenceARede)
                 {
-                    Inertia.Share("erro", "Você não tem permissão para acessar esta ótica.");
+                    MensagemFlash.Definir(HttpContext, "erro", "Você não tem permissão para acessar esta ótica.");
                     return RedirecionarRetorno();
                 }
             }
 
             HttpContext.Session.SetString("OticaAtivaId", otica.Id.ToString());
-            Inertia.Share("sucesso", $"Ambiente alternado para: {otica.Nome}");
+            MensagemFlash.Definir(HttpContext, "sucesso", $"Ambiente alternado para: {otica.Nome}");
 
             return RedirecionarRetorno();
         }
@@ -77,7 +80,7 @@ namespace RETSYS.Web.Controllers
 
             if (requisicao == null || string.IsNullOrWhiteSpace(requisicao.Nome))
             {
-                Inertia.Share("erro", "O nome da nova ótica é obrigatório.");
+                MensagemFlash.Definir(HttpContext, "erro", "O nome da nova ótica é obrigatório.");
                 return RedirecionarRetorno();
             }
 
@@ -105,7 +108,7 @@ namespace RETSYS.Web.Controllers
 
             // Já seleciona a nova ótica como ativa
             HttpContext.Session.SetString("OticaAtivaId", novaOtica.Id.ToString());
-            Inertia.Share("sucesso", $"Nova ótica '{novaOtica.Nome}' criada com sucesso e ativada.");
+            MensagemFlash.Definir(HttpContext, "sucesso", $"Nova ótica '{novaOtica.Nome}' criada com sucesso e ativada.");
 
             return RedirecionarRetorno();
         }

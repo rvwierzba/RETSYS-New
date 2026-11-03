@@ -20,8 +20,8 @@
               class="rounded-xl border-slate-200 text-xs font-mono font-bold bg-slate-50 py-2 px-3 focus:ring-0 text-slate-800"
             >
               <option value="">🏢 Todas as Lojas</option>
-              <option v-for="l in listaLojas" :key="l.id || l.Id" :value="l.id || l.Id">
-                {{ l.nome || l.Nome }}
+              <option v-for="l in listaLojas" :key="l.id || l.id" :value="l.id || l.id">
+                {{ l.nome || l.nome }}
               </option>
             </select>
           </div>
@@ -121,12 +121,12 @@
         <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-3">
           <h3 class="text-xs font-black text-slate-900 uppercase font-mono tracking-wider border-b pb-2">💳 Por Forma de Pagamento</h3>
           <div class="space-y-2">
-            <div v-for="forma in resumoFormas" :key="forma.Forma" class="flex items-center justify-between text-xs p-2 rounded-xl bg-slate-50 border border-slate-100">
+            <div v-for="forma in resumoFormas" :key="forma.forma" class="flex items-center justify-between text-xs p-2 rounded-xl bg-slate-50 border border-slate-100">
               <div>
-                <b class="text-slate-800 font-mono">{{ forma.Forma }}</b>
-                <span class="text-[10px] text-slate-400 block">{{ forma.QtdVendas }} operação(ões)</span>
+                <b class="text-slate-800 font-mono">{{ forma.forma }}</b>
+                <span class="text-[10px] text-slate-400 block">{{ forma.qtdVendas }} operação(ões)</span>
               </div>
-              <b class="font-mono text-teal-700 text-sm">{{ formatarMoeda(forma.Total) }}</b>
+              <b class="font-mono text-teal-700 text-sm">{{ formatarMoeda(forma.total) }}</b>
             </div>
           </div>
         </div>
@@ -135,12 +135,12 @@
         <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-3">
           <h3 class="text-xs font-black text-slate-900 uppercase font-mono tracking-wider border-b pb-2">📦 Por Tipo de Venda</h3>
           <div class="space-y-2">
-            <div v-for="tipo in resumoTipos" :key="tipo.Tipo" class="flex items-center justify-between text-xs p-2 rounded-xl bg-slate-50 border border-slate-100">
+            <div v-for="tipo in resumoTipos" :key="tipo.tipo" class="flex items-center justify-between text-xs p-2 rounded-xl bg-slate-50 border border-slate-100">
               <div>
-                <b class="text-slate-800">{{ tipo.Tipo }}</b>
-                <span class="text-[10px] text-slate-400 block">{{ tipo.Qtd }} OS(s)</span>
+                <b class="text-slate-800">{{ tipo.tipo }}</b>
+                <span class="text-[10px] text-slate-400 block">{{ tipo.qtd }} OS(s)</span>
               </div>
-              <b class="font-mono text-slate-900 text-sm">{{ formatarMoeda(tipo.Total) }}</b>
+              <b class="font-mono text-slate-900 text-sm">{{ formatarMoeda(tipo.total) }}</b>
             </div>
           </div>
         </div>
@@ -149,14 +149,14 @@
         <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-3">
           <h3 class="text-xs font-black text-slate-900 uppercase font-mono tracking-wider border-b pb-2">👩‍💼 Por Vendedora</h3>
           <div class="space-y-2">
-            <div v-for="vendedor in resumoVendedoresList" :key="vendedor.VendedorNome" class="p-2 rounded-xl bg-slate-50 border border-slate-100 text-xs space-y-1">
+            <div v-for="vendedor in resumoVendedoresList" :key="vendedor.vendedorNome" class="p-2 rounded-xl bg-slate-50 border border-slate-100 text-xs space-y-1">
               <div class="flex justify-between items-center">
-                <b class="text-slate-900">{{ vendedor.VendedorNome }}</b>
-                <span class="text-[10px] text-slate-500 font-mono font-bold">{{ vendedor.QtdOS }} OS(s)</span>
+                <b class="text-slate-900">{{ vendedor.vendedorNome }}</b>
+                <span class="text-[10px] text-slate-500 font-mono font-bold">{{ vendedor.qtdOS }} OS(s)</span>
               </div>
               <div class="flex justify-between text-[11px] font-mono text-slate-600">
-                <span>Vendido: <b>{{ formatarMoeda(vendedor.TotalVendido) }}</b></span>
-                <span class="text-teal-700">Comissão: <b>{{ formatarMoeda(vendedor.ComissaoGerada) }}</b></span>
+                <span>Vendido: <b>{{ formatarMoeda(vendedor.totalVendido) }}</b></span>
+                <span class="text-teal-700">Comissão: <b>{{ formatarMoeda(vendedor.comissaoGerada) }}</b></span>
               </div>
             </div>
           </div>
@@ -189,24 +189,24 @@
               </tr>
             </thead>
             <tbody>
-              <tr v-for="item in vendasList" :key="item.Id" class="border-b border-slate-100 hover:bg-slate-50/80 transition">
+              <tr v-for="item in vendasList" :key="item.id" class="border-b border-slate-100 hover:bg-slate-50/80 transition">
                 <td class="py-3 font-mono">
-                  <b>{{ item.NumeroOS }}</b>
-                  <span class="block text-[10px] text-slate-400">{{ formatarData(item.DataEntrada) }}</span>
+                  <b>{{ item.numeroOS }}</b>
+                  <span class="block text-[10px] text-slate-400">{{ formatarData(item.dataEntrada) }}</span>
                 </td>
-                <td class="py-3 font-semibold text-slate-800">{{ item.ClienteNome }}</td>
-                <td class="py-3 text-slate-600">{{ item.VendedorNome }}</td>
-                <td class="py-3 text-right font-mono text-slate-600">{{ formatarMoeda(item.ValorBruto) }}</td>
-                <td class="py-3 text-right font-mono text-amber-700">{{ formatarMoeda(item.DescontoReais) }}</td>
-                <td class="py-3 text-right font-mono font-black text-slate-900">{{ formatarMoeda(item.ValorLiquido) }}</td>
-                <td class="py-3 text-center font-mono font-bold text-slate-700">{{ item.FormaPagamento }}</td>
+                <td class="py-3 font-semibold text-slate-800">{{ item.clienteNome }}</td>
+                <td class="py-3 text-slate-600">{{ item.vendedorNome }}</td>
+                <td class="py-3 text-right font-mono text-slate-600">{{ formatarMoeda(item.valorBruto) }}</td>
+                <td class="py-3 text-right font-mono text-amber-700">{{ formatarMoeda(item.descontoReais) }}</td>
+                <td class="py-3 text-right font-mono font-black text-slate-900">{{ formatarMoeda(item.valorLiquido) }}</td>
+                <td class="py-3 text-center font-mono font-bold text-slate-700">{{ item.formaPagamento }}</td>
                 <td class="py-3 text-center">
                   <button 
-                    @click="alternarConferencia(item.Id)" 
-                    :class="item.PagamentoConferido ? 'bg-emerald-100 text-emerald-800 border-emerald-300' : 'bg-slate-100 text-slate-600 hover:bg-amber-100 hover:text-amber-900 border-slate-200'"
+                    @click="alternarConferencia(item.id)" 
+                    :class="item.pagamentoConferido ? 'bg-emerald-100 text-emerald-800 border-emerald-300' : 'bg-slate-100 text-slate-600 hover:bg-amber-100 hover:text-amber-900 border-slate-200'"
                     class="px-2.5 py-1 rounded-lg text-[10px] font-bold border transition shadow-sm"
                   >
-                    {{ item.PagamentoConferido ? '✓ Conferido' : '⏳ Conferir' }}
+                    {{ item.pagamentoConferido ? '✓ Conferido' : '⏳ Conferir' }}
                   </button>
                 </td>
               </tr>
@@ -234,12 +234,12 @@
               </tr>
             </thead>
             <tbody>
-              <tr v-for="c in canceladasList" :key="c.Id" class="border-b border-rose-100 text-slate-700">
-                <td class="py-2 font-mono font-bold text-rose-900">{{ c.NumeroOS }}</td>
-                <td class="py-2 font-mono">{{ formatarData(c.DataEntrada) }}</td>
-                <td class="py-2">{{ c.ClienteNome }}</td>
-                <td class="py-2">{{ c.VendedorNome }}</td>
-                <td class="py-2 text-right font-mono font-bold text-rose-800">{{ formatarMoeda(c.ValorTotalLiquido) }}</td>
+              <tr v-for="c in canceladasList" :key="c.id" class="border-b border-rose-100 text-slate-700">
+                <td class="py-2 font-mono font-bold text-rose-900">{{ c.numeroOS }}</td>
+                <td class="py-2 font-mono">{{ formatarData(c.dataEntrada) }}</td>
+                <td class="py-2">{{ c.clienteNome }}</td>
+                <td class="py-2">{{ c.vendedorNome }}</td>
+                <td class="py-2 text-right font-mono font-bold text-rose-800">{{ formatarMoeda(c.valorTotalLiquido) }}</td>
               </tr>
             </tbody>
           </table>
@@ -281,14 +281,14 @@
               </tr>
             </thead>
             <tbody>
-              <tr v-for="item in vendasList" :key="item.Id" class="border-b border-slate-200">
-                <td class="py-1.5 font-bold">{{ item.NumeroOS }}</td>
-                <td class="py-1.5">{{ formatarData(item.DataEntrada) }}</td>
-                <td class="py-1.5 truncate max-w-[150px]">{{ item.ClienteNome }}</td>
-                <td class="py-1.5">{{ item.VendedorNome }}</td>
-                <td class="py-1.5 text-right font-bold">{{ formatarMoeda(item.ValorLiquido) }}</td>
-                <td class="py-1.5 text-center">{{ item.FormaPagamento }}</td>
-                <td class="py-1.5 text-center">{{ item.PagamentoConferido ? 'SIM' : 'NÃO' }}</td>
+              <tr v-for="item in vendasList" :key="item.id" class="border-b border-slate-200">
+                <td class="py-1.5 font-bold">{{ item.numeroOS }}</td>
+                <td class="py-1.5">{{ formatarData(item.dataEntrada) }}</td>
+                <td class="py-1.5 truncate max-w-[150px]">{{ item.clienteNome }}</td>
+                <td class="py-1.5">{{ item.vendedorNome }}</td>
+                <td class="py-1.5 text-right font-bold">{{ formatarMoeda(item.valorLiquido) }}</td>
+                <td class="py-1.5 text-center">{{ item.formaPagamento }}</td>
+                <td class="py-1.5 text-center">{{ item.pagamentoConferido ? 'SIM' : 'NÃO' }}</td>
               </tr>
             </tbody>
           </table>

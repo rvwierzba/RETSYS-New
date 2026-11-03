@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using RETSYS.Web.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 using InertiaCore;
 using RETSYS.Infrastructure.Data;
@@ -234,9 +235,10 @@ namespace RETSYS.Web.Controllers
                 .SelectMany(os => os.Parcelas)
                 .FirstOrDefaultAsync(p => p.Id == id);
 
-            if (parcela != null)
+            if (parcela != null && !parcela.DataPagamento.HasValue)
             {
                 parcela.DataPagamento = DateTime.UtcNow;
+                parcela.ValorPago ??= parcela.Valor;
                 await _context.SaveChangesAsync();
             }
 
@@ -276,7 +278,7 @@ namespace RETSYS.Web.Controllers
 
             if (!EhAdministrador())
             {
-                Inertia.Share("erro", "Acesso exclusivo para administradores e gerentes.");
+                MensagemFlash.Definir(HttpContext, "erro", "Acesso exclusivo para administradores e gerentes.");
                 return Redirect("/caixa");
             }
 
@@ -329,23 +331,14 @@ namespace RETSYS.Web.Controllers
 
             DateTime fim = DateTime.SpecifyKind(fimData.AddDays(1), DateTimeKind.Utc);
 
-            var idsRede = ObterIdsOticasDaRede(oticaId, _context);
-            IQueryable<Otica> queryLojas = _context.Oticas.AsNoTracking();
-            if (!EhSistema() && idsRede.Any())
-            {
-                queryLojas = queryLojas.Where(o => idsRede.Contains(o.Id));
-            }
-            var listaLojas = await queryLojas.OrderBy(l => l.Nome).Select(l => new { l.Id, l.Nome }).ToListAsync();
+            var oticasPermitidas = ObterOticasPermitidas(_context);
+            var listaLojas = await _context.Oticas.AsNoTracking()
+                .Where(o => oticasPermitidas.Contains(o.Id))
+                .OrderBy(l => l.Nome).Select(l => new { l.Id, l.Nome }).ToListAsync();
 
-            Guid? lojaAlvoId = null;
-            if (lojaId.HasValue && lojaId.Value != Guid.Empty)
-            {
-                lojaAlvoId = lojaId.Value;
-            }
-            else if (oticaId != Guid.Empty && !EhSistema() && !EhDono())
-            {
-                lojaAlvoId = oticaId;
-            }
+            // Admin/Vendedor: só a própria loja. Dono/Sistema: uma loja permitida ou a rede da loja ativa.
+            var lojasFiltro = ResolverFiltroLojas(lojaId, _context);
+            Guid? lojaAlvoId = lojasFiltro.Count == 1 ? lojasFiltro[0] : null;
 
             IQueryable<OrdemServico> queryOrdens = _context.OrdensServico
                 .Include(os => os.Cliente)
@@ -355,14 +348,7 @@ namespace RETSYS.Web.Controllers
                 .Include(os => os.Receita)
                 .Where(os => os.Ativo && os.DataEntrada >= inicio && os.DataEntrada < fim);
 
-            if (lojaAlvoId.HasValue && lojaAlvoId.Value != Guid.Empty)
-            {
-                queryOrdens = queryOrdens.Where(os => os.OticaId == lojaAlvoId.Value);
-            }
-            else if (!EhSistema() && idsRede.Any())
-            {
-                queryOrdens = queryOrdens.Where(os => idsRede.Contains(os.OticaId));
-            }
+            queryOrdens = queryOrdens.Where(os => lojasFiltro.Contains(os.OticaId));
 
             var ordensPeriodo = await queryOrdens.ToListAsync();
 
@@ -431,14 +417,7 @@ namespace RETSYS.Web.Controllers
                 .Include(c => c.OrdemServico)
                 .Where(c => c.DataGeracao >= inicio && c.DataGeracao < fim && c.Status != "CANCELADO" && c.Status != "CANCELADA");
 
-            if (lojaAlvoId.HasValue && lojaAlvoId.Value != Guid.Empty)
-            {
-                queryComissoes = queryComissoes.Where(c => c.OrdemServico != null && c.OrdemServico.OticaId == lojaAlvoId.Value);
-            }
-            else if (!EhSistema() && idsRede.Any())
-            {
-                queryComissoes = queryComissoes.Where(c => c.OrdemServico != null && idsRede.Contains(c.OrdemServico.OticaId));
-            }
+            queryComissoes = queryComissoes.Where(c => c.OrdemServico != null && lojasFiltro.Contains(c.OrdemServico.OticaId));
 
             var comissoesPeriodo = await queryComissoes.ToListAsync();
 
@@ -527,7 +506,7 @@ namespace RETSYS.Web.Controllers
 
             if (!EhAdministrador())
             {
-                Inertia.Share("erro", "Apenas gerentes ou administradores podem conferir pagamentos.");
+                MensagemFlash.Definir(HttpContext, "erro", "Apenas gerentes ou administradores podem conferir pagamentos.");
                 return RedirectToAction(nameof(Fechamento));
             }
 

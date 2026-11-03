@@ -135,13 +135,14 @@ const atualizarPerfil = () => {
   }
 
   // Despacha os dados via POST (padrão seguro para upload de arquivos no .NET)
+  // forceFormData: o endpoint é [FromForm]; sem foto o Inertia enviaria JSON e o nome/senha seriam ignorados
   form.post('/perfil', {
+    forceFormData: true,
     preserveScroll: true,
     onSuccess: () => {
       form.NovaSenha = ''
       form.ConfirmarSenha = ''
       cancelarNovaFoto()
-      alert('Seu perfil foi atualizado com sucesso em todo o ecossistema!')
     }
   })
 }

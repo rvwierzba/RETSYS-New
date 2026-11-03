@@ -13,12 +13,6 @@
           </p>
         </div>
 
-        <div
-          v-if="$page.props.flash?.erro"
-          class="p-3 bg-rose-50 border border-rose-200 text-rose-800 rounded-xl text-xs font-bold"
-        >
-          ⚠️ {{ $page.props.flash.erro }}
-        </div>
       </div>
 
       <!-- CARD 1: Fechamento Mensal -->

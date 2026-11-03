@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using RETSYS.Web.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 using InertiaCore;
 using RETSYS.Infrastructure.Data;
@@ -130,7 +131,7 @@ Você já pode passar em nossa loja para retirar seus óculos e realizar o ajust
 
             await _context.SaveChangesAsync();
 
-            Inertia.Share("PixHabilitadoNestaLoja", !string.IsNullOrEmpty(config.PixApiKey));
+            MensagemFlash.Definir(HttpContext, "sucesso", "Configurações da loja salvas com sucesso.");
 
             return RedirectToAction(nameof(Index));
         }

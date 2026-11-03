@@ -307,14 +307,15 @@ const finalizarVenda = () => {
   if (venda.value.itens.length === 0) return
   processando.value = true
 
-  router.post('/vendas/finalizar', venda.value, {
+  // O backend espera "descontoReais" (VendaBalcaoInputDto)
+  const { desconto, ...dadosVenda } = venda.value
+  router.post('/vendas/finalizar', { ...dadosVenda, descontoReais: Number(desconto) || 0 }, {
     preserveScroll: true,
     onSuccess: () => {
-      processando.value = false
       venda.value.itens = []
       venda.value.desconto = 0
     },
-    onError: () => {
+    onFinish: () => {
       processando.value = false
     }
   })

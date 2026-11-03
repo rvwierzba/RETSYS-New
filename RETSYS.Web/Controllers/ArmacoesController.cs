@@ -1,6 +1,7 @@
 using InertiaCore;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using RETSYS.Web.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 using RETSYS.Domain.Entities;
 using RETSYS.Infrastructure.Data;
@@ -68,14 +69,14 @@ public class ArmacoesController : TenantController
 
         if (string.IsNullOrWhiteSpace(model.Codigo) || string.IsNullOrWhiteSpace(model.Modelo) || model.MarcaId == Guid.Empty)
         {
-            Inertia.Share("erro", "Preencha os campos obrigatórios (Código SKU, Modelo e Marca).");
+            MensagemFlash.Definir(HttpContext, "erro", "Preencha os campos obrigatórios (Código SKU, Modelo e Marca).");
             return RedirectToAction(nameof(Index));
         }
 
         var marcaValida = await _context.Marcas.AnyAsync(m => m.Id == model.MarcaId && m.OticaId == oticaId);
         if (!marcaValida)
         {
-            Inertia.Share("erro", "A marca selecionada não foi localizada.");
+            MensagemFlash.Definir(HttpContext, "erro", "A marca selecionada não foi localizada.");
             return RedirectToAction(nameof(Index));
         }
 
@@ -84,7 +85,7 @@ public class ArmacoesController : TenantController
 
         if (codigoExiste)
         {
-            Inertia.Share("erro", "Já existe uma armação cadastrada com este código SKU.");
+            MensagemFlash.Definir(HttpContext, "erro", "Já existe uma armação cadastrada com este código SKU.");
             return RedirectToAction(nameof(Index));
         }
 
@@ -122,14 +123,20 @@ public class ArmacoesController : TenantController
         var armacao = await _context.Armacoes.FirstOrDefaultAsync(a => a.Id == id && a.OticaId == oticaId);
         if (armacao == null)
         {
-            Inertia.Share("erro", "Armação não encontrada.");
+            MensagemFlash.Definir(HttpContext, "erro", "Armação não encontrada.");
             return RedirectToAction(nameof(Index));
         }
 
         var marcaValida = await _context.Marcas.AnyAsync(m => m.Id == model.MarcaId && m.OticaId == oticaId);
         if (!marcaValida)
         {
-            Inertia.Share("erro", "A marca selecionada não foi localizada.");
+            MensagemFlash.Definir(HttpContext, "erro", "A marca selecionada não foi localizada.");
+            return RedirectToAction(nameof(Index));
+        }
+
+        if (string.IsNullOrWhiteSpace(model.Codigo) || string.IsNullOrWhiteSpace(model.Modelo))
+        {
+            MensagemFlash.Definir(HttpContext, "erro", "Informe o código SKU e o modelo da armação.");
             return RedirectToAction(nameof(Index));
         }
 
@@ -138,7 +145,7 @@ public class ArmacoesController : TenantController
 
         if (codigoExiste)
         {
-            Inertia.Share("erro", "Este código SKU já pertence a outra armação.");
+            MensagemFlash.Definir(HttpContext, "erro", "Este código SKU já pertence a outra armação.");
             return RedirectToAction(nameof(Index));
         }
 
@@ -151,7 +158,11 @@ public class ArmacoesController : TenantController
         armacao.Fornecedor = model.Fornecedor?.Trim() ?? string.Empty;
         armacao.QuantidadeEstoque = model.QuantidadeEstoque;
         armacao.QuantidadeMinima = model.QuantidadeMinima;
-        armacao.PrecoCusto = model.PrecoCusto;
+        // Não-admin recebe o custo mascarado (0) na listagem: não sobrescrever o custo real
+        if (EhAdministrador())
+        {
+            armacao.PrecoCusto = model.PrecoCusto;
+        }
         armacao.PrecoVenda = model.PrecoFinal;
 
         _context.Armacoes.Update(armacao);
@@ -169,7 +180,18 @@ public class ArmacoesController : TenantController
         var armacao = await _context.Armacoes.FirstOrDefaultAsync(a => a.Id == id && a.OticaId == oticaId);
         if (armacao != null)
         {
-            _context.Armacoes.Remove(armacao);
+            // Armação já usada em OS ou venda balcão não pode ser apagada (FK Restrict): apenas desativa
+            bool emUso = await _context.OsFinanceiros.AnyAsync(f => f.ArmacaoId == id)
+                || await _context.ItensVendaBalcao.AnyAsync(i => i.ArmacaoId == id);
+            if (emUso)
+            {
+                armacao.Ativo = false;
+                MensagemFlash.Definir(HttpContext, "sucesso", "Armação possui vendas vinculadas e foi desativada do estoque.");
+            }
+            else
+            {
+                _context.Armacoes.Remove(armacao);
+            }
             await _context.SaveChangesAsync();
         }
 

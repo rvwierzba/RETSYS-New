@@ -46,42 +46,8 @@ namespace RETSYS.Infrastructure.Data
                 await _context.SaveChangesAsync();
             }
 
-            // 2. Normalização de nomes e aglutinação de duplicatas de 'Matriz' para 'Ótica Matriz'
-            try
-            {
-                var oticaMatrizSemPrefixo = await _context.Oticas.FirstOrDefaultAsync(o => o.Nome == "Matriz");
-                var oticaMatrizComPrefixo = await _context.Oticas.FirstOrDefaultAsync(o => o.Nome == "Ótica Matriz");
-
-                if (oticaMatrizSemPrefixo != null && oticaMatrizComPrefixo != null && oticaMatrizSemPrefixo.Id != oticaMatrizComPrefixo.Id)
-                {
-                    string idOrigem = oticaMatrizSemPrefixo.Id.ToString();
-                    string idDestino = oticaMatrizComPrefixo.Id.ToString();
-
-                    using var comandoMerge = _context.Database.GetDbConnection().CreateCommand();
-                    await _context.Database.OpenConnectionAsync();
-                    comandoMerge.CommandText = $"""
-                        UPDATE "usuarios" SET "OticaId" = '{idDestino}' WHERE "OticaId" = '{idOrigem}';
-                        UPDATE "marcas" SET "OticaId" = '{idDestino}' WHERE "OticaId" = '{idOrigem}';
-                        UPDATE "armacoes" SET "OticaId" = '{idDestino}' WHERE "OticaId" = '{idOrigem}';
-                        UPDATE "lentes" SET "OticaId" = '{idDestino}' WHERE "OticaId" = '{idOrigem}';
-                        UPDATE "clientes" SET "OticaId" = '{idDestino}' WHERE "OticaId" = '{idOrigem}';
-                        UPDATE "ordens_servico" SET "OticaId" = '{idDestino}' WHERE "OticaId" = '{idOrigem}';
-                        UPDATE "configuracoes_loja" SET "OticaId" = '{idDestino}' WHERE "OticaId" = '{idOrigem}';
-                        UPDATE "os_auditoria_logs" SET "OticaId" = '{idDestino}' WHERE "OticaId" = '{idOrigem}';
-                        DELETE FROM "oticas" WHERE "Id" = '{idOrigem}';
-                    """;
-                    await comandoMerge.ExecuteNonQueryAsync();
-                }
-                else if (oticaMatrizSemPrefixo != null && oticaMatrizComPrefixo == null)
-                {
-                    oticaMatrizSemPrefixo.Nome = "Ótica Matriz";
-                    await _context.SaveChangesAsync();
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"[Auto-Sync Deduplicação Ótica Matriz]: {ex.Message}");
-            }
+            // Obs.: a antiga fusão automática de óticas chamadas "Matriz" foi removida: com o cadastro público,
+            // duas empresas diferentes podem ter o mesmo nome e seriam fundidas (dados de uma visíveis na outra).
 
             // 3. Sincronização e aglutinação automática de todos os dados legados com Guid.Empty para a Ótica válida
             try
@@ -120,7 +86,7 @@ namespace RETSYS.Infrastructure.Data
                     Nome = "Gerente Geral RETSYS",
                     Email = "admin@otica.com",
                     SenhaHash = _criptografia.CriptografarSenha("Admin@2026"),
-                    FilialLoja = "Matriz",
+                    FilialLoja = oticaPadrao.Nome,
                     Perfil = PerfilUsuario.Admin,
                     Ativo = true,
                     CriadoEm = DateTime.UtcNow
@@ -134,103 +100,36 @@ namespace RETSYS.Infrastructure.Data
                     Nome = "Vendedor Balcão",
                     Email = "vendedor@otica.com",
                     SenhaHash = _criptografia.CriptografarSenha("Venda@2026"),
-                    FilialLoja = "Matriz",
+                    FilialLoja = oticaPadrao.Nome,
                     Perfil = PerfilUsuario.Vendedor,
                     Ativo = true,
                     CriadoEm = DateTime.UtcNow
                 };
 
-                _context.Usuarios.AddRange(admin, vendedor);
+                // Usuário Sistema (acesso a todas as óticas) criado somente em instalação nova
+                var usuarioSistema = new Usuario
+                {
+                    Id = Guid.NewGuid(),
+                    OticaId = oticaPadrao.Id,
+                    Nome = "Administrador do Sistema (Deus)",
+                    Email = "sistema@otica.com",
+                    SenhaHash = _criptografia.CriptografarSenha("Sistema@2026"),
+                    FilialLoja = oticaPadrao.Nome,
+                    Perfil = PerfilUsuario.Sistema,
+                    Ativo = true,
+                    CriadoEm = DateTime.UtcNow
+                };
+
+                _context.Usuarios.AddRange(admin, vendedor, usuarioSistema);
                 await _context.SaveChangesAsync();
             }
 
-            // 4. Configurar a Hierarquia Matriz e Filiais (Travessa Itália, Parque, etc. como filiais da Ótica Matriz)
-            try
-            {
-                var oticasExistentes = await _context.Oticas.ToListAsync();
-                var matriz = oticasExistentes.FirstOrDefault(o => o.Nome.Equals("Ótica Matriz", StringComparison.OrdinalIgnoreCase)) 
-                             ?? oticaPadrao;
-
-                if (matriz != null)
-                {
-                    matriz.MatrizId = null; // A Matriz não tem MatrizId
-
-                    foreach (var otica in oticasExistentes)
-                    {
-                        if (otica.Id != matriz.Id)
-                        {
-                            // Filiais apontam para a Matriz
-                            if (!otica.MatrizId.HasValue || otica.MatrizId == Guid.Empty)
-                            {
-                                otica.MatrizId = matriz.Id;
-                            }
-                        }
-                    }
-                    await _context.SaveChangesAsync();
-                }
-
-                // Sincroniza o OticaId do usuário com a Ótica correspondente à sua FilialLoja
-                var todosUsuarios = await _context.Usuarios.ToListAsync();
-                foreach (var u in todosUsuarios)
-                {
-                    if (!string.IsNullOrWhiteSpace(u.FilialLoja))
-                    {
-                        var oticaFilial = oticasExistentes.FirstOrDefault(o =>
-                            o.Nome.Trim().Equals(u.FilialLoja.Trim(), StringComparison.OrdinalIgnoreCase) ||
-                            u.FilialLoja.Contains(o.Nome, StringComparison.OrdinalIgnoreCase) ||
-                            o.Nome.Contains(u.FilialLoja, StringComparison.OrdinalIgnoreCase));
-
-                        if (oticaFilial != null && u.OticaId != oticaFilial.Id)
-                        {
-                            u.OticaId = oticaFilial.Id;
-                        }
-                    }
-                }
-
-                // Sincroniza o OticaId das Ordens de Serviço com a Ótica correspondente à sua LojaVenda
-                var todasOS = await _context.OrdensServico.ToListAsync();
-                foreach (var os in todasOS)
-                {
-                    if (!string.IsNullOrWhiteSpace(os.LojaVenda))
-                    {
-                        var oticaFilial = oticasExistentes.FirstOrDefault(o =>
-                            o.Nome.Trim().Equals(os.LojaVenda.Trim(), StringComparison.OrdinalIgnoreCase) ||
-                            os.LojaVenda.Contains(o.Nome, StringComparison.OrdinalIgnoreCase) ||
-                            o.Nome.Contains(os.LojaVenda, StringComparison.OrdinalIgnoreCase));
-
-                        if (oticaFilial != null && os.OticaId != oticaFilial.Id)
-                        {
-                            os.OticaId = oticaFilial.Id;
-                        }
-                    }
-                }
-
-                await _context.SaveChangesAsync();
-
-                // Garantir que exista um usuário com perfil Sistema para testes globais
-                var usuarioSistema = await _context.Usuarios.FirstOrDefaultAsync(u => u.Email == "sistema@otica.com" || u.Perfil == PerfilUsuario.Sistema);
-                if (usuarioSistema == null && matriz != null)
-                {
-                    usuarioSistema = new Usuario
-                    {
-                        Id = Guid.NewGuid(),
-                        OticaId = matriz.Id,
-                        Nome = "Administrador do Sistema (Deus)",
-                        Email = "sistema@otica.com",
-                        SenhaHash = _criptografia.CriptografarSenha("Sistema@2026"),
-                        FilialLoja = matriz.Nome,
-                        Perfil = PerfilUsuario.Sistema,
-                        Ativo = true,
-                        CriadoEm = DateTime.UtcNow
-                    };
-                    _context.Usuarios.Add(usuarioSistema);
-                    await _context.SaveChangesAsync();
-                }
-            }
-            catch (Exception ex)
-            {
-                Console.WriteLine($"[DatabaseSeeder Info]: {ex.Message}");
-            }
+            // 4. A hierarquia Matriz/Filiais (Otica.MatrizId) e o vínculo de usuários e OSs com a loja (OticaId)
+            //    são mantidos apenas pelas telas do sistema. As antigas "sincronizações" executadas a cada
+            //    inicialização foram removidas porque:
+            //    - anexavam TODA ótica sem matriz à primeira matriz do banco (empresas distintas viravam uma rede);
+            //    - reatribuíam o OticaId de usuários e OSs por semelhança de nome (FilialLoja/LojaVenda "contém"
+            //      o nome da ótica), movendo registros entre lojas a cada deploy.
         }
     }
 }

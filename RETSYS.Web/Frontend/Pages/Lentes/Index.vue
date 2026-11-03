@@ -250,10 +250,11 @@
         <div>
           <h3 class="text-sm font-black text-slate-950 uppercase tracking-wider font-mono flex items-center gap-1.5">
             <span class="w-2.5 h-2.5 rounded-full bg-indigo-600 animate-pulse"></span>
-            Importador Inteligente de Catálogos (Moondream/Ollama)
+            Importador de Tabelas de Fornecedor
           </h3>
           <p class="text-[11px] text-slate-400 mt-1">
-            Copie os dados brutos de qualquer PDF ou tabela do fornecedor de lentes e cole abaixo para que a IA normalize e importe automaticamente.
+            Cole uma variação por linha com o tipo (Monofocal, Bifocal, Progressiva ou Ocupacional), o índice (ex.: 1.56), o tratamento e os valores de custo e venda.
+            Ex.: <span class="font-mono">Monofocal 1.56 Antirreflexo - Custo 45,00 Venda 135,00</span>
           </p>
         </div>
 
@@ -274,7 +275,7 @@
               :disabled="carregandoImportacao || !formImportacao.Laboratorio || !formImportacao.TextoBruto" 
               class="bg-slate-950 hover:bg-slate-800 disabled:bg-slate-100 disabled:text-slate-400 text-white font-bold py-3 px-6 rounded-xl text-[10px] uppercase tracking-wider transition shadow-md flex items-center gap-2"
             >
-              <span v-if="carregandoImportacao" class="animate-pulse">A IA está decodificando e salvando...</span>
+              <span v-if="carregandoImportacao" class="animate-pulse">Importando e salvando...</span>
               <span v-else>Iniciar Processamento Digital</span>
             </button>
           </div>
@@ -661,11 +662,11 @@ const processarTabelaPorIA = async () => {
       formImportacao.value.TextoBruto = ''
       router.reload() 
     } else {
-      alert('Erro IA: ' + (resultado.erro || 'Falha desconhecida.'))
+      alert('Erro na importação: ' + (resultado.erro || 'Falha desconhecida.'))
     }
   } catch (err) {
     console.error(err)
-    alert('Erro de ligação ao Ollama local. Garanta que o serviço está ativo.')
+    alert('Não foi possível importar a tabela. Verifique a conexão e tente novamente.')
   } finally {
     carregandoImportacao.value = false
   }

@@ -2,6 +2,7 @@ using System.Security.Claims;
 using InertiaCore;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using RETSYS.Web.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 using RETSYS.Domain.Entities;
 using RETSYS.Domain.Enums;
@@ -29,8 +30,8 @@ public class UsuariosController : TenantController
     {
         if (!EhAdministrador())
         {
-            Inertia.Share("erro", "Apenas administradores podem excluir colaboradores.");
-            return RedirectToAction(nameof(Index));
+            MensagemFlash.Definir(HttpContext, "erro", "Apenas administradores podem gerenciar a equipe.");
+            return Redirect("/dashboard");
         }
 
         var oticaId = ObterOticaId();
@@ -77,13 +78,10 @@ public class UsuariosController : TenantController
             .ToListAsync();
 
         // Lojas disponíveis para transferência / alocação de funcionários
-        IQueryable<Otica> queryLojas = _context.Oticas.AsNoTracking();
-        if (!EhSistema())
-        {
-            queryLojas = queryLojas.Where(o => idsRede.Contains(o.Id));
-        }
-
-        var lojas = await queryLojas
+        // Admin aloca apenas na própria loja; Dono na rede; Sistema em todas
+        var oticasPermitidas = ObterOticasPermitidas(_context);
+        var lojas = await _context.Oticas.AsNoTracking()
+            .Where(o => oticasPermitidas.Contains(o.Id))
             .OrderBy(l => l.Nome)
             .Select(l => new { Id = l.Id, Nome = l.Nome })
             .ToListAsync();
@@ -103,25 +101,25 @@ public class UsuariosController : TenantController
     {
         if (!EhAdministrador())
         {
-            Inertia.Share("erro", "Apenas administradores podem excluir colaboradores.");
+            MensagemFlash.Definir(HttpContext, "erro", "Apenas administradores podem gerenciar a equipe.");
             return RedirectToAction(nameof(Index));
         }
 
         if (model.Perfil == PerfilUsuario.Sistema && !EhSistema())
         {
-            Inertia.Share("erro", "Apenas usuários com perfil Sistema podem criar outros usuários de Sistema.");
+            MensagemFlash.Definir(HttpContext, "erro", "Apenas usuários com perfil Sistema podem criar outros usuários de Sistema.");
             return RedirectToAction(nameof(Index));
         }
 
         if (model.Perfil == PerfilUsuario.Dono && !EhSistema() && !EhDono())
         {
-            Inertia.Share("erro", "Apenas Donos ou administradores de Sistema podem criar outros usuários com perfil Dono.");
+            MensagemFlash.Definir(HttpContext, "erro", "Apenas Donos ou administradores de Sistema podem criar outros usuários com perfil Dono.");
             return RedirectToAction(nameof(Index));
         }
 
         if (string.IsNullOrWhiteSpace(model.Nome) || string.IsNullOrWhiteSpace(model.Email) || string.IsNullOrWhiteSpace(model.Senha))
         {
-            Inertia.Share("erro", "Preencha todos os campos obrigatórios (Nome, E-mail e Senha).");
+            MensagemFlash.Definir(HttpContext, "erro", "Preencha todos os campos obrigatórios (Nome, E-mail e Senha).");
             return RedirectToAction(nameof(Index));
         }
 
@@ -130,7 +128,7 @@ public class UsuariosController : TenantController
 
         if (emailExiste)
         {
-            Inertia.Share("erro", "Este e-mail corporativo já está em uso pela equipe.");
+            MensagemFlash.Definir(HttpContext, "erro", "Este e-mail corporativo já está em uso pela equipe.");
             return RedirectToAction(nameof(Index));
         }
 
@@ -156,15 +154,14 @@ public class UsuariosController : TenantController
 
         if (oticaAlvo == null)
         {
-            oticaAlvo = new Otica { Id = Guid.NewGuid(), Nome = !string.IsNullOrWhiteSpace(model.FilialLoja) ? model.FilialLoja.Trim() : "Ótica Matriz", CriadoEm = DateTime.UtcNow };
-            _context.Oticas.Add(oticaAlvo);
-            await _context.SaveChangesAsync();
+            MensagemFlash.Definir(HttpContext, "erro", "Loja de alocação não encontrada.");
+            return RedirectToAction(nameof(Index));
         }
 
-        // Validação de segurança: Dono e Admin só podem alocar em lojas da sua própria rede
-        if (!EhSistema() && !idsRede.Contains(oticaAlvo.Id))
+        // Validação de segurança: Admin só aloca na própria loja; Dono na sua rede
+        if (!ObterOticasPermitidas(_context).Contains(oticaAlvo.Id))
         {
-            Inertia.Share("erro", "Você só pode alocar colaboradores em lojas pertencentes à sua rede.");
+            MensagemFlash.Definir(HttpContext, "erro", "Você só pode alocar colaboradores em lojas que administra.");
             return RedirectToAction(nameof(Index));
         }
 
@@ -187,7 +184,7 @@ public class UsuariosController : TenantController
         _context.Usuarios.Add(novoUsuario);
         await _context.SaveChangesAsync();
 
-        Inertia.Share("sucesso", $"Colaborador(a) {novoUsuario.Nome} cadastrado(a) com sucesso!");
+        MensagemFlash.Definir(HttpContext, "sucesso", $"Colaborador(a) {novoUsuario.Nome} cadastrado(a) com sucesso!");
         return RedirectToAction(nameof(Index));
     }
 
@@ -197,19 +194,19 @@ public class UsuariosController : TenantController
     {
         if (!EhAdministrador())
         {
-            Inertia.Share("erro", "Apenas administradores podem excluir colaboradores.");
+            MensagemFlash.Definir(HttpContext, "erro", "Apenas administradores podem gerenciar a equipe.");
             return RedirectToAction(nameof(Index));
         }
 
         if (model.Perfil == PerfilUsuario.Sistema && !EhSistema())
         {
-            Inertia.Share("erro", "Apenas usuários com perfil Sistema podem promover contas para o perfil Sistema.");
+            MensagemFlash.Definir(HttpContext, "erro", "Apenas usuários com perfil Sistema podem promover contas para o perfil Sistema.");
             return RedirectToAction(nameof(Index));
         }
 
         if (model.Perfil == PerfilUsuario.Dono && !EhSistema() && !EhDono())
         {
-            Inertia.Share("erro", "Apenas Donos ou administradores de Sistema podem promover contas para o perfil Dono.");
+            MensagemFlash.Definir(HttpContext, "erro", "Apenas Donos ou administradores de Sistema podem promover contas para o perfil Dono.");
             return RedirectToAction(nameof(Index));
         }
 
@@ -219,14 +216,14 @@ public class UsuariosController : TenantController
         var usuario = await _context.Usuarios.FirstOrDefaultAsync(u => u.Id == id);
         if (usuario == null)
         {
-            Inertia.Share("erro", "Usuário não encontrado.");
+            MensagemFlash.Definir(HttpContext, "erro", "Usuário não encontrado.");
             return RedirectToAction(nameof(Index));
         }
 
-        // Validação de acesso ao usuário
-        if (!EhSistema() && !idsRede.Contains(usuario.OticaId))
+        // Validação de acesso ao usuário (loja permitida e hierarquia de perfis)
+        if (!PodeGerenciar(usuario))
         {
-            Inertia.Share("erro", "Você não tem permissão para editar este usuário.");
+            MensagemFlash.Definir(HttpContext, "erro", "Você não tem permissão para editar este usuário.");
             return RedirectToAction(nameof(Index));
         }
 
@@ -235,7 +232,7 @@ public class UsuariosController : TenantController
 
         if (emailExiste)
         {
-            Inertia.Share("erro", "Este e-mail já está sendo utilizado por outro usuário.");
+            MensagemFlash.Definir(HttpContext, "erro", "Este e-mail já está sendo utilizado por outro usuário.");
             return RedirectToAction(nameof(Index));
         }
 
@@ -252,9 +249,9 @@ public class UsuariosController : TenantController
 
         if (oticaAlvo != null)
         {
-            if (!EhSistema() && !idsRede.Contains(oticaAlvo.Id))
+            if (!ObterOticasPermitidas(_context).Contains(oticaAlvo.Id))
             {
-                Inertia.Share("erro", "Você só pode transferir colaboradores para lojas da sua rede.");
+                MensagemFlash.Definir(HttpContext, "erro", "Você só pode transferir colaboradores para lojas que administra.");
                 return RedirectToAction(nameof(Index));
             }
 
@@ -276,7 +273,7 @@ public class UsuariosController : TenantController
         _context.Usuarios.Update(usuario);
         await _context.SaveChangesAsync();
 
-        Inertia.Share("sucesso", $"Dados do colaborador {usuario.Nome} atualizados com sucesso!");
+        MensagemFlash.Definir(HttpContext, "sucesso", $"Dados do colaborador {usuario.Nome} atualizados com sucesso!");
         return RedirectToAction(nameof(Index));
     }
 
@@ -286,15 +283,15 @@ public class UsuariosController : TenantController
     {
         if (!EhAdministrador())
         {
-            Inertia.Share("erro", "Apenas administradores podem excluir colaboradores.");
+            MensagemFlash.Definir(HttpContext, "erro", "Apenas administradores podem gerenciar a equipe.");
             return RedirectToAction(nameof(Index));
         }
 
         var oticaId = ObterOticaId();
         var idsRede = ObterIdsOticasDaRede(oticaId, _context);
 
-        var usuario = await _context.Usuarios.FirstOrDefaultAsync(u => u.Id == id && (idsRede.Contains(u.OticaId) || EhSistema()));
-        if (usuario != null)
+        var usuario = await _context.Usuarios.FirstOrDefaultAsync(u => u.Id == id);
+        if (usuario != null && PodeGerenciar(usuario) && !EhUsuarioLogado(usuario))
         {
             usuario.Ativo = !usuario.Ativo;
             await _context.SaveChangesAsync();
@@ -309,21 +306,58 @@ public class UsuariosController : TenantController
     {
         if (!EhAdministrador())
         {
-            Inertia.Share("erro", "Apenas administradores podem excluir colaboradores.");
+            MensagemFlash.Definir(HttpContext, "erro", "Apenas administradores podem gerenciar a equipe.");
             return RedirectToAction(nameof(Index));
         }
 
         var oticaId = ObterOticaId();
         var idsRede = ObterIdsOticasDaRede(oticaId, _context);
 
-        var usuario = await _context.Usuarios.FirstOrDefaultAsync(u => u.Id == id && (idsRede.Contains(u.OticaId) || EhSistema()));
-        if (usuario != null)
+        var usuario = await _context.Usuarios.FirstOrDefaultAsync(u => u.Id == id);
+        if (usuario != null && PodeGerenciar(usuario) && !EhUsuarioLogado(usuario))
         {
-            _context.Usuarios.Remove(usuario);
-            await _context.SaveChangesAsync();
+            try
+            {
+                _context.Usuarios.Remove(usuario);
+                await _context.SaveChangesAsync();
+                MensagemFlash.Definir(HttpContext, "sucesso", $"Colaborador(a) {usuario.Nome} excluído(a).");
+            }
+            catch (DbUpdateException)
+            {
+                // Usuário com OSs, vendas ou comissões vinculadas não pode ser apagado (histórico contábil)
+                MensagemFlash.Definir(HttpContext, "erro", "Este colaborador possui vendas/OSs vinculadas e não pode ser excluído. Desative o acesso em vez de excluir.");
+            }
         }
 
         return RedirectToAction(nameof(Index));
+    }
+
+    private static int NivelPerfil(PerfilUsuario perfil) => perfil switch
+    {
+        PerfilUsuario.Sistema => 4,
+        PerfilUsuario.Dono => 3,
+        PerfilUsuario.Admin => 2,
+        _ => 1
+    };
+
+    private int NivelUsuarioLogado()
+    {
+        if (EhSistema()) return 4;
+        if (EhDono()) return 3;
+        if (EhAdministrador()) return 2;
+        return 1;
+    }
+
+    // Só gerencia usuários de lojas permitidas e de perfil igual ou inferior ao seu
+    private bool PodeGerenciar(Usuario alvo)
+    {
+        return ObterOticasPermitidas(_context).Contains(alvo.OticaId)
+            && NivelPerfil(alvo.Perfil) <= NivelUsuarioLogado();
+    }
+
+    private bool EhUsuarioLogado(Usuario alvo)
+    {
+        return Guid.TryParse(User.FindFirst(ClaimTypes.NameIdentifier)?.Value, out var idLogado) && idLogado == alvo.Id;
     }
 }
 

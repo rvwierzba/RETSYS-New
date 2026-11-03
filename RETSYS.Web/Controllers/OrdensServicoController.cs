@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using RETSYS.Web.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 using InertiaCore;
 using RETSYS.Infrastructure.Data;
@@ -46,22 +47,9 @@ namespace RETSYS.Web.Controllers
             bool ehVendedor = string.Equals(perfilClaim, nameof(PerfilUsuario.Vendedor), StringComparison.OrdinalIgnoreCase) || (!EhAdministrador() && !EhDono() && !EhSistema());
             Guid.TryParse(usuarioIdClaim, out Guid vendedorLogadoId);
 
-            // Isolamento rigoroso por Ótica (Multi-tenant): Por padrão SEMPRE filtra pela loja ativa conectada!
-            bool ehAdminGeral = EhSistema() || EhDono() || EhAdministrador();
-            Guid? lojaFiltroEfetivo = null;
-
-            if (lojaId.HasValue && lojaId.Value != Guid.Empty)
-            {
-                lojaFiltroEfetivo = lojaId.Value;
-            }
-            else if (lojaId.HasValue && lojaId.Value == Guid.Empty && ehAdminGeral)
-            {
-                lojaFiltroEfetivo = null; // Ver todas as lojas da rede
-            }
-            else
-            {
-                lojaFiltroEfetivo = oticaId; // Padrão seguro para cada ótica (sem OS misturada!)
-            }
+            // Isolamento rigoroso por Ótica (Multi-tenant): Admin/Vendedor sempre na loja ativa;
+            // Dono/Sistema podem filtrar uma loja da rede ou ver a rede inteira.
+            var lojasFiltro = ResolverFiltroLojas(lojaId, _context);
 
             IQueryable<OrdemServico> query = _context.OrdensServico
                 .Include(os => os.Otica)
@@ -73,18 +61,7 @@ namespace RETSYS.Web.Controllers
                 .Include(os => os.PedidoLentePor)
                 .Where(os => os.Ativo);
 
-            if (lojaFiltroEfetivo.HasValue)
-            {
-                query = query.Where(os => os.OticaId == lojaFiltroEfetivo.Value);
-            }
-            else if (ehAdminGeral && idsRede.Any())
-            {
-                query = query.Where(os => idsRede.Contains(os.OticaId));
-            }
-            else if (oticaId != Guid.Empty)
-            {
-                query = query.Where(os => os.OticaId == oticaId);
-            }
+            query = query.Where(os => lojasFiltro.Contains(os.OticaId));
 
             if (!string.IsNullOrWhiteSpace(busca))
             {
@@ -191,6 +168,7 @@ namespace RETSYS.Web.Controllers
                     os.LojaVenda,
                     os.UltimaEdicaoLog,
                     Medico = os.MedicoNome,
+                    os.MedicoNome,
                     os.MedicoCrm,
                     os.MedicoTipo,
                     os.Observacoes,
@@ -321,15 +299,14 @@ namespace RETSYS.Web.Controllers
                 })
                 .ToListAsync();
 
-            IQueryable<Otica> queryLojas = _context.Oticas.AsNoTracking();
-            if (!EhSistema() && idsRede.Any())
-            {
-                queryLojas = queryLojas.Where(o => idsRede.Contains(o.Id));
-            }
-            var lojas = await queryLojas.OrderBy(l => l.Nome).Select(l => new { l.Id, l.Nome }).ToListAsync();
+            // Seletor de lojas: apenas as lojas que o perfil pode consultar (Admin/Vendedor: só a própria)
+            var oticasPermitidas = ObterOticasPermitidas(_context);
+            var lojas = await _context.Oticas.AsNoTracking()
+                .Where(o => oticasPermitidas.Contains(o.Id))
+                .OrderBy(l => l.Nome).Select(l => new { l.Id, l.Nome }).ToListAsync();
 
             var vendedores = await _context.Usuarios
-                .Where(u => u.Ativo && (idsRede.Contains(u.OticaId) || u.OticaId == oticaId))
+                .Where(u => u.Ativo && lojasFiltro.Contains(u.OticaId))
                 .OrderBy(u => u.Nome)
                 .Select(u => new
                 {
@@ -348,8 +325,8 @@ namespace RETSYS.Web.Controllers
                 VendedorFiltro = vendedorId,
                 TotalFiltroAtivo = totalFiltroAtivo,
                 Busca = busca ?? "",
-                LojaId = lojaFiltroEfetivo,
-                FiltroLojaId = lojaFiltroEfetivo?.ToString() ?? ""
+                LojaId = lojaId.HasValue && lojasFiltro.Count == 1 && lojasFiltro[0] == lojaId.Value ? lojaId.Value.ToString() : "",
+                FiltroLojaId = lojaId.HasValue && lojasFiltro.Count == 1 && lojasFiltro[0] == lojaId.Value ? lojaId.Value.ToString() : ""
             });
         }
 
@@ -770,7 +747,7 @@ namespace RETSYS.Web.Controllers
             {
                 if (ehInertia)
                 {
-                    Inertia.Share("erro", mensagem);
+                    MensagemFlash.Definir(HttpContext, "erro", mensagem);
                     var referer = Request.Headers["Referer"].ToString();
                     if (!string.IsNullOrEmpty(referer))
                     {
@@ -818,8 +795,10 @@ namespace RETSYS.Web.Controllers
                     return RetornarErro("Selecione um vendedor(a) responsável.");
                 }
 
+                // Admin/Vendedor: somente vendedores da própria loja. Dono/Sistema: lojas da rede.
+                var lojasVendedor = (EhDono() || EhSistema()) ? idsRede : new List<Guid> { oticaId };
                 var vendedor = await _context.Usuarios
-                    .FirstOrDefaultAsync(u => u.Id == vendedorId && (u.OticaId == oticaId || idsRede.Contains(u.OticaId)));
+                    .FirstOrDefaultAsync(u => u.Id == vendedorId && lojasVendedor.Contains(u.OticaId));
 
                 if (vendedor == null || !vendedor.Ativo)
                 {
@@ -932,9 +911,15 @@ namespace RETSYS.Web.Controllers
 
                 // Armação e Lente
                 Guid? armacaoId = dados.ArmacaoId.HasValue && dados.ArmacaoId.Value != Guid.Empty ? dados.ArmacaoId.Value : null;
-                Guid? lentePrecoId = (dados.LentePrecoId.HasValue && dados.LentePrecoId.Value != Guid.Empty) 
-                    ? dados.LentePrecoId.Value 
-                    : (dados.LenteId.HasValue && dados.LenteId.Value != Guid.Empty ? dados.LenteId.Value : null);
+                Guid? lentePrecoId = null;
+                if (dados.LentePrecoId.HasValue && dados.LentePrecoId.Value != Guid.Empty)
+                {
+                    // A linha de preço precisa pertencer a uma lente da loja (ou da Matriz da rede)
+                    var matrizIdLente = ObterMatrizIdEfetivo(oticaId, _context);
+                    var precoValido = await _context.LentesTabelaPrecos
+                        .AnyAsync(lp => lp.Id == dados.LentePrecoId.Value && (lp.Lente.OticaId == oticaId || lp.Lente.OticaId == matrizIdLente));
+                    if (precoValido) lentePrecoId = dados.LentePrecoId.Value;
+                }
 
                 decimal valorArmacao = dados.ValorArmacao ?? 0m;
                 decimal valorLente = dados.ValorLente ?? 0m;
@@ -1003,6 +988,8 @@ namespace RETSYS.Web.Controllers
                         armacaoSelecionada.QuantidadeEstoque--;
                     }
                 }
+                // Só vincula a armação se ela pertence à loja da venda
+                armacaoId = armacaoSelecionada?.Id;
 
                 var oticaObj = await _context.Oticas.AsNoTracking().FirstOrDefaultAsync(o => o.Id == oticaId);
                 string oticaNomeAtual = oticaObj?.Nome ?? "Matriz";
@@ -1168,7 +1155,7 @@ namespace RETSYS.Web.Controllers
 
                 if (ehInertia)
                 {
-                    Inertia.Share("sucesso", $"OS #{novaOS.NumeroOS} emitida com sucesso!");
+                    MensagemFlash.Definir(HttpContext, "sucesso", $"OS #{novaOS.NumeroOS} emitida com sucesso!");
                     return RedirectToAction(nameof(Index));
                 }
 
@@ -1206,10 +1193,7 @@ namespace RETSYS.Web.Controllers
 
             if (!temLente)
             {
-                return BadRequest(new
-                {
-                    mensagem = "Esta Ordem de Serviço não possui lentes associadas."
-                });
+                return RetornarErroFluxo("Esta Ordem de Serviço não possui lentes associadas.");
             }
 
             var usuarioIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -1232,6 +1216,7 @@ namespace RETSYS.Web.Controllers
 
             var ordem = await _context.OrdensServico
                 .Include(os => os.Financeiro)
+                .Include(os => os.Parcelas)
                 .FirstOrDefaultAsync(os => os.Id == id && os.OticaId == oticaId && os.Ativo);
 
             if (ordem == null)
@@ -1241,10 +1226,7 @@ namespace RETSYS.Web.Controllers
 
             if (ordem.Status == "CANCELADO" || ordem.Status == "CANCELADA")
             {
-                return BadRequest(new
-                {
-                    mensagem = "Não é possível entregar uma OS que foi cancelada."
-                });
+                return RetornarErroFluxo("Não é possível entregar uma OS que foi cancelada.");
             }
 
             var usuarioIdClaim = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
@@ -1254,9 +1236,12 @@ namespace RETSYS.Web.Controllers
             string formaRetirada = "DINHEIRO";
             int? parcelasRetirada = null;
 
-            if (jsonModel != null && !string.IsNullOrWhiteSpace(jsonModel.OpcaoQuitacao))
+            if (jsonModel != null && (!string.IsNullOrWhiteSpace(jsonModel.OpcaoQuitacao) || !string.IsNullOrWhiteSpace(jsonModel.FormaPagamentoRetirada)))
             {
-                opcaoQuitacao = jsonModel.OpcaoQuitacao.Trim();
+                // Sem opção explícita: há saldo → pago na retirada; sem saldo → já estava pago
+                opcaoQuitacao = !string.IsNullOrWhiteSpace(jsonModel.OpcaoQuitacao)
+                    ? jsonModel.OpcaoQuitacao.Trim()
+                    : ((ordem.Financeiro?.ValorRestante ?? 0m) > 0 ? "PAGO_RETIRADA" : "JA_PAGO");
                 formaRetirada = jsonModel.FormaPagamentoRetirada?.ToUpper() ?? "DINHEIRO";
                 parcelasRetirada = jsonModel.ParcelasRetirada;
             }
@@ -1276,10 +1261,7 @@ namespace RETSYS.Web.Controllers
                 {
                     if (string.IsNullOrWhiteSpace(formaRetirada) || formaRetirada == "CONVENIO")
                     {
-                        return BadRequest(new
-                        {
-                            mensagem = "Selecione uma forma de pagamento válida para a retirada."
-                        });
+                        return RetornarErroFluxo("Selecione uma forma de pagamento válida para a retirada.");
                     }
 
                     if (formaRetirada != "CARTAO_CREDITO")
@@ -1298,6 +1280,14 @@ namespace RETSYS.Web.Controllers
                     ordem.Financeiro.ParcelasRetirada = null;
                 }
 
+                // Quitação total: as parcelas em aberto passam a constar como pagas
+                foreach (var parcela in ordem.Parcelas.Where(p => !p.DataPagamento.HasValue))
+                {
+                    parcela.DataPagamento = DateTime.UtcNow;
+                    parcela.ValorPago ??= parcela.Valor;
+                    parcela.ObservacaoPagamento ??= "Quitado na entrega da OS";
+                }
+
                 ordem.Financeiro.ValorRestante = 0m;
                 ordem.Financeiro.DataQuitacao = DateTime.UtcNow;
                 ordem.Financeiro.QuitacaoRegistradaPorId = usuarioLogadoId != Guid.Empty ? usuarioLogadoId : null;
@@ -1307,7 +1297,20 @@ namespace RETSYS.Web.Controllers
             ordem.DataEntregaReal = DateTime.UtcNow;
 
             await _context.SaveChangesAsync();
+            MensagemFlash.Definir(HttpContext, "sucesso", $"OS {ordem.NumeroOS} entregue e quitada.");
             return RedirectToAction(nameof(Index));
+        }
+
+        // Erros de fluxo: JSON para chamadas axios (Kanban) e redirect com mensagem para o router do Inertia
+        private IActionResult RetornarErroFluxo(string mensagem)
+        {
+            if (Request.Headers.ContainsKey("X-Inertia"))
+            {
+                MensagemFlash.Definir(HttpContext, "erro", mensagem);
+                var referer = Request.Headers["Referer"].ToString();
+                return Redirect(!string.IsNullOrEmpty(referer) ? referer : "/ordens");
+            }
+            return BadRequest(new { mensagem });
         }
 
         // --- NOVO FLUXO DE PRODUÇÃO E ACOMPANHAMENTO ---
@@ -1565,11 +1568,17 @@ namespace RETSYS.Web.Controllers
                 return RedirectToAction(nameof(Index));
             }
 
+            // Cancelamento (com estorno de estoque e comissão) é restrito à gerência, como em Cancelar()
+            if ((statusAlvo == "CANCELADO" || statusAlvo == "CANCELADA") && !EhAdministrador())
+            {
+                MensagemFlash.Definir(HttpContext, "erro", "Somente a gerência pode cancelar uma Ordem de Serviço.");
+                return RedirectToAction(nameof(Index));
+            }
+
             if ((statusAlvo == "CANCELADO" || statusAlvo == "CANCELADA") &&
                 await OrdemPossuiComissaoPagaAsync(ordem.Id))
             {
-                Inertia.Share(
-                    "erro",
+                MensagemFlash.Definir(HttpContext, "erro",
                     "Esta OS possui comissão já paga. O cancelamento exige um ajuste financeiro manual e auditável."
                 );
 
@@ -1636,8 +1645,7 @@ namespace RETSYS.Web.Controllers
 
             if (await OrdemPossuiComissaoPagaAsync(ordem.Id))
             {
-                Inertia.Share(
-                    "erro",
+                MensagemFlash.Definir(HttpContext, "erro",
                     "Esta OS possui comissão já paga. O cancelamento exige um ajuste financeiro manual e auditável."
                 );
 
@@ -1918,17 +1926,17 @@ namespace RETSYS.Web.Controllers
             {
                 if (Request.Headers.ContainsKey("X-Inertia"))
                 {
-                    Inertia.Share("erro", "Ordem de Serviço não encontrada.");
+                    MensagemFlash.Definir(HttpContext, "erro", "Ordem de Serviço não encontrada.");
                     return Redirect("/ordens");
                 }
                 return NotFound();
             }
 
-            if (!EhSistema() && os.OticaId != oticaId && !idsRede.Contains(os.OticaId))
+            if (!ObterOticasPermitidas(_context).Contains(os.OticaId))
             {
                 if (Request.Headers.ContainsKey("X-Inertia"))
                 {
-                    Inertia.Share("erro", "Você não tem permissão para acessar esta Ordem de Serviço.");
+                    MensagemFlash.Definir(HttpContext, "erro", "Você não tem permissão para acessar esta Ordem de Serviço.");
                     return Redirect("/ordens");
                 }
                 return Forbid();
@@ -1943,7 +1951,7 @@ namespace RETSYS.Web.Controllers
                 {
                     if (Request.Headers.ContainsKey("X-Inertia"))
                     {
-                        Inertia.Share("erro", "Você só tem permissão para visualizar suas próprias Ordens de Serviço.");
+                        MensagemFlash.Definir(HttpContext, "erro", "Você só tem permissão para visualizar suas próprias Ordens de Serviço.");
                         return Redirect("/vendas");
                     }
                     return Forbid();
@@ -1951,15 +1959,17 @@ namespace RETSYS.Web.Controllers
             }
 
             var matrizId = ObterMatrizIdEfetivo(oticaId, _context);
+            // Vendedores da loja da OS (Dono/Sistema também enxergam a rede para corrigir vínculos)
+            var lojasVendedores = (EhDono() || EhSistema()) ? idsRede : new List<Guid> { os.OticaId };
             var vendedores = await _context.Usuarios
-                .Where(u => u.Ativo && (u.OticaId == oticaId || idsRede.Contains(u.OticaId)))
+                .Where(u => u.Ativo && lojasVendedores.Contains(u.OticaId))
                 .OrderBy(u => u.Nome)
                 .Select(u => new { u.Id, u.Nome })
                 .ToListAsync();
 
             var armacoes = await _context.Armacoes
                 .Include(a => a.Marca)
-                .Where(a => a.OticaId == oticaId && a.Ativo)
+                .Where(a => a.OticaId == os.OticaId && a.Ativo)
                 .Select(a => new
                 {
                     a.Id,
@@ -1985,8 +1995,10 @@ namespace RETSYS.Web.Controllers
                 })
                 .ToListAsync();
 
+            // Troca de loja da OS: apenas Dono/Sistema (rede); demais perfis veem somente a loja da OS
+            var oticasEdicao = (EhDono() || EhSistema()) ? idsRede : new List<Guid> { os.OticaId };
             var oticas = await _context.Oticas
-                .Where(o => o.Id == matrizId || o.MatrizId == matrizId)
+                .Where(o => oticasEdicao.Contains(o.Id))
                 .OrderBy(o => o.Nome)
                 .Select(o => new { o.Id, o.Nome })
                 .ToListAsync();
@@ -2132,6 +2144,7 @@ namespace RETSYS.Web.Controllers
                 .Include(o => o.Financeiro)
                 .Include(o => o.Receita)
                 .Include(o => o.Parcelas)
+                .Include(o => o.Otica)
                 .FirstOrDefaultAsync(o => o.Id == id && o.Ativo);
 
             if (os == null)
@@ -2141,12 +2154,25 @@ namespace RETSYS.Web.Controllers
 
             var perfilClaim = User.FindFirst(ClaimTypes.Role)?.Value ?? "VENDEDOR";
             bool ehAdminOuDono = EhAdministrador() || EhDono() || EhSistema();
-            bool ehMesmaOtica = os.OticaId == oticaId || idsRede.Contains(os.OticaId);
+            bool ehRedeInteira = EhDono() || EhSistema();
+            var oticasPermitidas = ObterOticasPermitidas(_context);
 
-            if (!ehAdminOuDono && !ehMesmaOtica)
+            // Isolamento: a OS precisa ser de uma loja que o usuário pode acessar
+            if (!oticasPermitidas.Contains(os.OticaId))
             {
-                Inertia.Share("erro", "Você não tem permissão para editar dados desta Ordem de Serviço.");
+                MensagemFlash.Definir(HttpContext, "erro", "Você não tem permissão para editar dados desta Ordem de Serviço.");
                 return RedirectToAction(nameof(Index));
+            }
+
+            // Vendedor(a) edita apenas as próprias OSs
+            if (!ehAdminOuDono)
+            {
+                var idLogado = User.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                if (Guid.TryParse(idLogado, out var vendedorLogado) && os.VendedorId.HasValue && os.VendedorId.Value != vendedorLogado)
+                {
+                    MensagemFlash.Definir(HttpContext, "erro", "Você só pode editar as suas próprias Ordens de Serviço.");
+                    return RedirectToAction(nameof(Index));
+                }
             }
 
             var model = jsonModel ?? new EditarAdminRequest();
@@ -2162,7 +2188,7 @@ namespace RETSYS.Web.Controllers
 
             bool periodoBloqueado = await _context.FechamentosComissao
                 .Include(f => f.Vendedor)
-                .AnyAsync(f => (f.Vendedor.OticaId == os.OticaId || (os.VendedorId.HasValue && f.VendedorId == os.VendedorId.Value))
+                .AnyAsync(f => os.VendedorId.HasValue && f.VendedorId == os.VendedorId.Value
                             && (f.PeriodoReferencia == periodoAntigo || (periodoNovo != null && f.PeriodoReferencia == periodoNovo))
                             && (f.Status == "FECHADO" || f.Status == "PAGO"));
 
@@ -2171,7 +2197,7 @@ namespace RETSYS.Web.Controllers
 
             if (periodoBloqueado && (alterouData || alterouValor))
             {
-                Inertia.Share("erro", "Alteração bloqueada: Esta Ordem de Serviço pertence a um período de comissões já FECHADO ou PAGO! Alterações de data e valor são proibidas.");
+                MensagemFlash.Definir(HttpContext, "erro", "Alteração bloqueada: Esta Ordem de Serviço pertence a um período de comissões já FECHADO ou PAGO! Alterações de data e valor são proibidas.");
                 return RedirectToAction(nameof(Index));
             }
 
@@ -2240,7 +2266,8 @@ namespace RETSYS.Web.Controllers
                 os.LojaVenda = model.LojaVenda.Trim();
             }
 
-            if (model.OticaId.HasValue && model.OticaId.Value != Guid.Empty && model.OticaId.Value != os.OticaId)
+            // Transferência de loja: somente Dono/Sistema e apenas para lojas da rede permitida
+            if (ehRedeInteira && model.OticaId.HasValue && model.OticaId.Value != Guid.Empty && model.OticaId.Value != os.OticaId && oticasPermitidas.Contains(model.OticaId.Value))
             {
                 var novaOtica = await _context.Oticas.FirstOrDefaultAsync(o => o.Id == model.OticaId.Value);
                 if (novaOtica != null)
@@ -2252,9 +2279,11 @@ namespace RETSYS.Web.Controllers
             }
 
             Usuario? novoVendedor = null;
-            if (model.VendedorId.HasValue && model.VendedorId.Value != Guid.Empty && model.VendedorId.Value != os.VendedorId)
+            if (ehAdminOuDono && model.VendedorId.HasValue && model.VendedorId.Value != Guid.Empty && model.VendedorId.Value != os.VendedorId)
             {
-                novoVendedor = await _context.Usuarios.FirstOrDefaultAsync(u => u.Id == model.VendedorId.Value);
+                // A vendedora precisa atuar na loja da OS (Dono/Sistema: qualquer loja permitida)
+                var lojasVendedora = ehRedeInteira ? oticasPermitidas : new List<Guid> { os.OticaId };
+                novoVendedor = await _context.Usuarios.FirstOrDefaultAsync(u => u.Id == model.VendedorId.Value && lojasVendedora.Contains(u.OticaId));
                 if (novoVendedor != null)
                 {
                     RegistrarLog("Vendedora Responsável", os.Vendedor?.Nome, novoVendedor.Nome);
@@ -2364,6 +2393,28 @@ namespace RETSYS.Web.Controllers
                 os.LenteDescricaoManual = model.LenteDescricaoManual;
             }
 
+            // LABORATÓRIO
+            if (model.LaboratorioParceiro != null)
+            {
+                RegistrarLog("Laboratório Parceiro", os.LaboratorioParceiro, model.LaboratorioParceiro);
+                os.LaboratorioParceiro = model.LaboratorioParceiro;
+            }
+            if (model.NumeroPedidoLaboratorio != null)
+            {
+                RegistrarLog("Nº Pedido Laboratório", os.NumeroPedidoLaboratorio, model.NumeroPedidoLaboratorio);
+                os.NumeroPedidoLaboratorio = model.NumeroPedidoLaboratorio;
+            }
+            if (model.LentePedida.HasValue && model.LentePedida.Value != os.LentePedida)
+            {
+                RegistrarLog("Lente Pedida", os.LentePedida ? "Sim" : "Não", model.LentePedida.Value ? "Sim" : "Não");
+                os.LentePedida = model.LentePedida.Value;
+                if (os.LentePedida && !os.DataPedidoLente.HasValue)
+                {
+                    os.DataPedidoLente = DateTime.UtcNow;
+                    os.PedidoLentePorId = usuarioLogadoId != Guid.Empty ? usuarioLogadoId : null;
+                }
+            }
+
             // FINANCEIRO E RECÁLCULO AUTOMÁTICO (Regra 3 do PDF)
             decimal valLiquidoFinal = os.Financeiro?.ValorTotalLiquido ?? 0m;
             if (os.Financeiro != null)
@@ -2382,6 +2433,14 @@ namespace RETSYS.Web.Controllers
 
                 decimal restanteVal = Math.Max(0m, valLiquidoFinal - entradaVal);
                 decimal descontoPerc = brutoVal > 0 ? Math.Round((descontoVal / brutoVal) * 100m, 2) : 0m;
+
+                // Mesma trava da emissão: vendedor(a) não pode ultrapassar o seu limite de desconto
+                if (!ehAdminOuDono && os.Vendedor != null && os.Vendedor.LimiteDesconto > 0
+                    && descontoPerc > os.Vendedor.LimiteDesconto && descontoVal != os.Financeiro.DescontoReais)
+                {
+                    MensagemFlash.Definir(HttpContext, "erro", $"Desconto de {descontoPerc}% acima do seu limite autorizado ({os.Vendedor.LimiteDesconto}%). Solicite autorização da gerência.");
+                    return RedirectToAction(nameof(Index));
+                }
 
                 RegistrarLog("Valor Armação", os.Financeiro.ValorArmacao.ToString("C2"), armacaoVal.ToString("C2"));
                 RegistrarLog("Valor Lente", os.Financeiro.ValorLente.ToString("C2"), lenteVal.ToString("C2"));
@@ -2446,7 +2505,7 @@ namespace RETSYS.Web.Controllers
 
             await _context.SaveChangesAsync();
 
-            Inertia.Share("sucesso", $"OS {os.NumeroOS} atualizada com sucesso pelo administrador ({logsCriados} alteração(ões) auditada(s)).");
+            MensagemFlash.Definir(HttpContext, "sucesso", $"OS {os.NumeroOS} atualizada com sucesso pelo administrador ({logsCriados} alteração(ões) auditada(s)).");
             return RedirectToAction(nameof(Index));
         }
 
@@ -2454,9 +2513,10 @@ namespace RETSYS.Web.Controllers
         [HttpGet("/api/ordens/{id:guid}/auditoria")]
         public async Task<IActionResult> ObterAuditoriaLogs(Guid id)
         {
+            var oticasPermitidas = ObterOticasPermitidas(_context);
             var logs = await _context.OsAuditoriaLogs
                 .Include(l => l.Usuario)
-                .Where(l => l.OrdemServicoId == id)
+                .Where(l => l.OrdemServicoId == id && oticasPermitidas.Contains(l.OticaId))
                 .OrderByDescending(l => l.DataAlteracao)
                 .Select(l => new
                 {

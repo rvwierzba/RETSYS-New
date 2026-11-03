@@ -174,6 +174,14 @@ docker compose up -d retsys_app
 > **Nota:** As migrações do banco (como a inclusão da coluna de log de auditoria `UltimaEdicaoLog`) são aplicadas de forma 100% automática pelo `Program.cs` na inicialização do container.
 
 ### 7.2 Correção de Vínculo de Loja Incorreto (Seção 2 do Documento)
+
+> **Importante (03/11/2026):** até esta versão, o `DatabaseSeeder` reatribuía a loja de usuários e OSs por semelhança de nome a cada reinício do container e anexava óticas independentes à primeira matriz do banco. Esse comportamento foi removido. Vínculos corrigidos pela tela de Equipe ou pelo SQL abaixo agora permanecem após novos deploys. Para conferir se alguma ótica foi anexada indevidamente a uma rede:
+>
+> ```sql
+> SELECT o."Nome", m."Nome" AS matriz FROM oticas o LEFT JOIN oticas m ON m."Id" = o."MatrizId" ORDER BY 2, 1;
+> -- Se uma ótica independente aparecer como filial: UPDATE oticas SET "MatrizId" = NULL WHERE "Id" = 'ID_DA_OTICA';
+> ```
+
 Algumas vendedoras podem ter sido associadas à filial errada no cadastro original (ex.: vendedora que atua na loja "Parque", mas seu cadastro indica "Matriz").
 
 Para auditar e corrigir os dados no banco de produção via terminal da VPS:

@@ -156,10 +156,7 @@ const quitarParcela = (parcelaId, valor) => {
       formaPagamento: 'DINHEIRO',
       observacao: 'Quitação efetuada no balcão'
     }, {
-      preserveScroll: true,
-      onSuccess: () => {
-        alert('Parcela quitada com sucesso!')
-      }
+      preserveScroll: true
     })
   }
 }

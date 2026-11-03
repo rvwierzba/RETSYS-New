@@ -1,6 +1,7 @@
 using InertiaCore;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using RETSYS.Web.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 using RETSYS.Domain.Entities;
 using RETSYS.Infrastructure.Data;
@@ -53,7 +54,7 @@ public class MarcasController : TenantController
         if (string.IsNullOrWhiteSpace(model.Nome))
         {
             if (eRequisicaoAxios) return BadRequest(new { mensagem = "O nome da marca é obrigatório." });
-            Inertia.Share("erro", "O nome da marca é obrigatório.");
+            MensagemFlash.Definir(HttpContext, "erro", "O nome da marca é obrigatório.");
             return RedirectToAction(nameof(Index));
         }
 
@@ -63,7 +64,7 @@ public class MarcasController : TenantController
         if (nomeExiste)
         {
             if (eRequisicaoAxios) return BadRequest(new { mensagem = "Já existe uma marca cadastrada com este nome." });
-            Inertia.Share("erro", "Já existe uma marca cadastrada com este nome.");
+            MensagemFlash.Definir(HttpContext, "erro", "Já existe uma marca cadastrada com este nome.");
             return RedirectToAction(nameof(Index));
         }
 
@@ -97,7 +98,7 @@ public class MarcasController : TenantController
         var marca = await _context.Marcas.FirstOrDefaultAsync(m => m.Id == id && m.OticaId == oticaId);
         if (marca == null)
         {
-            Inertia.Share("erro", "Marca não encontrada.");
+            MensagemFlash.Definir(HttpContext, "erro", "Marca não encontrada.");
             return RedirectToAction(nameof(Index));
         }
 
@@ -106,7 +107,7 @@ public class MarcasController : TenantController
 
         if (nomeExiste)
         {
-            Inertia.Share("erro", "Este nome já está em uso por outra marca.");
+            MensagemFlash.Definir(HttpContext, "erro", "Este nome já está em uso por outra marca.");
             return RedirectToAction(nameof(Index));
         }
 
@@ -145,7 +146,7 @@ public class MarcasController : TenantController
         var possuiArmacoes = await _context.Armacoes.AnyAsync(a => a.MarcaId == id && a.OticaId == oticaId);
         if (possuiArmacoes)
         {
-            Inertia.Share("erro", "Não é possível excluir uma marca que possui armações vinculadas.");
+            MensagemFlash.Definir(HttpContext, "erro", "Não é possível excluir uma marca que possui armações vinculadas.");
             return RedirectToAction(nameof(Index));
         }
 

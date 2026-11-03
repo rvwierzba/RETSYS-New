@@ -1,6 +1,7 @@
 using System.Security.Claims;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Mvc;
+using RETSYS.Web.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 using InertiaCore;
 using RETSYS.Infrastructure.Data;
@@ -32,15 +33,17 @@ namespace RETSYS.Web.Controllers
         public async Task<IActionResult> Autenticar([FromBody] DtoLogin requisicao)
         {
             // Busca o usuário pelo e-mail informado
+            // E-mail sem diferenciar maiúsculas/espaços (cadastros antigos gravaram o e-mail como digitado)
+            var emailLogin = (requisicao.Email ?? string.Empty).Trim().ToLower();
             var usuario = await _context.Usuarios
                 .Include(u => u.Otica)
-                .FirstOrDefaultAsync(u => u.Email == requisicao.Email && u.Ativo);
+                .FirstOrDefaultAsync(u => u.Email.ToLower() == emailLogin && u.Ativo);
 
             // Se não achar ou a senha encriptada não bater, devolve erro
-            if (usuario == null || !_criptografia.VerificarSenha(requisicao.Senha, usuario.SenhaHash))
+            if (usuario == null || string.IsNullOrEmpty(requisicao.Senha) || !_criptografia.VerificarSenha(requisicao.Senha, usuario.SenhaHash))
             {
                 // Injeta uma mensagem de erro temporária que o Inertia repassa pro Vue
-                Inertia.Share("erro", "Credenciais inválidas ou usuário inativo.");
+                MensagemFlash.Definir(HttpContext, "erro", "Credenciais inválidas ou usuário inativo.");
                 return RedirectToAction(nameof(Login));
             }
 

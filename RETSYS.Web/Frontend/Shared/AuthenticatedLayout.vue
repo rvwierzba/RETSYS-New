@@ -519,6 +519,18 @@
 
       </header>
 
+      <!-- MENSAGENS DO SERVIDOR (erro / sucesso) — sobrevivem ao redirect via flash de sessão -->
+      <div v-if="toast.texto" class="fixed top-4 right-4 z-[100] max-w-sm no-print">
+        <div
+          :class="toast.tipo === 'erro' ? 'bg-rose-50 border-rose-200 text-rose-800' : 'bg-teal-50 border-teal-200 text-teal-800'"
+          class="flex items-start gap-3 p-4 rounded-2xl border shadow-lg text-sm font-semibold"
+        >
+          <span>{{ toast.tipo === 'erro' ? '⚠️' : '✓' }}</span>
+          <p class="flex-1">{{ toast.texto }}</p>
+          <button type="button" class="text-xs opacity-60 hover:opacity-100" @click="toast.texto = ''">✕</button>
+        </div>
+      </div>
+
       <!-- CONTEÚDO PRINCIPAL DAS PÁGINAS -->
       <main class="flex-grow">
         <slot />
@@ -585,11 +597,34 @@
 </template>
 
 <script setup>
-import { ref, onMounted, onUnmounted, computed } from 'vue'
+import { ref, reactive, watch, onMounted, onUnmounted, computed } from 'vue'
 import { Link, usePage, router } from '@inertiajs/vue3'
 import SpotifyPlayer from './SpotifyPlayer.vue'
 
 const page = usePage()
+
+// Toast global: a tela de emissão de OS já exibe o erro em banner próprio junto ao formulário
+const toast = reactive({ tipo: '', texto: '' })
+let toastTimer = null
+watch(
+  () => [page.props.erro, page.props.sucesso, page.props.flash?.erro, page.props.flash?.sucesso, page.component],
+  () => {
+    const erro = page.props.erro || page.props.flash?.erro
+    const sucesso = page.props.sucesso || page.props.flash?.sucesso
+    if (erro && page.component !== 'OrdensServico/Create') {
+      toast.tipo = 'erro'
+      toast.texto = erro
+    } else if (sucesso) {
+      toast.tipo = 'sucesso'
+      toast.texto = sucesso
+    } else {
+      return
+    }
+    clearTimeout(toastTimer)
+    toastTimer = setTimeout(() => { toast.texto = '' }, 7000)
+  },
+  { immediate: true }
+)
 const sidebarMobileAberta = ref(false)
 const menuAberto = ref(false)
 const menuOticasAberto = ref(false)

@@ -140,8 +140,8 @@
             </div>
           </div>
 
-          <!-- Filtro por Loja / Filial -->
-          <div>
+          <!-- Filtro por Loja / Filial (somente para quem enxerga mais de uma loja: Dono/Sistema) -->
+          <div v-if="(Lojas ?? lojas ?? []).length > 1">
             <select
               v-model="lojaSelecionada"
               @change="aplicarFiltros()"

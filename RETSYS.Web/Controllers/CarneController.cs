@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using RETSYS.Web.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 using InertiaCore;
 using RETSYS.Infrastructure.Data;
@@ -92,6 +93,12 @@ namespace RETSYS.Web.Controllers
             if (parcela == null)
                 return NotFound();
 
+            if (parcela.DataPagamento.HasValue)
+            {
+                MensagemFlash.Definir(HttpContext, "erro", "Esta parcela já está quitada.");
+                return Redirect($"/ordens/{parcela.OrdemServicoId}/carne");
+            }
+
             parcela.DataPagamento = DateTime.UtcNow;
             parcela.ValorPago = dto.ValorPago > 0 ? dto.ValorPago : parcela.Valor;
             parcela.JurosAtraso = dto.JurosAtraso ?? 0m;
@@ -99,6 +106,13 @@ namespace RETSYS.Web.Controllers
             parcela.ObservacaoPagamento = dto.Observacao;
 
             await _context.SaveChangesAsync();
+
+            // Chamada via router do Inertia exige redirect (JSON puro abre o modal de erro do Inertia)
+            if (Request.Headers.ContainsKey("X-Inertia"))
+            {
+                MensagemFlash.Definir(HttpContext, "sucesso", $"Parcela {parcela.NumeroParcela} quitada com sucesso.");
+                return Redirect($"/ordens/{parcela.OrdemServicoId}/carne");
+            }
 
             return Ok(new { Sucesso = true });
         }

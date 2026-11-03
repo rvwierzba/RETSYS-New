@@ -1,0 +1,9 @@
+# Artefatos locais que não devem entrar no contexto do build Docker
+**/node_modules
+**/bin
+**/obj
+.git
+.vs
+.vscode
+*.sql
+scratch

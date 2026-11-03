@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using RETSYS.Web.Infrastructure;
 using Microsoft.EntityFrameworkCore;
 using InertiaCore;
 using RETSYS.Infrastructure.Data;
@@ -95,7 +96,8 @@ namespace RETSYS.Web.Controllers
             bool ehAdminGeral = EhSistema() || EhDono() || EhAdministrador();
 
             // Determina a loja de escopo
-            Guid lojaEfetiva = (ehAdminGeral && lojaId.HasValue && lojaId.Value != Guid.Empty) ? lojaId.Value : oticaId;
+            // Somente lojas permitidas ao perfil (Admin/Vendedor: a própria; Dono: a rede; Sistema: todas)
+            Guid lojaEfetiva = (lojaId.HasValue && lojaId.Value != Guid.Empty && ObterOticasPermitidas(_context).Contains(lojaId.Value)) ? lojaId.Value : oticaId;
 
             // 1. Vendas Balcão
             var queryBalcao = _context.VendasBalcao
@@ -259,27 +261,52 @@ namespace RETSYS.Web.Controllers
             {
                 if (Request.Headers.ContainsKey("X-Inertia"))
                 {
-                    Inertia.Share("erro", "A venda precisa conter pelo menos 1 item.");
+                    MensagemFlash.Definir(HttpContext, "erro", "A venda precisa conter pelo menos 1 item.");
                     return RedirectToAction(nameof(Pdv));
                 }
                 return BadRequest("A venda precisa conter pelo menos 1 item.");
             }
 
-            var countVendas = await _context.VendasBalcao.CountAsync(v => v.OticaId == oticaId);
-            var numeroVenda = $"VB-{(countVendas + 1).ToString("D5")}";
+            // Cliente, vendedor(a) e armações precisam pertencer à loja da venda
+            Guid? clienteIdValido = null;
+            if (dto.ClienteId.HasValue && dto.ClienteId.Value != Guid.Empty
+                && await _context.Clientes.AnyAsync(c => c.Id == dto.ClienteId.Value && c.OticaId == oticaId))
+            {
+                clienteIdValido = dto.ClienteId.Value;
+            }
 
-            var valorBruto = dto.Itens.Sum(i => i.Quantidade * i.PrecoUnitario);
-            var valorLiquido = Math.Max(0, valorBruto - (dto.DescontoReais ?? 0));
+            Guid.TryParse(usuarioIdClaim, out Guid idUsuarioLogado);
+            Guid? vendedorIdValido = idUsuarioLogado != Guid.Empty ? idUsuarioLogado : null;
+            if (dto.VendedorId.HasValue && dto.VendedorId.Value != Guid.Empty
+                && await _context.Usuarios.AnyAsync(u => u.Id == dto.VendedorId.Value && u.OticaId == oticaId))
+            {
+                vendedorIdValido = dto.VendedorId.Value;
+            }
+
+            // Numeração sequencial pela maior venda existente da loja (Count+1 colide após exclusões)
+            var numerosExistentes = await _context.VendasBalcao
+                .Where(v => v.OticaId == oticaId && v.NumeroVenda.StartsWith("VB-"))
+                .Select(v => v.NumeroVenda)
+                .ToListAsync();
+            int maiorNumero = numerosExistentes
+                .Select(n => int.TryParse(n.Substring(3), out var seq) ? seq : 0)
+                .DefaultIfEmpty(0)
+                .Max();
+            var numeroVenda = $"VB-{(maiorNumero + 1).ToString("D5")}";
+
+            var valorBruto = dto.Itens.Sum(i => Math.Max(1, i.Quantidade) * i.PrecoUnitario);
+            var descontoVenda = Math.Min(Math.Max(0, dto.DescontoReais ?? 0), valorBruto);
+            var valorLiquido = Math.Max(0, valorBruto - descontoVenda);
 
             var venda = new VendaBalcao
             {
                 OticaId = oticaId,
                 NumeroVenda = numeroVenda,
-                ClienteId = dto.ClienteId,
-                VendedorId = dto.VendedorId,
+                ClienteId = clienteIdValido,
+                VendedorId = vendedorIdValido,
                 DataVenda = DateTime.UtcNow,
                 ValorTotalBruto = valorBruto,
-                DescontoReais = dto.DescontoReais ?? 0,
+                DescontoReais = descontoVenda,
                 ValorTotalLiquido = valorLiquido,
                 FormaPagamento = string.IsNullOrWhiteSpace(dto.FormaPagamento) ? "DINHEIRO" : dto.FormaPagamento,
                 Parcelas = dto.Parcelas ?? 1,
@@ -294,7 +321,7 @@ namespace RETSYS.Web.Controllers
                 var item = new ItemVendaBalcao
                 {
                     TipoItem = string.IsNullOrWhiteSpace(itemDto.TipoItem) ? "ARMACAO" : itemDto.TipoItem,
-                    ArmacaoId = itemDto.ArmacaoId,
+                    ArmacaoId = null,
                     Descricao = itemDto.Descricao,
                     Quantidade = Math.Max(1, itemDto.Quantidade),
                     PrecoUnitario = itemDto.PrecoUnitario
@@ -306,6 +333,7 @@ namespace RETSYS.Web.Controllers
                     var armacao = await _context.Armacoes.FirstOrDefaultAsync(a => a.Id == itemDto.ArmacaoId.Value && a.OticaId == oticaId);
                     if (armacao != null)
                     {
+                        item.ArmacaoId = armacao.Id;
                         armacao.QuantidadeEstoque = Math.Max(0, armacao.QuantidadeEstoque - item.Quantidade);
                     }
                 }
@@ -318,7 +346,7 @@ namespace RETSYS.Web.Controllers
 
             if (Request.Headers.ContainsKey("X-Inertia"))
             {
-                Inertia.Share("sucesso", $"Venda {venda.NumeroVenda} finalizada com sucesso!");
+                MensagemFlash.Definir(HttpContext, "sucesso", $"Venda {venda.NumeroVenda} finalizada com sucesso!");
                 return RedirectToAction(nameof(Comprovante), new { id = venda.Id });
             }
 

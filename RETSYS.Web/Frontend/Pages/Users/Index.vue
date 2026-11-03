@@ -246,8 +246,9 @@ const props = defineProps({
 })
 
 const page = usePage()
-const ehSistema = computed(() => props.EhSistema ?? props.ehSistema ?? !!page.props.auth?.ehSistema ?? page.props.auth?.usuarioPerfil === 'Sistema')
-const ehDono = computed(() => props.EhDono ?? props.ehDono ?? !!page.props.auth?.ehDono ?? page.props.auth?.usuarioPerfil === 'Dono')
+// Props Boolean ausentes viram false (não undefined), por isso || em vez de ??
+const ehSistema = computed(() => props.EhSistema || props.ehSistema || !!page.props.auth?.ehSistema || page.props.auth?.usuarioPerfil === 'Sistema')
+const ehDono = computed(() => props.EhDono || props.ehDono || !!page.props.auth?.ehDono || page.props.auth?.usuarioPerfil === 'Dono')
 const listaEquipe = computed(() => props.Equipe ?? props.equipe ?? [])
 const listaLojas = computed(() => props.Lojas ?? props.lojas ?? [])
 

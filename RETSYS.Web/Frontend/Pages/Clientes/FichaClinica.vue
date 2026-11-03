@@ -60,10 +60,10 @@
                   Exame #{{ (Receitas || receitas).length - index }}
                 </span>
                 <div>
-                  <p class="text-sm font-bold">Data do Exame: {{ rec.dataPrescricao || rec.DataPrescricao }}</p>
+                  <p class="text-sm font-bold">Data do Exame: {{ rec.dataExame || rec.DataExame }}</p>
                   <p class="text-xs text-slate-400">
-                    Especialista: {{ rec.medicoOptometrista || rec.MedicoOptometrista || 'Não informado' }} 
-                    <span v-if="rec.crmCroo || rec.CrmCroo">({{ rec.crmCroo || rec.CrmCroo }})</span>
+                    Especialista: {{ rec.medicoNome || rec.MedicoNome || 'Não informado' }} 
+                    <span v-if="rec.medicoCrm || rec.MedicoCrm">({{ rec.medicoCrm || rec.MedicoCrm }})</span>
                   </p>
                 </div>
               </div>
@@ -327,11 +327,28 @@ const abrirModalNovaReceita = () => {
 
 const salvarReceita = () => {
   const clienteId = props.Cliente?.id || props.Cliente?.Id || props.cliente?.id || props.cliente?.Id
-  router.post(`/clientes/${clienteId}/receitas`, formReceita, {
+  // Nomes esperados pelo backend (ReceitaInputDto)
+  const payload = {
+    dataExame: formReceita.dataPrescricao || null,
+    medicoNome: formReceita.medicoOptometrista,
+    medicoCrm: formReceita.crmCroo,
+    odEsferico: formReceita.odEsferico,
+    odCilindrico: formReceita.odCilindrico,
+    odEixo: formReceita.odEixo,
+    odDnp: formReceita.dnpOd,
+    odAltura: formReceita.alturaOd,
+    oeEsferico: formReceita.oeEsferico,
+    oeCilindrico: formReceita.oeCilindrico,
+    oeEixo: formReceita.oeEixo,
+    oeDnp: formReceita.dnpOe,
+    oeAltura: formReceita.alturaOe,
+    adicao: formReceita.adicao,
+    observacoes: formReceita.observacoes
+  }
+  router.post(`/clientes/${clienteId}/receitas`, payload, {
     preserveScroll: true,
     onSuccess: () => {
       modalAberto.value = false
-      alert('Prescrição óptica cadastrada com sucesso no histórico do paciente!')
     }
   })
 }

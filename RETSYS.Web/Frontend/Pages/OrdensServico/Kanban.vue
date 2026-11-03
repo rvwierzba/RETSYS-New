@@ -33,7 +33,7 @@
       </div>
 
       <!-- SELETOR DE ÓTICA ATIVA (SE HOUVER MAIS DE UMA ÓTICA OU PERFIL ADMIN/SISTEMA) -->
-      <div v-if="(OticasDisponiveis || oticasDisponiveis || []).length > 1 || EhAdminOuSistema" class="bg-gradient-to-r from-purple-950/90 to-indigo-950/90 p-4 rounded-2xl border border-purple-800 text-white shadow-lg flex flex-col md:flex-row md:items-center justify-between gap-4">
+      <div v-if="(OticasDisponiveis || oticasDisponiveis || []).length > 1 || ehAdminOuSistema || EhAdminOuSistema" class="bg-gradient-to-r from-purple-950/90 to-indigo-950/90 p-4 rounded-2xl border border-purple-800 text-white shadow-lg flex flex-col md:flex-row md:items-center justify-between gap-4">
         <div class="flex items-center gap-3">
           <span class="w-9 h-9 rounded-xl bg-purple-500/20 text-purple-300 flex items-center justify-center text-lg font-black border border-purple-500/30">
             🏬

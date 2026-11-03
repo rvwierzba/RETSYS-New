@@ -1,3 +1,4 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.AspNetCore.Http;
 using Microsoft.Extensions.DependencyInjection;
@@ -19,6 +20,7 @@ namespace RETSYS.Web.Controllers
     /// - Dono: Pode alternar entre as lojas da sua rede (Matriz e Filiais vinculadas).
     /// - Sistema (perfil teste/Deus): Pode selecionar livremente qualquer Ótica via Seletor de Sessão.
     /// </summary>
+    [Authorize]
     public abstract class TenantController : Controller
     {
         protected bool EhSistema()
@@ -122,17 +124,52 @@ namespace RETSYS.Web.Controllers
                 return oticaIdClaim;
             }
 
-            // Se ainda não achou, fallback na primeira ótica do banco
-            if (context != null)
+            // Sem vínculo de loja não há fallback: retornar outra ótica vazaria dados entre lojas
+            return Guid.Empty;
+        }
+
+        /// <summary>
+        /// Lojas que o usuário logado pode consultar:
+        /// - Sistema: todas as óticas.
+        /// - Dono: Matriz + Filiais da sua rede.
+        /// - Admin, Gerente e Vendedor: somente a loja ativa.
+        /// </summary>
+        protected List<Guid> ObterOticasPermitidas(ApplicationDbContext context)
+        {
+            var oticaId = ObterOticaId();
+            if (EhSistema())
             {
-                var oticaPadrao = context.Oticas.FirstOrDefault(o => o.Id != Guid.Empty);
-                if (oticaPadrao != null)
-                {
-                    return oticaPadrao.Id;
-                }
+                return context.Oticas.AsNoTracking().Select(o => o.Id).ToList();
+            }
+            if (EhDono())
+            {
+                return ObterIdsOticasDaRede(oticaId, context);
+            }
+            return oticaId == Guid.Empty ? new List<Guid>() : new List<Guid> { oticaId };
+        }
+
+        /// <summary>
+        /// Resolve o filtro de loja vindo da tela (?lojaId=):
+        /// - lojaId informado e permitido: somente aquela loja.
+        /// - lojaId vazio: a rede da loja ativa para Dono/Sistema; a loja ativa para os demais.
+        /// - lojaId de loja não permitida: ignorado (loja ativa).
+        /// </summary>
+        protected List<Guid> ResolverFiltroLojas(Guid? lojaId, ApplicationDbContext context)
+        {
+            var oticaId = ObterOticaId();
+            var permitidas = ObterOticasPermitidas(context);
+
+            if (lojaId.HasValue && lojaId.Value != Guid.Empty)
+            {
+                return permitidas.Contains(lojaId.Value) ? new List<Guid> { lojaId.Value } : new List<Guid> { oticaId };
             }
 
-            return Guid.Empty;
+            if (EhSistema() || EhDono())
+            {
+                return ObterIdsOticasDaRede(oticaId, context);
+            }
+
+            return new List<Guid> { oticaId };
         }
 
         /// <summary>

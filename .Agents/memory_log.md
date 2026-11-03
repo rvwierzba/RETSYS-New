@@ -513,3 +513,40 @@ Este documento atua como o registro de **Memória Incremental** do projeto RETSY
 - **Suíte de Testes Unitários (`RETSYS.Tests`)**: Executado `dotnet test RETSYS.Tests/RETSYS.Tests.csproj` com **100% de aprovação (24 aprovados, 0 falhas, 0 ignorados)**.
 - **Backend Build**: `dotnet build RETSYS.Web/RETSYS.Web.csproj` finalizado com **0 Erros e 0 Avisos**.
 - **Frontend Build**: `npm --prefix RETSYS.Web run build` compilou 144 módulos com êxito (2.88s), gerando `app-FKGV59xd.js` e `app-BGMDOr3f.css`.
+
+
+## [LOG-013] - 2026-11-03: Auditoria Completa de Endpoints/Telas, Causa-Raiz do Vazamento entre Óticas e Correção de CRUDs
+- **Autor/Agente**: Claude Code (Opus 5.5)
+- **Contexto & Solicitante**: Análise completa do sistema solicitada pelo usuário (endpoints, telas, CRUDs e dados de óticas separadas que viam registros umas das outras), sem alterar Nginx nem o workflow de deploy.
+
+### 1. Causa-Raiz do Vazamento entre Óticas
+- `DatabaseSeeder.SemearDadosAsync` (executado a cada start do container, ou seja, a cada deploy):
+  - anexava toda ótica sem `MatrizId` à primeira "matriz" do banco → empresas independentes viravam filiais de outra rede (o Dono passava a ver tudo);
+  - reatribuía `Usuario.OticaId` e `OrdemServico.OticaId` por semelhança de nome (`FilialLoja`/`LojaVenda` "contém" o nome da ótica). O cadastro público gravava `FilialLoja = "Matriz"`, que "contém" em "Ótica Retina Matriz" → o admin de uma ótica nova era movido para a rede Retina.
+- `Program.cs` e o seeder fundiam óticas chamadas "Matriz" em "Ótica Matriz".
+- **Solução**: blocos removidos; usuário `sistema@otica.com` (senha padrão) só é criado em instalação nova; `RegistroController` grava `FilialLoja` com o nome real da ótica.
+
+### 2. Isolamento Multi-Loja nos Controllers
+- `[Authorize]` no `TenantController` e no `PerfilController` (antes Caixa, Carnê, CRM, Dashboard, Laboratório, Lentes, OS, Receitas e Vendas aceitavam requisições anônimas, que caíam na primeira ótica do banco).
+- Novos helpers `ObterOticasPermitidas` e `ResolverFiltroLojas`; `?lojaId=` validado em `/ordens`, `/vendas` e `/caixa/fechamento`.
+- OS: edição (`/ordens/{id}/editar`) e visualização restritas à loja (Dono: rede); troca de loja da OS só por Dono/Sistema dentro da rede; vendedora precisa ser da loja da OS; vendedor(a) só edita as próprias OSs e respeita o limite de desconto; auditoria (`/api/ordens/{id}/auditoria`) filtrada por loja; emissão valida armação e linha de preço de lente da loja.
+- PDV: cliente, vendedor(a) e armações validados contra a loja; numeração `VB-#####` pela maior existente (antes `Count+1` colidia com o índice único).
+- Usuários: Admin gerencia apenas a própria loja; hierarquia de perfis (não edita/desativa/exclui Dono/Sistema); não exclui a si mesmo; não cria mais "ótica fantasma"; loop infinito de redirect em `/equipe` corrigido; exclusão com histórico sugere desativar.
+- Comissões: atualizar taxa, fechar mês e pagar exigem gerência. Cancelamento de OS via status exige gerência. `TrocarOtica` só para Dono/Sistema.
+
+### 3. CRUDs e Telas
+- **Flash de mensagens**: `Inertia.Share("erro"/"sucesso")` antes de redirect se perdia; criado `MensagemFlash` + persistência em sessão no middleware + toast global no layout.
+- **JSON tolerante** (`ConversorJsonTolerante`): `""` em `Guid?`/`DateTime?`/`decimal` anulava o DTO inteiro — a edição de OS não salvava nada e a emissão com armação própria falhava.
+- Rota duplicada `/api/clientes/buscar-cpf/{cpf}` (AmbiguousMatchException) removida do `ClientesController`.
+- Clientes: edição não apaga mais o endereço; Observações salvas no cadastro; CPF duplicado tratado.
+- Armações/Lentes: exclusão de item já usado em OS/venda desativa em vez de estourar FK; custo não é zerado por não-admin.
+- Importador de tabelas de lentes (`/api/admin/lentes/importar-ia`) implementado com parser de linhas.
+- Ficha clínica: nomes de campos alinhados ao `ReceitaInputDto` e resposta Inertia (antes JSON).
+- Carnê: quitação responde redirect; entrega de OS respeita a forma de pagamento escolhida e quita as parcelas.
+- PDV: desconto enviado como `descontoReais`. Perfil: `forceFormData` (nome/senha eram ignorados sem foto); cabeçalho lê nome/foto do banco.
+- Telas com props em PascalCase (Minhas Comissões, Fechamento do Gerente) passaram a camelCase; flags booleanas de Users/Kanban corrigidas.
+- Dashboard conta OS `PRONTA`; laboratório ignora `CANCELADA`; `AccessDeniedPath` definido (Forbid gerava 404); login sem diferenciar maiúsculas; `IServicoIa` registrado; `.dockerignore` adicionado.
+
+### 4. Validação
+- `dotnet build` 0 erros/0 avisos; `dotnet test` 27/27; build Docker (Vite + .NET) ok.
+- Testes HTTP ponta a ponta sobre cópia local do banco: isolamento entre as 3 lojas e uma ótica independente, CRUDs, flash, OS, PDV, entrega e importador.

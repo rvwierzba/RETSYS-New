@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using RETSYS.Web.Infrastructure;
 using InertiaCore;
 using RETSYS.Infrastructure.Data;
 using RETSYS.Domain.Entities;
@@ -33,14 +34,14 @@ namespace RETSYS.Web.Controllers
                 string.IsNullOrWhiteSpace(requisicao.Senha) ||
                 string.IsNullOrWhiteSpace(requisicao.NomeDaOtica))
             {
-                Inertia.Share("erro", "Preencha todos os campos obrigatórios.");
+                MensagemFlash.Definir(HttpContext, "erro", "Preencha todos os campos obrigatórios.");
                 return RedirectToAction(nameof(CriarConta));
             }
 
-            var emailExiste = await _context.Usuarios.AnyAsync(u => u.Email.ToLower() == requisicao.Email.ToLower());
+            var emailExiste = await _context.Usuarios.AnyAsync(u => u.Email.ToLower() == requisicao.Email.Trim().ToLower());
             if (emailExiste)
             {
-                Inertia.Share("erro", "Este e-mail já está registrado no RETSYS.");
+                MensagemFlash.Definir(HttpContext, "erro", "Este e-mail já está registrado no RETSYS.");
                 return RedirectToAction(nameof(CriarConta));
             }
 
@@ -60,8 +61,8 @@ namespace RETSYS.Web.Controllers
                 Id = Guid.NewGuid(),
                 OticaId = novaOtica.Id,
                 Nome = requisicao.Nome,
-                Email = requisicao.Email,
-                FilialLoja = "Matriz",
+                Email = requisicao.Email.Trim().ToLower(),
+                FilialLoja = novaOtica.Nome,
                 Perfil = PerfilUsuario.Admin,
                 Ativo = true,
                 CriadoEm = DateTime.UtcNow,

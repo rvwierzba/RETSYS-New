@@ -1,3 +1,4 @@
+using System.Linq;
 using System;
 using System.Security.Claims;
 using Microsoft.AspNetCore.Builder;
@@ -65,8 +66,14 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
 
 builder.Services.AddHttpClient();
 builder.Services.AddHttpClient<IServicoPix, RETSYS.Infrastructure.Services.ServicoPix>();
+builder.Services.AddHttpClient<IServicoIa, RETSYS.Infrastructure.Services.ServicoOllama>();
 builder.Services.AddSingleton<IServicoCriptografia, ServicoCriptografia>();
-builder.Services.AddControllersWithViews();
+builder.Services.AddControllersWithViews()
+    .AddJsonOptions(opcoes =>
+    {
+        // Campos vazios ("") vindos dos formulários Vue viram null em vez de invalidar o DTO inteiro
+        opcoes.JsonSerializerOptions.Converters.Add(new RETSYS.Web.Json.ConversorJsonTolerante());
+    });
 builder.Services.AddInertia();
 builder.Services.AddViteHelper(); 
 
@@ -82,6 +89,8 @@ builder.Services.AddSession(options =>
 builder.Services.AddAuthentication("Cookies")
     .AddCookie("Cookies", options => {
         options.LoginPath = "/login";
+        // Sem esta rota o Forbid() redirecionava para /Account/AccessDenied (inexistente → 404)
+        options.AccessDeniedPath = "/dashboard";
         options.ExpireTimeSpan = TimeSpan.FromHours(8);
     });
 
@@ -139,27 +148,32 @@ app.Use(async (context, next) =>
 
     Guid oticaAtivaId = Guid.Empty;
     string nomeOtica = "Ótica Matriz";
+    string? nomeUsuarioAtual = null;
+    string? fotoUsuarioAtual = null;
     object? oticasDisponiveis = null;
 
     if (estaAutenticado)
     {
         var db = context.RequestServices.GetService<ApplicationDbContext>();
 
-        // 1. Obtém o OticaId cadastrado no usuário (loja base)
+        // 1. Obtém o OticaId cadastrado no usuário (loja base), lido do banco como no TenantController,
+        //    para que a loja exibida seja a mesma usada nos filtros mesmo após uma transferência.
         Guid oticaUsuarioId = Guid.Empty;
-        var claimOtica = usuario?.FindFirst("OticaId")?.Value;
-        if (Guid.TryParse(claimOtica, out var claimGuid))
+        var userIdStr = usuario?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+        if (db != null && Guid.TryParse(userIdStr, out var uid))
+        {
+            var userDb = db.Usuarios.AsNoTracking().FirstOrDefault(u => u.Id == uid);
+            if (userDb != null)
+            {
+                oticaUsuarioId = userDb.OticaId;
+                // Nome e foto do banco: refletem a edição do perfil sem precisar refazer login
+                nomeUsuarioAtual = userDb.Nome;
+                fotoUsuarioAtual = userDb.FotoUrl;
+            }
+        }
+        if (oticaUsuarioId == Guid.Empty && Guid.TryParse(usuario?.FindFirst("OticaId")?.Value, out var claimGuid))
         {
             oticaUsuarioId = claimGuid;
-        }
-        else if (db != null)
-        {
-            var userIdStr = usuario?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
-            if (Guid.TryParse(userIdStr, out var uid))
-            {
-                var userDb = db.Usuarios.AsNoTracking().FirstOrDefault(u => u.Id == uid);
-                if (userDb != null) oticaUsuarioId = userDb.OticaId;
-            }
         }
 
         if (ehSistema && db != null)
@@ -238,20 +252,48 @@ app.Use(async (context, next) =>
     }
 
     Inertia.Share("auth", new {
-        usuarioNome = estaAutenticado ? (usuario?.Identity?.Name ?? "Colaborador") : "Colaborador",
+        usuarioNome = estaAutenticado ? (nomeUsuarioAtual ?? usuario?.Identity?.Name ?? "Colaborador") : "Colaborador",
         usuarioPerfil = perfilClaim,
         ehSistema = ehSistema,
         ehDono = ehDono,
         ehAdmin = ehAdmin,
         ehAdminOuGerente = ehAdminOuGerente,
-        usuarioFoto = estaAutenticado ? (usuario?.FindFirst("FotoUrl")?.Value ?? usuario?.FindFirst(ClaimTypes.UserData)?.Value) : null,
+        usuarioFoto = estaAutenticado ? (fotoUsuarioAtual ?? usuario?.FindFirst("FotoUrl")?.Value ?? usuario?.FindFirst(ClaimTypes.UserData)?.Value) : null,
         oticaId = oticaAtivaId != Guid.Empty ? oticaAtivaId.ToString() : null,
         oticaNome = nomeOtica,
         oticasDisponiveis = oticasDisponiveis,
         spotifyTokenAtivo = context.Session.GetString("SpotifyToken") != null
     });
-    
+
+    // FLASH DE MENSAGENS: os controllers usam MensagemFlash.Definir("erro"/"sucesso") e em seguida redirecionam.
+    // O Inertia.Share vive só na requisição atual, então a mensagem é guardada na sessão no redirect
+    // e devolvida como prop na próxima página renderizada.
+    var flashErro = context.Session.GetString("Flash:erro");
+    var flashSucesso = context.Session.GetString("Flash:sucesso");
+    if (flashErro != null) { Inertia.Share("erro", flashErro); context.Session.Remove("Flash:erro"); }
+    if (flashSucesso != null) { Inertia.Share("sucesso", flashSucesso); context.Session.Remove("Flash:sucesso"); }
+    Inertia.Share("flash", new { erro = flashErro, sucesso = flashSucesso });
+
     await next();
+
+    if (context.Response.StatusCode is >= 300 and < 400 && !context.Response.HasStarted)
+    {
+        foreach (var chave in new[] { "erro", "sucesso" })
+        {
+            if (context.Items.TryGetValue(RETSYS.Web.Infrastructure.MensagemFlash.PrefixoItem + chave, out var valor)
+                && valor is string texto && !string.IsNullOrWhiteSpace(texto))
+            {
+                context.Session.SetString($"Flash:{chave}", texto);
+            }
+            else
+            {
+                // Redirect encadeado (ex.: /armacoes → /estoque): a mensagem lida nesta requisição
+                // não chegou a ser exibida, então volta para a sessão
+                var pendente = chave == "erro" ? flashErro : flashSucesso;
+                if (pendente != null) context.Session.SetString($"Flash:{chave}", pendente);
+            }
+        }
+    }
 });
 
 app.UseInertia();
@@ -324,42 +366,8 @@ using (var escopo = app.Services.CreateScope())
     var seeder = new DatabaseSeeder(contexto, criptografia);
     await seeder.SemearDadosAsync();
 
-    try
-    {
-        using var comandoLimpeza = contexto.Database.GetDbConnection().CreateCommand();
-        await contexto.Database.OpenConnectionAsync();
-        comandoLimpeza.CommandText = """
-            UPDATE "oticas" SET "Nome" = 'Ótica Matriz' 
-            WHERE LOWER(TRIM("Nome")) = 'matriz' 
-              AND NOT EXISTS (SELECT 1 FROM "oticas" WHERE "Nome" = 'Ótica Matriz');
-
-            DO $$
-            DECLARE
-                v_destino uuid;
-                v_origem uuid;
-            BEGIN
-                SELECT "Id" INTO v_destino FROM "oticas" WHERE "Nome" = 'Ótica Matriz' LIMIT 1;
-                IF v_destino IS NOT NULL THEN
-                    FOR v_origem IN SELECT "Id" FROM "oticas" WHERE LOWER(TRIM("Nome")) = 'matriz' AND "Id" != v_destino LOOP
-                        UPDATE "usuarios" SET "OticaId" = v_destino WHERE "OticaId" = v_origem;
-                        UPDATE "marcas" SET "OticaId" = v_destino WHERE "OticaId" = v_origem;
-                        UPDATE "armacoes" SET "OticaId" = v_destino WHERE "OticaId" = v_origem;
-                        UPDATE "lentes" SET "OticaId" = v_destino WHERE "OticaId" = v_origem;
-                        UPDATE "clientes" SET "OticaId" = v_destino WHERE "OticaId" = v_origem;
-                        UPDATE "ordens_servico" SET "OticaId" = v_destino WHERE "OticaId" = v_origem;
-                        UPDATE "configuracoes_loja" SET "OticaId" = v_destino WHERE "OticaId" = v_origem;
-                        UPDATE "os_auditoria_logs" SET "OticaId" = v_destino WHERE "OticaId" = v_origem;
-                        DELETE FROM "oticas" WHERE "Id" = v_origem;
-                    END LOOP;
-                END IF;
-            END $$;
-        """;
-        await comandoLimpeza.ExecuteNonQueryAsync();
-    }
-    catch (Exception ex)
-    {
-        Console.WriteLine($"[Limpeza SQL Matriz]: {ex.Message}");
-    }
+    // A antiga "Limpeza SQL Matriz" (renomear/fundir óticas chamadas "Matriz") foi removida:
+    // com o cadastro público, empresas distintas com o mesmo nome seriam fundidas em uma só.
 }    
 
 app.Run();
